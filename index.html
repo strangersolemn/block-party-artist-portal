@@ -94,6 +94,8 @@
             justify-content: center;
             min-height: 0;
             position: relative;
+            background: #1a1a2e;
+            border-radius: 10px;
         }
 
         .canvas-container {
@@ -105,24 +107,28 @@
             justify-content: center;
         }
 
-        #maskCanvas {
-            background: white;
-            border-radius: 12px;
-            cursor: crosshair;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+        .layers-stack {
+            position: relative;
             max-width: 90%;
             max-height: 90%;
         }
 
+        .layer-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
         .svg-overlay {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             pointer-events: none;
-            z-index: 10;
-            max-width: 90%;
-            max-height: 90%;
+            z-index: 1000;
         }
 
         .floating-tools {
@@ -133,10 +139,10 @@
             border: 2px solid #2e5130;
             border-radius: 15px;
             padding: 15px;
-            width: 200px;
+            width: 220px;
             max-height: calc(100% - 30px);
             overflow-y: auto;
-            z-index: 100;
+            z-index: 1100;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
         }
 
@@ -200,6 +206,32 @@
             background: #3d6a40;
         }
 
+        .layer-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+
+        .layer-item.active {
+            background: rgba(46, 81, 48, 0.3);
+            border: 1px solid #2e5130;
+        }
+
+        .layer-item button {
+            background: #ef4d99;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            color: white;
+            font-size: 0.7rem;
+        }
+
         .fullscreen-btn {
             position: absolute;
             top: 15px;
@@ -234,6 +266,10 @@
             font-size: 1.1rem;
         }
 
+        input[type="file"] {
+            display: none;
+        }
+
         @media (max-width: 1024px) {
             .app-container {
                 grid-template-columns: 1fr;
@@ -262,6 +298,14 @@
                 <h3>Tools</h3>
                 
                 <div class="tool-group">
+                    <label>Layers</label>
+                    <div id="layersList"></div>
+                    <button class="tool-btn" onclick="addLayer()">+ Add Layer</button>
+                    <button class="tool-btn" onclick="document.getElementById('imageUpload').click()">📁 Upload Image</button>
+                    <input type="file" id="imageUpload" accept="image/*" onchange="uploadImage(event)">
+                </div>
+                
+                <div class="tool-group">
                     <label>Colors</label>
                     <div class="color-palette">
                         <div class="color-btn active" style="background: #000000" onclick="selectColor('#000000', this)"></div>
@@ -287,15 +331,17 @@
                 <div class="tool-group">
                     <button class="tool-btn" onclick="setTool('brush')">🖌️ Brush</button>
                     <button class="tool-btn" onclick="setTool('eraser')">🧹 Eraser</button>
-                    <button class="tool-btn" onclick="clearCanvas()">🗑️ Clear</button>
+                    <button class="tool-btn" onclick="clearCurrentLayer()">🗑️ Clear Layer</button>
                     <button class="tool-btn" onclick="downloadMaskPNG()">💾 Download PNG</button>
                 </div>
             </div>
 
             <div class="canvas-wrapper">
                 <div class="canvas-container">
-                    <canvas id="maskCanvas" width="800" height="800"></canvas>
-                    <img src="mask-outline.svg" class="svg-overlay" id="maskOutline" alt="Mask Outline">
+                    <div class="layers-stack" id="layersStack">
+                        <canvas class="layer-canvas" width="800" height="800"></canvas>
+                        <img src="mask-outline.svg" class="svg-overlay" alt="Mask Outline">
+                    </div>
                 </div>
             </div>
         </div>
@@ -307,7 +353,8 @@
     </div>
 
     <script>
-        let canvas, ctx;
+        let layers = [];
+        let currentLayerIndex = 0;
         let isDrawing = false;
         let currentColor = '#000000';
         let brushSize = 10;
@@ -334,7 +381,98 @@
             { note: 'B1', play: true }, { note: null, play: false }, { note: 'C2', play: true }, { note: null, play: false }
         ];
 
-        // Load the fill area SVG for clipping
+        // Layer management
+        function addLayer() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 800;
+            canvas.className = 'layer-canvas';
+            canvas.style.zIndex = layers.length + 1;
+            
+            const ctx = canvas.getContext('2d');
+            layers.push({ canvas, ctx, name: `Layer ${layers.length + 1}` });
+            
+            const stack = document.getElementById('layersStack');
+            const outline = stack.querySelector('.svg-overlay');
+            stack.insertBefore(canvas, outline);
+            
+            setupCanvasEvents(canvas);
+            updateLayersList();
+            selectLayer(layers.length - 1);
+        }
+
+        function selectLayer(index) {
+            currentLayerIndex = index;
+            updateLayersList();
+        }
+
+        function deleteLayer(index) {
+            if (layers.length <= 1) {
+                alert('Cannot delete the last layer');
+                return;
+            }
+            
+            layers[index].canvas.remove();
+            layers.splice(index, 1);
+            
+            if (currentLayerIndex >= layers.length) {
+                currentLayerIndex = layers.length - 1;
+            }
+            
+            updateLayersList();
+        }
+
+        function updateLayersList() {
+            const list = document.getElementById('layersList');
+            list.innerHTML = '';
+            
+            layers.forEach((layer, index) => {
+                const item = document.createElement('div');
+                item.className = 'layer-item' + (index === currentLayerIndex ? ' active' : '');
+                item.innerHTML = `
+                    <span onclick="selectLayer(${index})" style="cursor: pointer; flex: 1;">${layer.name}</span>
+                    <button onclick="deleteLayer(${index})">🗑️</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Image upload
+        function uploadImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Add new layer for the image
+                    addLayer();
+                    const ctx = layers[currentLayerIndex].ctx;
+                    
+                    // Draw image clipped to mask
+                    ctx.save();
+                    if (maskPath) {
+                        ctx.clip(maskPath);
+                    }
+                    
+                    // Scale image to fit canvas while maintaining aspect ratio
+                    const scale = Math.min(800 / img.width, 800 / img.height);
+                    const x = (800 - img.width * scale) / 2;
+                    const y = (800 - img.height * scale) / 2;
+                    
+                    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                    ctx.restore();
+                    
+                    layers[currentLayerIndex].name = `Image ${layers.length}`;
+                    updateLayersList();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Load mask path
         async function loadMaskPath() {
             try {
                 const response = await fetch('mask-fill.svg');
@@ -346,13 +484,123 @@
                 if (pathElement) {
                     const pathData = pathElement.getAttribute('d');
                     maskPath = new Path2D(pathData);
-                    console.log('Mask path loaded for clipping');
                 }
             } catch (error) {
-                console.error('Error loading mask path:', error);
+                console.error('Error loading mask:', error);
             }
         }
 
+        // Drawing functions
+        function setupCanvasEvents(canvas) {
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', stopDrawing);
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = e.target.getBoundingClientRect();
+            const scaleX = 800 / rect.width;
+            const scaleY = 800 / rect.height;
+            lastX = (e.clientX - rect.left) * scaleX;
+            lastY = (e.clientY - rect.top) * scaleY;
+        }
+
+        function draw(e) {
+            if (!isDrawing || currentLayerIndex >= layers.length) return;
+            
+            const rect = e.target.getBoundingClientRect();
+            const scaleX = 800 / rect.width;
+            const scaleY = 800 / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            const ctx = layers[currentLayerIndex].ctx;
+            ctx.save();
+            
+            if (maskPath) {
+                ctx.clip(maskPath);
+            }
+            
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = currentTool === 'brush' ? currentColor : 'rgba(0,0,0,0)';
+            ctx.globalCompositeOperation = currentTool === 'brush' ? 'source-over' : 'destination-out';
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            ctx.restore();
+            
+            lastX = x;
+            lastY = y;
+        }
+
+        function stopDrawing() { isDrawing = false; }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = e.target.getBoundingClientRect();
+            const scaleX = 800 / rect.width;
+            const scaleY = 800 / rect.height;
+            isDrawing = true;
+            lastX = (touch.clientX - rect.left) * scaleX;
+            lastY = (touch.clientY - rect.top) * scaleY;
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (!isDrawing) return;
+            const touch = e.touches[0];
+            draw({ target: e.target, clientX: touch.clientX, clientY: touch.clientY });
+        }
+
+        function selectColor(color, element) {
+            currentColor = color;
+            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function updateBrushSize(size) {
+            brushSize = size;
+            document.getElementById('brushSizeValue').textContent = size;
+        }
+
+        function setTool(tool) { currentTool = tool; }
+        
+        function clearCurrentLayer() {
+            if (currentLayerIndex < layers.length) {
+                const ctx = layers[currentLayerIndex].ctx;
+                ctx.clearRect(0, 0, 800, 800);
+            }
+        }
+
+        function downloadMaskPNG() {
+            // Merge all layers
+            const mergeCanvas = document.createElement('canvas');
+            mergeCanvas.width = 800;
+            mergeCanvas.height = 800;
+            const mergeCtx = mergeCanvas.getContext('2d');
+            
+            layers.forEach(layer => {
+                mergeCtx.drawImage(layer.canvas, 0, 0);
+            });
+            
+            const link = document.createElement('a');
+            link.download = 'block-party-mask.png';
+            link.href = mergeCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Music functions
         async function loadSamples() {
             try {
                 kickPlayer = new Tone.Player(sampleUrls.kick).toDestination();
@@ -366,9 +614,7 @@
                 finalPlayer.playbackRate = 0.95;
                 await Tone.loaded();
                 samplesLoaded = true;
-            } catch (error) {
-                console.error('Error loading samples:', error);
-            }
+            } catch (error) {}
         }
 
         function setupAudio() {
@@ -426,114 +672,6 @@
             Tone.Transport.cancel();
         }
 
-        async function initCanvas() {
-            canvas = document.getElementById('maskCanvas');
-            ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Load mask path for clipping
-            await loadMaskPath();
-            
-            canvas.addEventListener('mousedown', startDrawing);
-            canvas.addEventListener('mousemove', draw);
-            canvas.addEventListener('mouseup', stopDrawing);
-            canvas.addEventListener('mouseout', stopDrawing);
-            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-            canvas.addEventListener('touchend', stopDrawing);
-        }
-
-        function startDrawing(e) {
-            isDrawing = true;
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            lastX = (e.clientX - rect.left) * scaleX;
-            lastY = (e.clientY - rect.top) * scaleY;
-        }
-
-        function draw(e) {
-            if (!isDrawing) return;
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
-            
-            ctx.save();
-            
-            // Clip to mask path if loaded
-            if (maskPath) {
-                ctx.clip(maskPath);
-            }
-            
-            ctx.lineWidth = brushSize;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.strokeStyle = currentTool === 'brush' ? currentColor : 'white';
-            ctx.globalCompositeOperation = currentTool === 'brush' ? 'source-over' : 'destination-out';
-            
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            
-            ctx.restore();
-            
-            lastX = x;
-            lastY = y;
-        }
-
-        function stopDrawing() { isDrawing = false; }
-
-        function handleTouchStart(e) {
-            e.preventDefault();
-            const touch = e.touches[0];
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            isDrawing = true;
-            lastX = (touch.clientX - rect.left) * scaleX;
-            lastY = (touch.clientY - rect.top) * scaleY;
-        }
-
-        function handleTouchMove(e) {
-            e.preventDefault();
-            if (!isDrawing) return;
-            const touch = e.touches[0];
-            const mouseEvent = { 
-                clientX: touch.clientX, 
-                clientY: touch.clientY 
-            };
-            draw(mouseEvent);
-        }
-
-        function selectColor(color, element) {
-            currentColor = color;
-            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
-            element.classList.add('active');
-        }
-
-        function updateBrushSize(size) {
-            brushSize = size;
-            document.getElementById('brushSizeValue').textContent = size;
-        }
-
-        function setTool(tool) { currentTool = tool; }
-        
-        function clearCanvas() {
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-
-        function downloadMaskPNG() {
-            const link = document.createElement('a');
-            link.download = 'block-party-mask.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        }
-
         function toggleFullscreen() {}
         function generateFrog() { alert('Frog generator ready!'); }
         
@@ -545,8 +683,10 @@
         function previewCombination() { alert('Preview!'); }
         function submitArtwork() { downloadMaskPNG(); }
 
+        // Initialize
         window.addEventListener('load', async function() {
-            await initCanvas();
+            await loadMaskPath();
+            addLayer(); // Create first layer
             setupAudio();
             await loadSamples();
         });
