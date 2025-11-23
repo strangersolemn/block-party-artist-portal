@@ -100,28 +100,31 @@
 
         .canvas-container {
             position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 600px;
+            height: 600px;
+            max-width: 90%;
+            max-height: 90%;
         }
 
         #maskCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             cursor: crosshair;
-            max-width: 90%;
-            max-height: 90%;
         }
 
         .svg-overlay {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             pointer-events: none;
             z-index: 10;
-            max-width: 90%;
-            max-height: 90%;
+            opacity: 1;
+            filter: brightness(1.5);
         }
 
         .floating-tools {
@@ -313,7 +316,6 @@
         let currentTool = 'brush';
         let lastX = 0;
         let lastY = 0;
-        let maskPath = null;
 
         // Music variables
         let acidSynth, bassFilter, isPlaying = false, currentStep = 0, samplesLoaded = false;
@@ -333,32 +335,12 @@
             { note: 'B1', play: true }, { note: null, play: false }, { note: 'C2', play: true }, { note: null, play: false }
         ];
 
-        // Load mask path for clipping
-        async function loadMaskPath() {
-            try {
-                const response = await fetch('mask-fill.svg');
-                const svgText = await response.text();
-                const parser = new DOMParser();
-                const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-                const pathElement = svgDoc.querySelector('path');
-                
-                if (pathElement) {
-                    const pathData = pathElement.getAttribute('d');
-                    maskPath = new Path2D(pathData);
-                }
-            } catch (error) {
-                console.error('Error loading mask:', error);
-            }
-        }
-
-        async function initCanvas() {
+        function initCanvas() {
             canvas = document.getElementById('maskCanvas');
             ctx = canvas.getContext('2d');
             
-            // Transparent background - NO white
+            // Transparent canvas - no background
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            await loadMaskPath();
             
             canvas.addEventListener('mousedown', startDrawing);
             canvas.addEventListener('mousemove', draw);
@@ -387,13 +369,6 @@
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
             
-            ctx.save();
-            
-            // Clip to mask shape
-            if (maskPath) {
-                ctx.clip(maskPath);
-            }
-            
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
@@ -409,8 +384,6 @@
             ctx.moveTo(lastX, lastY);
             ctx.lineTo(x, y);
             ctx.stroke();
-            
-            ctx.restore();
             
             lastX = x;
             lastY = y;
@@ -433,7 +406,30 @@
             e.preventDefault();
             if (!isDrawing) return;
             const touch = e.touches[0];
-            draw({ clientX: touch.clientX, clientY: touch.clientY });
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (touch.clientX - rect.left) * scaleX;
+            const y = (touch.clientY - rect.top) * scaleY;
+            
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            if (currentTool === 'brush') {
+                ctx.strokeStyle = currentColor;
+                ctx.globalCompositeOperation = 'source-over';
+            } else {
+                ctx.globalCompositeOperation = 'destination-out';
+            }
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            lastX = x;
+            lastY = y;
         }
 
         function selectColor(color, element) {
@@ -543,10 +539,10 @@
         function previewCombination() { alert('Preview!'); }
         function submitArtwork() { downloadMaskPNG(); }
 
-        window.addEventListener('load', async function() {
-            await initCanvas();
+        window.addEventListener('load', function() {
+            initCanvas();
             setupAudio();
-            await loadSamples();
+            loadSamples();
         });
     </script>
 </body>
