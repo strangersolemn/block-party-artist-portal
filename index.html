@@ -340,7 +340,7 @@
         // Load mask path for clipping
         async function loadMaskPath() {
             try {
-                const response = await fetch('mask-fill.svg');
+                const response = await fetch('mask-simple.svg');
                 const svgText = await response.text();
                 const parser = new DOMParser();
                 const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
@@ -349,7 +349,17 @@
                 if (pathElement) {
                     const pathData = pathElement.getAttribute('d');
                     maskPath = new Path2D(pathData);
-                    console.log('Mask path loaded for clipping');
+                    
+                    // Scale the path from 8000x8000 to 800x800
+                    const scale = 800 / 8000;
+                    const scaledPath = new Path2D();
+                    const transform = new DOMMatrix();
+                    transform.a = scale;
+                    transform.d = scale;
+                    scaledPath.addPath(maskPath, transform);
+                    maskPath = scaledPath;
+                    
+                    console.log('Mask path loaded and scaled for clipping');
                 }
             } catch (error) {
                 console.error('Error loading mask path:', error);
