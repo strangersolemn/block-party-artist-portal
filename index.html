@@ -330,31 +330,13 @@
             { note: 'B1', play: true }, { note: null, play: false }, { note: 'C2', play: true }, { note: null, play: false }
         ];
 
-        // TEMPORARY MASK OUTLINE - Will load real SVG on GitHub
+        // Load the actual mask outline SVG
         function drawMaskOutline() {
-            outlineCtx.clearRect(0, 0, outlineCanvas.width, outlineCanvas.height);
-            outlineCtx.strokeStyle = '#444444';
-            outlineCtx.lineWidth = 8;
-            outlineCtx.setLineDash([]);
-            
-            // Draw a simplified mask shape as placeholder
-            outlineCtx.beginPath();
-            outlineCtx.moveTo(400, 100);
-            outlineCtx.bezierCurveTo(550, 100, 650, 200, 650, 400);
-            outlineCtx.bezierCurveTo(650, 600, 550, 700, 400, 700);
-            outlineCtx.bezierCurveTo(250, 700, 150, 600, 150, 400);
-            outlineCtx.bezierCurveTo(150, 200, 250, 100, 400, 100);
-            outlineCtx.closePath();
-            outlineCtx.stroke();
-            
-            // Add some details
-            outlineCtx.beginPath();
-            outlineCtx.arc(300, 350, 40, 0, Math.PI * 2);
-            outlineCtx.stroke();
-            
-            outlineCtx.beginPath();
-            outlineCtx.arc(500, 350, 40, 0, Math.PI * 2);
-            outlineCtx.stroke();
+            const img = new Image();
+            img.onload = function() {
+                outlineCtx.drawImage(img, 0, 0, outlineCanvas.width, outlineCanvas.height);
+            };
+            img.src = 'mask-outline.svg';
         }
 
         async function loadSamples() {
