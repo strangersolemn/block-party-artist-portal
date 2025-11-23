@@ -317,6 +317,7 @@
         let currentTool = 'brush';
         let lastX = 0;
         let lastY = 0;
+        let maskPath = null;
 
         // Music variables
         let acidSynth, bassFilter, isPlaying = false, currentStep = 0, samplesLoaded = false;
@@ -335,6 +336,25 @@
             { note: 'Eb2', play: true }, { note: null, play: false }, { note: 'A1', play: true }, { note: null, play: false },
             { note: 'B1', play: true }, { note: null, play: false }, { note: 'C2', play: true }, { note: null, play: false }
         ];
+
+        // Load mask path for clipping
+        async function loadMaskPath() {
+            try {
+                const response = await fetch('mask-fill.svg');
+                const svgText = await response.text();
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+                const pathElement = svgDoc.querySelector('path');
+                
+                if (pathElement) {
+                    const pathData = pathElement.getAttribute('d');
+                    maskPath = new Path2D(pathData);
+                    console.log('Mask path loaded for clipping');
+                }
+            } catch (error) {
+                console.error('Error loading mask path:', error);
+            }
+        }
 
         function initCanvas() {
             canvas = document.getElementById('maskCanvas');
@@ -370,6 +390,13 @@
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
             
+            ctx.save();
+            
+            // Clip to mask shape
+            if (maskPath) {
+                ctx.clip(maskPath);
+            }
+            
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
@@ -385,6 +412,8 @@
             ctx.moveTo(lastX, lastY);
             ctx.lineTo(x, y);
             ctx.stroke();
+            
+            ctx.restore();
             
             lastX = x;
             lastY = y;
@@ -413,6 +442,13 @@
             const x = (touch.clientX - rect.left) * scaleX;
             const y = (touch.clientY - rect.top) * scaleY;
             
+            ctx.save();
+            
+            // Clip to mask shape
+            if (maskPath) {
+                ctx.clip(maskPath);
+            }
+            
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
@@ -428,6 +464,8 @@
             ctx.moveTo(lastX, lastY);
             ctx.lineTo(x, y);
             ctx.stroke();
+            
+            ctx.restore();
             
             lastX = x;
             lastY = y;
@@ -540,7 +578,8 @@
         function previewCombination() { alert('Preview!'); }
         function submitArtwork() { downloadMaskPNG(); }
 
-        window.addEventListener('load', function() {
+        window.addEventListener('load', async function() {
+            await loadMaskPath();
             initCanvas();
             setupAudio();
             loadSamples();
