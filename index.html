@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Block Party Artist Portal</title>
+    <script src="/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #0a0a1b;
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 80px;
+            gap: 15px;
+            padding: 15px;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid rgba(239, 77, 153, 0.3);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel h2 {
+            color: #ef4d99;
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .frog-display {
+            flex: 1;
+            background: rgba(239, 77, 153, 0.1);
+            border: 2px dashed #ef4d99;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            min-height: 0;
+        }
+
+        .frog-display p {
+            color: #f9bad1;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.95rem;
+        }
+
+        .action-btn {
+            background: #2e5130;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 0.95rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        .action-btn:hover {
+            background: #3d6a40;
+            transform: translateY(-1px);
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+            position: relative;
+        }
+
+        .canvas-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #maskCanvas {
+            background: white;
+            border-radius: 12px;
+            cursor: crosshair;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        #outlineCanvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .floating-tools {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(10, 10, 27, 0.95);
+            border: 2px solid #2e5130;
+            border-radius: 15px;
+            padding: 15px;
+            width: 200px;
+            max-height: calc(100% - 30px);
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .floating-tools h3 {
+            color: #2e5130;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .tool-group {
+            margin-bottom: 15px;
+        }
+
+        .tool-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #f9bad1;
+            font-size: 0.85rem;
+        }
+
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .color-btn {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .color-btn:hover {
+            transform: scale(1.08);
+            border-color: white;
+        }
+
+        .color-btn.active {
+            border-color: #2e5130;
+            box-shadow: 0 0 12px rgba(46, 81, 48, 0.6);
+        }
+
+        .tool-btn {
+            width: 100%;
+            padding: 10px;
+            margin: 3px 0;
+            background: #2e5130;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.85rem;
+        }
+
+        .tool-btn:hover {
+            background: #3d6a40;
+        }
+
+        .fullscreen-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(10, 10, 27, 0.95);
+            border: 2px solid #2e5130;
+            color: #2e5130;
+            padding: 10px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+            z-index: 99;
+        }
+
+        .fullscreen-btn:hover {
+            background: #2e5130;
+            color: white;
+        }
+
+        .footer-controls {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(90deg, #2e5130, #3d6a40);
+            padding: 16px 45px;
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 1024px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 80px;
+                overflow-y: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="panel">
+            <h2>Your Frog</h2>
+            <div class="frog-display">
+                <p>Your frog animation<br>will appear here!</p>
+            </div>
+            <button class="action-btn" onclick="generateFrog()">🎲 Generate Frog</button>
+            <button class="action-btn" onclick="playMusic()">🎵 Play/Pause</button>
+        </div>
+
+        <div class="panel canvas-panel" id="canvasPanel">
+            <h2>Your Mask</h2>
+            <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+            
+            <div class="floating-tools">
+                <h3>Tools</h3>
+                
+                <div class="tool-group">
+                    <label>Colors</label>
+                    <div class="color-palette">
+                        <div class="color-btn active" style="background: #000000" onclick="selectColor('#000000', this)"></div>
+                        <div class="color-btn" style="background: #ffffff" onclick="selectColor('#ffffff', this)"></div>
+                        <div class="color-btn" style="background: #ef4d99" onclick="selectColor('#ef4d99', this)"></div>
+                        <div class="color-btn" style="background: #f9bad1" onclick="selectColor('#f9bad1', this)"></div>
+                        <div class="color-btn" style="background: #ff0000" onclick="selectColor('#ff0000', this)"></div>
+                        <div class="color-btn" style="background: #00ff00" onclick="selectColor('#00ff00', this)"></div>
+                        <div class="color-btn" style="background: #0000ff" onclick="selectColor('#0000ff', this)"></div>
+                        <div class="color-btn" style="background: #ffff00" onclick="selectColor('#ffff00', this)"></div>
+                        <div class="color-btn" style="background: #ff8800" onclick="selectColor('#ff8800', this)"></div>
+                        <div class="color-btn" style="background: #8800ff" onclick="selectColor('#8800ff', this)"></div>
+                        <div class="color-btn" style="background: #00ffff" onclick="selectColor('#00ffff', this)"></div>
+                        <div class="color-btn" style="background: #ff00ff" onclick="selectColor('#ff00ff', this)"></div>
+                    </div>
+                </div>
+
+                <div class="tool-group">
+                    <label>Brush: <span id="brushSizeValue">10</span>px</label>
+                    <input type="range" min="1" max="50" value="10" id="brushSize" oninput="updateBrushSize(this.value)">
+                </div>
+
+                <div class="tool-group">
+                    <button class="tool-btn" onclick="setTool('brush')">🖌️ Brush</button>
+                    <button class="tool-btn" onclick="setTool('eraser')">🧹 Eraser</button>
+                    <button class="tool-btn" onclick="clearCanvas()">🗑️ Clear</button>
+                    <button class="tool-btn" onclick="downloadMaskPNG()">💾 Download PNG</button>
+                </div>
+            </div>
+
+            <div class="canvas-wrapper">
+                <div class="canvas-container">
+                    <canvas id="maskCanvas" width="800" height="800"></canvas>
+                    <canvas id="outlineCanvas" width="800" height="800"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-controls">
+            <button class="action-btn" onclick="previewCombination()">👁️ Preview Together</button>
+            <button class="action-btn primary" onclick="submitArtwork()">🚀 Submit Creation</button>
+        </div>
+    </div>
+
+    <script>
+        let canvas, ctx, outlineCanvas, outlineCtx;
+        let isDrawing = false;
+        let currentColor = '#000000';
+        let brushSize = 10;
+        let currentTool = 'brush';
+        let lastX = 0;
+        let lastY = 0;
+
+        // Music variables
+        let acidSynth, bassFilter, isPlaying = false, currentStep = 0, samplesLoaded = false;
+        let kickPlayer, clapPlayer, hatPlayer, finalPlayer;
+
+        const sampleUrls = {
+            kick: '/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0',
+            clap: '/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0', 
+            hat: '/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0',
+            final: '/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0'
+        };
+
+        let strudelPattern = [
+            { note: 'C2', play: true }, { note: 'A1', play: true }, { note: 'B1', play: true }, { note: null, play: false },
+            { note: 'C2', play: true }, { note: null, play: false }, { note: 'B1', play: true }, { note: 'C2', play: true },
+            { note: 'Eb2', play: true }, { note: null, play: false }, { note: 'A1', play: true }, { note: null, play: false },
+            { note: 'B1', play: true }, { note: null, play: false }, { note: 'C2', play: true }, { note: null, play: false }
+        ];
+
+        // TEMPORARY MASK OUTLINE - Will load real SVG on GitHub
+        function drawMaskOutline() {
+            outlineCtx.clearRect(0, 0, outlineCanvas.width, outlineCanvas.height);
+            outlineCtx.strokeStyle = '#444444';
+            outlineCtx.lineWidth = 8;
+            outlineCtx.setLineDash([]);
+            
+            // Draw a simplified mask shape as placeholder
+            outlineCtx.beginPath();
+            outlineCtx.moveTo(400, 100);
+            outlineCtx.bezierCurveTo(550, 100, 650, 200, 650, 400);
+            outlineCtx.bezierCurveTo(650, 600, 550, 700, 400, 700);
+            outlineCtx.bezierCurveTo(250, 700, 150, 600, 150, 400);
+            outlineCtx.bezierCurveTo(150, 200, 250, 100, 400, 100);
+            outlineCtx.closePath();
+            outlineCtx.stroke();
+            
+            // Add some details
+            outlineCtx.beginPath();
+            outlineCtx.arc(300, 350, 40, 0, Math.PI * 2);
+            outlineCtx.stroke();
+            
+            outlineCtx.beginPath();
+            outlineCtx.arc(500, 350, 40, 0, Math.PI * 2);
+            outlineCtx.stroke();
+        }
+
+        async function loadSamples() {
+            try {
+                kickPlayer = new Tone.Player(sampleUrls.kick).toDestination();
+                kickPlayer.volume.value = -5;
+                clapPlayer = new Tone.Player(sampleUrls.clap).toDestination();
+                clapPlayer.volume.value = -8;
+                hatPlayer = new Tone.Player(sampleUrls.hat).toDestination();
+                hatPlayer.volume.value = -12;
+                finalPlayer = new Tone.Player(sampleUrls.final).toDestination();
+                finalPlayer.volume.value = 10;
+                finalPlayer.playbackRate = 0.95;
+                await Tone.loaded();
+                samplesLoaded = true;
+            } catch (error) {
+                console.error('Error loading samples:', error);
+            }
+        }
+
+        function setupAudio() {
+            try {
+                acidSynth = new Tone.MonoSynth({
+                    oscillator: { type: "sawtooth" },
+                    envelope: { attack: 0.01, decay: 0.4, sustain: 0.3, release: 0.4 }
+                });
+                bassFilter = new Tone.Filter({ type: "lowpass", frequency: 250, Q: 22 });
+                const distortion = new Tone.Distortion(0.3);
+                acidSynth.chain(bassFilter, distortion, Tone.Destination);
+                acidSynth.volume.value = -10;
+            } catch (error) {}
+        }
+
+        async function startFullTrack() {
+            await Tone.start();
+            if (!samplesLoaded) return;
+            isPlaying = true;
+            currentStep = 0;
+            Tone.Transport.bpm.value = 123;
+            
+            Tone.Transport.scheduleRepeat((time) => {
+                let step = strudelPattern[currentStep % strudelPattern.length];
+                let stepIn16 = currentStep % 16;
+                let barCount = Math.floor(currentStep / 16) % 16;
+                
+                if (step.play && step.note && !(barCount === 15 && stepIn16 >= 9)) {
+                    acidSynth.triggerAttackRelease(step.note, "16n", time, 0.8);
+                    let progress = barCount / 15;
+                    let cutoffFreq = 200 + (progress * 400);
+                    let resonanceValue = 2 + (progress * 2.25);
+                    let baseMovement = Math.sin(time * 0.5) * 50;
+                    bassFilter.frequency.setValueAtTime(cutoffFreq + baseMovement, time);
+                    bassFilter.Q.setValueAtTime(resonanceValue, time);
+                }
+                
+                let isFirstHalf = barCount < 8;
+                if (isFirstHalf && stepIn16 % 4 === 0) kickPlayer.start(time);
+                if (!isFirstHalf && barCount === 8 && stepIn16 === 0) kickPlayer.start(time);
+                if (barCount === 0 && stepIn16 === 2) kickPlayer.start(time);
+                if (barCount === 15 && stepIn16 >= 12) clapPlayer.start(time);
+                if (stepIn16 % 8 === 4 && !(barCount === 15 && stepIn16 >= 12)) clapPlayer.start(time);
+                if (stepIn16 % 4 === 2) hatPlayer.start(time);
+                if (barCount === 15 && stepIn16 === 12) finalPlayer.start(time);
+                currentStep++;
+            }, "16n");
+            
+            Tone.Transport.start();
+        }
+
+        function stopFullTrack() {
+            isPlaying = false;
+            Tone.Transport.stop();
+            Tone.Transport.cancel();
+        }
+
+        function initCanvas() {
+            canvas = document.getElementById('maskCanvas');
+            ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            outlineCanvas = document.getElementById('outlineCanvas');
+            outlineCtx = outlineCanvas.getContext('2d');
+            drawMaskOutline();
+            
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', stopDrawing);
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            lastX = (e.clientX - rect.left) * scaleX;
+            lastY = (e.clientY - rect.top) * scaleY;
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = currentTool === 'brush' ? currentColor : 'white';
+            ctx.globalCompositeOperation = currentTool === 'brush' ? 'source-over' : 'destination-out';
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            lastX = x;
+            lastY = y;
+        }
+
+        function stopDrawing() { isDrawing = false; }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            isDrawing = true;
+            lastX = (touch.clientX - rect.left) * scaleX;
+            lastY = (touch.clientY - rect.top) * scaleY;
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (!isDrawing) return;
+            const touch = e.touches[0];
+            draw({ clientX: touch.clientX, clientY: touch.clientY });
+        }
+
+        function selectColor(color, element) {
+            currentColor = color;
+            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function updateBrushSize(size) {
+            brushSize = size;
+            document.getElementById('brushSizeValue').textContent = size;
+        }
+
+        function setTool(tool) { currentTool = tool; }
+        
+        function clearCanvas() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function downloadMaskPNG() {
+            const link = document.createElement('a');
+            link.download = 'block-party-mask.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function toggleFullscreen() {}
+        function generateFrog() { alert('Frog generator ready!'); }
+        
+        function playMusic() {
+            if (!samplesLoaded) { alert('Loading...'); return; }
+            isPlaying ? stopFullTrack() : startFullTrack();
+        }
+
+        function previewCombination() { alert('Preview!'); }
+        function submitArtwork() { downloadMaskPNG(); }
+
+        window.addEventListener('load', async function() {
+            initCanvas();
+            setupAudio();
+            await loadSamples();
+        });
+    </script>
+</body>
+</html>
