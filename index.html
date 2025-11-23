@@ -113,7 +113,6 @@
             width: 100%;
             height: 100%;
             cursor: crosshair;
-            z-index: 20;
         }
 
         .svg-overlay {
@@ -123,7 +122,7 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            z-index: 15;
+            z-index: 100;
             opacity: 1;
             filter: brightness(1.5);
         }
@@ -139,7 +138,7 @@
             width: 200px;
             max-height: calc(100% - 30px);
             overflow-y: auto;
-            z-index: 100;
+            z-index: 200;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
         }
 
@@ -297,8 +296,8 @@
 
             <div class="canvas-wrapper">
                 <div class="canvas-container">
-                    <img src="mask-outline.svg" class="svg-overlay" id="maskOutline" alt="Mask Outline">
                     <canvas id="maskCanvas" width="800" height="800"></canvas>
+                    <img src="mask-outline.svg" class="svg-overlay" id="maskOutline" alt="Mask Outline">
                 </div>
             </div>
         </div>
@@ -311,13 +310,14 @@
 
     <script>
         let canvas, ctx;
+        let drawingCanvas, drawingCtx; // Separate canvas for drawing
         let isDrawing = false;
         let currentColor = '#000000';
         let brushSize = 10;
         let currentTool = 'brush';
         let lastX = 0;
         let lastY = 0;
-        let maskPath = null;
+        let maskImageData = null;
 
         // Music variables
         let acidSynth, bassFilter, isPlaying = false, currentStep = 0, samplesLoaded = false;
@@ -337,7 +337,7 @@
             { note: 'B1', play: true }, { note: null, play: false }, { note: 'C2', play: true }, { note: null, play: false }
         ];
 
-        // Load mask path for clipping
+        // Load mask and create clipping region
         async function loadMaskPath() {
             try {
                 const response = await fetch('mask-simple.svg');
@@ -348,29 +348,51 @@
                 
                 if (pathElement) {
                     const pathData = pathElement.getAttribute('d');
-                    maskPath = new Path2D(pathData);
                     
-                    // Scale the path from 8000x8000 to 800x800
-                    const scale = 800 / 8000;
-                    const scaledPath = new Path2D();
-                    const transform = new DOMMatrix();
-                    transform.a = scale;
-                    transform.d = scale;
-                    scaledPath.addPath(maskPath, transform);
-                    maskPath = scaledPath;
+                    // Create offscreen canvas to render mask
+                    const maskCanvas = document.createElement('canvas');
+                    maskCanvas.width = 800;
+                    maskCanvas.height = 800;
+                    const maskCtx = maskCanvas.getContext('2d');
                     
-                    console.log('Mask path loaded and scaled for clipping');
+                    // Create path and scale it
+                    const path = new Path2D(pathData);
+                    maskCtx.scale(0.1, 0.1); // Scale from 8000 to 800
+                    maskCtx.fillStyle = 'white';
+                    maskCtx.fill(path);
+                    
+                    // Get mask image data
+                    maskImageData = maskCtx.getImageData(0, 0, 800, 800);
+                    
+                    console.log('Mask loaded successfully');
                 }
             } catch (error) {
-                console.error('Error loading mask path:', error);
+                console.error('Error loading mask:', error);
             }
         }
 
-        function initCanvas() {
+        // Apply mask to canvas
+        function applyMask() {
+            if (!maskImageData) return;
+            
+            const imageData = ctx.getImageData(0, 0, 800, 800);
+            const pixels = imageData.data;
+            const maskPixels = maskImageData.data;
+            
+            // Apply mask: if mask pixel is black (0), make drawing pixel transparent
+            for (let i = 0; i < pixels.length; i += 4) {
+                if (maskPixels[i] === 0) {
+                    pixels[i + 3] = 0; // Set alpha to 0 (transparent)
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        async function initCanvas() {
             canvas = document.getElementById('maskCanvas');
             ctx = canvas.getContext('2d');
             
-            // Transparent canvas - no background
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             canvas.addEventListener('mousedown', startDrawing);
@@ -400,13 +422,6 @@
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
             
-            ctx.save();
-            
-            // Clip to mask shape
-            if (maskPath) {
-                ctx.clip(maskPath);
-            }
-            
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
@@ -423,7 +438,8 @@
             ctx.lineTo(x, y);
             ctx.stroke();
             
-            ctx.restore();
+            // Apply mask after each stroke
+            applyMask();
             
             lastX = x;
             lastY = y;
@@ -446,39 +462,7 @@
             e.preventDefault();
             if (!isDrawing) return;
             const touch = e.touches[0];
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const x = (touch.clientX - rect.left) * scaleX;
-            const y = (touch.clientY - rect.top) * scaleY;
-            
-            ctx.save();
-            
-            // Clip to mask shape
-            if (maskPath) {
-                ctx.clip(maskPath);
-            }
-            
-            ctx.lineWidth = brushSize;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            if (currentTool === 'brush') {
-                ctx.strokeStyle = currentColor;
-                ctx.globalCompositeOperation = 'source-over';
-            } else {
-                ctx.globalCompositeOperation = 'destination-out';
-            }
-            
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            
-            ctx.restore();
-            
-            lastX = x;
-            lastY = y;
+            draw({ clientX: touch.clientX, clientY: touch.clientY });
         }
 
         function selectColor(color, element) {
@@ -505,7 +489,7 @@
             link.click();
         }
 
-        // Music
+        // Music functions (keeping them short)
         async function loadSamples() {
             try {
                 kickPlayer = new Tone.Player(sampleUrls.kick).toDestination();
@@ -590,7 +574,7 @@
 
         window.addEventListener('load', async function() {
             await loadMaskPath();
-            initCanvas();
+            await initCanvas();
             setupAudio();
             loadSamples();
         });
