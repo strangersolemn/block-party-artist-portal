@@ -380,6 +380,11 @@
         let currentFrameIndex = 0;
         let frameStartTime = 0;
         const frameDurations = [53, 105]; // ms per frame at 19fps
+        
+        // Manual positioning controls
+        let maskOffsetX = 0;
+        let maskOffsetY = 0;
+        let maskScale = 1.0;
 
         // Music variables
         let acidSynth, bassFilter, isPlaying = false, currentStep = 0, samplesLoaded = false;
@@ -498,7 +503,7 @@
                 ctx.drawImage(frogImage, 0, 0, 1000, 1000);
             }
             
-            // Layer 2: User's art (DEBUG - no offset, just scale 800->1000)
+            // Layer 2: User's art with MANUAL positioning
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = 800;
             tempCanvas.height = 800;
@@ -508,10 +513,17 @@
                 tempCtx.drawImage(layer.canvas, 0, 0);
             });
             
-            // Draw WITHOUT offset - see natural position
+            // Draw with manual offset and scale
+            const drawWidth = 1000 * maskScale;
+            const drawHeight = 1000 * maskScale;
             ctx.globalAlpha = 0.5;
-            ctx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
+            ctx.drawImage(tempCanvas, 0, 0, 800, 800, maskOffsetX, maskOffsetY, drawWidth, drawHeight);
             ctx.globalAlpha = 1.0;
+            
+            // Display coordinates on screen
+            ctx.fillStyle = 'yellow';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText(`X: ${maskOffsetX} Y: ${maskOffsetY} Scale: ${maskScale.toFixed(2)}`, 20, 40);
             
             // Layer 3: Cat outline on top
             if (catOutlineFrames[currentFrameIndex]) {
@@ -895,6 +907,49 @@
             await initCanvas();
             setupAudio();
             loadSamples();
+        });
+        
+        // Keyboard controls for manual positioning
+        window.addEventListener('keydown', function(e) {
+            if (!catAnimationRunning) return;
+            
+            const step = e.shiftKey ? 10 : 1; // Hold Shift for bigger steps
+            
+            switch(e.key) {
+                case 'ArrowLeft':
+                    maskOffsetX -= step;
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    maskOffsetX += step;
+                    e.preventDefault();
+                    break;
+                case 'ArrowUp':
+                    maskOffsetY -= step;
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown':
+                    maskOffsetY += step;
+                    e.preventDefault();
+                    break;
+                case '+':
+                case '=':
+                    maskScale += 0.01;
+                    e.preventDefault();
+                    break;
+                case '-':
+                case '_':
+                    maskScale = Math.max(0.1, maskScale - 0.01);
+                    e.preventDefault();
+                    break;
+                case 'c':
+                case 'C':
+                    // Copy coordinates to clipboard
+                    const coords = `X: ${maskOffsetX}, Y: ${maskOffsetY}, Scale: ${maskScale}`;
+                    navigator.clipboard.writeText(coords);
+                    alert('Coordinates copied: ' + coords);
+                    break;
+            }
         });
     </script>
 </body>
