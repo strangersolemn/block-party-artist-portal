@@ -116,6 +116,8 @@
             width: 100%;
             height: 100%;
             cursor: crosshair;
+            object-fit: contain;
+            object-position: top left;
         }
 
         .svg-overlay {
@@ -409,20 +411,20 @@
             
             // Layer 1: Frog GIF (already in HTML background)
             
-            // Layer 2: User's drawn mask - positioned where cat mask is (bottom-left area)
+            // Layer 2: User's drawn mask - must match cat outline EXACTLY
             const maskCanvas = document.createElement('canvas');
-            maskCanvas.width = 800; // User draws at 800x800
-            maskCanvas.height = 800;
+            maskCanvas.width = 1000;
+            maskCanvas.height = 1000;
             maskCanvas.style.position = 'absolute';
-            maskCanvas.style.left = '21.7%'; // Cat starts at ~217/1000
-            maskCanvas.style.top = '71.8%'; // Cat starts at ~718/1000
-            maskCanvas.style.width = '80%'; // 800/1000 of the frame
-            maskCanvas.style.height = '28.2%'; // From 718 to 1000 = 282px = 28.2%
+            maskCanvas.style.top = '0';
+            maskCanvas.style.left = '0';
+            maskCanvas.style.width = '100%';
+            maskCanvas.style.height = '100%';
             maskCanvas.style.objectFit = 'contain';
             maskCanvas.style.objectPosition = 'top left';
             const maskCtx = maskCanvas.getContext('2d');
             
-            // Merge all user layers (no scaling needed - keep at 800x800)
+            // Merge all user layers
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = 800;
             tempCanvas.height = 800;
@@ -432,10 +434,10 @@
                 tempCtx.drawImage(layer.canvas, 0, 0);
             });
             
-            // Draw user's canvas directly (800x800)
-            maskCtx.drawImage(tempCanvas, 0, 0);
-            console.log('User canvas positioned at bottom-left:', maskCanvas.style.left, maskCanvas.style.top);
-            console.log('tempCanvas has content:', tempCtx.getImageData(0,0,1,1).data[3] > 0);
+            // Scale from 800x800 to 1000x1000 (mask-simple 8000->800, cat-outline is 1000)
+            // So we need 1000/800 = 1.25x scale
+            maskCtx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
+            console.log('User canvas scaled 800->1000 to match cat outline');
             compositionContainer.appendChild(maskCanvas);
             
             // Layer 3: Cat border GIF (on top)
@@ -466,6 +468,7 @@
             newCanvas.style.width = '100%';
             newCanvas.style.height = '100%';
             newCanvas.style.cursor = 'crosshair';
+            newCanvas.style.imageRendering = 'pixelated';
             newCanvas.style.zIndex = layers.length + 1;
             
             const newCtx = newCanvas.getContext('2d');
