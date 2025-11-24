@@ -522,8 +522,12 @@
                     tempCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Scale user art to 1000x1000
-                compCtx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
+                // Draw user's art with correct offset
+                // mask-simple: shape at (4000, 1256) in 8000x8000 = (0.5, 0.157) relative
+                // cat-outline: shape at (217, 718) in 1000x1000 = (0.217, 0.718) relative
+                // Offset needed: (217 - 4000/8) = (217 - 500) = -283 in x
+                //                (718 - 1256/8) = (718 - 157) = +561 in y
+                compCtx.drawImage(tempCanvas, 0, 0, 800, 800, -283, 561, 1000, 1000);
                 
                 // Draw the clipped result
                 ctx.drawImage(compCanvas, 0, 0);
