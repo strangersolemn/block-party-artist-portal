@@ -498,7 +498,7 @@
                 ctx.drawImage(frogImage, 0, 0, 1000, 1000);
             }
             
-            // Layer 2: User's art (DEBUG - no clipping)
+            // Layer 2: User's art (DEBUG - no offset, just scale 800->1000)
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = 800;
             tempCanvas.height = 800;
@@ -508,9 +508,9 @@
                 tempCtx.drawImage(layer.canvas, 0, 0);
             });
             
-            // Draw with offset - DEBUG
+            // Draw WITHOUT offset - see natural position
             ctx.globalAlpha = 0.5;
-            ctx.drawImage(tempCanvas, 0, 0, 800, 800, -283, 561, 1000, 1000);
+            ctx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
             ctx.globalAlpha = 1.0;
             
             // Layer 3: Cat outline on top
