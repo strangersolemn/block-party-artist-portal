@@ -67,6 +67,7 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
+            object-position: top left;
         }
 
         .action-btn {
@@ -415,6 +416,7 @@
             maskCanvas.style.width = '100%';
             maskCanvas.style.height = '100%';
             maskCanvas.style.objectFit = 'contain';
+            maskCanvas.style.objectPosition = 'top left';
             const maskCtx = maskCanvas.getContext('2d');
             
             // Merge all user layers
@@ -442,6 +444,7 @@
             catBorderGif.style.width = '100%';
             catBorderGif.style.height = '100%';
             catBorderGif.style.objectFit = 'contain';
+            catBorderGif.style.objectPosition = 'top left';
             catBorderGif.style.pointerEvents = 'none';
             compositionContainer.appendChild(catBorderGif);
             
