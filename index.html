@@ -495,7 +495,9 @@
                 console.log('No frog image!');
             }
             
-            // Layer 2: User's art - simple 800→1000 scale (1.25x)
+            // Layer 2: User's art - position in bottom-left like cat outline
+            // Cat outline in 1000x1000 starts at approx (217, 718), size ~350x280
+            // User draws at 800x800, scale to fit cat region
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = 800;
             tempCanvas.height = 800;
@@ -505,10 +507,10 @@
                 tempCtx.drawImage(layer.canvas, 0, 0);
             });
             
-            // Both mask-simple and cat-outline use SAME SHAPE
-            // Just scale: 800x800 → 1000x1000 (multiply by 1.25)
-            ctx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
-            console.log('Drew user art, layers count:', layers.length);
+            // Draw at same position/scale as cat
+            // Scale factor: mask-simple 8000 -> 1000 = 0.125, so 800 -> 100
+            ctx.drawImage(tempCanvas, 0, 0, 800, 800, 217, 718, 100, 100);
+            console.log('Drew user art at (217,718), size 100x100');
             
             // Layer 3: Cat outline
             if (catOutlineFrames[currentFrameIndex]) {
