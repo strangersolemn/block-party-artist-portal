@@ -355,6 +355,13 @@
         let lastY = 0;
         let maskImageData = null;
 
+        // Cat animation
+        let catFrames = [];
+        let catAnimationRunning = false;
+        let catCurrentFrame = 0;
+        let catFrameTimer = 0;
+        const catFrameDurations = [53, 105]; // Frame 1: 53ms (1 frame), Frame 2: 105ms (2 frames) at 19fps
+
         // Music variables
         let acidSynth, bassFilter, isPlaying = false, currentStep = 0, samplesLoaded = false;
         let kickPlayer, clapPlayer, hatPlayer, finalPlayer;
@@ -372,6 +379,95 @@
             { note: 'Eb2', play: true }, { note: null, play: false }, { note: 'A1', play: true }, { note: null, play: false },
             { note: 'B1', play: true }, { note: null, play: false }, { note: 'C2', play: true }, { note: null, play: false }
         ];
+
+        // Cat animation functions
+        async function loadCatFrames() {
+            try {
+                const frame1 = await loadCatFrame('cat-frame-1.svg');
+                const frame2 = await loadCatFrame('cat-frame-2.svg');
+                catFrames = [frame1, frame2];
+                console.log('Cat animation frames loaded');
+            } catch (error) {
+                console.error('Error loading cat frames:', error);
+            }
+        }
+
+        function loadCatFrame(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+
+        function startCatAnimation() {
+            if (catFrames.length === 0) {
+                alert('Cat animation not loaded yet');
+                return;
+            }
+            
+            catAnimationRunning = true;
+            catCurrentFrame = 0;
+            catFrameTimer = 0;
+            animateCat();
+        }
+
+        function animateCat() {
+            if (!catAnimationRunning) return;
+            
+            const frogDisplay = document.querySelector('.frog-display');
+            const displayRect = frogDisplay.getBoundingClientRect();
+            
+            // Create overlay canvas if it doesn't exist
+            let overlayCanvas = document.getElementById('catOverlay');
+            if (!overlayCanvas) {
+                overlayCanvas = document.createElement('canvas');
+                overlayCanvas.id = 'catOverlay';
+                overlayCanvas.width = 1000;
+                overlayCanvas.height = 1000;
+                overlayCanvas.style.position = 'absolute';
+                overlayCanvas.style.top = '0';
+                overlayCanvas.style.left = '0';
+                overlayCanvas.style.width = '100%';
+                overlayCanvas.style.height = '100%';
+                overlayCanvas.style.pointerEvents = 'none';
+                frogDisplay.style.position = 'relative';
+                frogDisplay.appendChild(overlayCanvas);
+            }
+            
+            const overlayCtx = overlayCanvas.getContext('2d');
+            overlayCtx.clearRect(0, 0, 1000, 1000);
+            
+            // Draw current cat frame
+            overlayCtx.drawImage(catFrames[catCurrentFrame], 0, 0, 1000, 1000);
+            
+            // Composite user's mask on top
+            compositeMaskOnCat(overlayCtx);
+            
+            // Advance frame
+            const frameDuration = catFrameDurations[catCurrentFrame];
+            setTimeout(() => {
+                catCurrentFrame = (catCurrentFrame + 1) % catFrames.length;
+                requestAnimationFrame(animateCat);
+            }, frameDuration);
+        }
+
+        function compositeMaskOnCat(overlayCtx) {
+            // Merge all user layers
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 800;
+            tempCanvas.height = 800;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            layers.forEach(layer => {
+                tempCtx.drawImage(layer.canvas, 0, 0);
+            });
+            
+            // Scale and position mask (800x800) to fit cat canvas (1000x1000)
+            const scale = 1000 / 800;
+            overlayCtx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
+        }
 
         // Layer management
         function addLayer() {
@@ -735,11 +831,14 @@
             isPlaying ? stopFullTrack() : startFullTrack();
         }
 
-        function previewCombination() { alert('Preview!'); }
+        function previewCombination() { 
+            startCatAnimation();
+        }
         function submitArtwork() { downloadMaskPNG(); }
 
         window.addEventListener('load', async function() {
             await loadMaskPath();
+            await loadCatFrames();
             await initCanvas();
             setupAudio();
             loadSamples();
