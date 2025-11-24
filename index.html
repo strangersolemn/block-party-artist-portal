@@ -106,6 +106,7 @@
             height: 600px;
             max-width: 90%;
             max-height: 90%;
+            aspect-ratio: 1 / 1;
         }
 
         #maskCanvas {
@@ -127,6 +128,8 @@
             z-index: 100;
             opacity: 1;
             filter: brightness(1.5);
+            object-fit: contain;
+            object-position: top left;
         }
 
         .floating-tools {
@@ -406,20 +409,20 @@
             
             // Layer 1: Frog GIF (already in HTML background)
             
-            // Layer 2: User's drawn mask
+            // Layer 2: User's drawn mask - positioned where cat mask is (bottom-left area)
             const maskCanvas = document.createElement('canvas');
-            maskCanvas.width = 1000;
-            maskCanvas.height = 1000;
+            maskCanvas.width = 800; // User draws at 800x800
+            maskCanvas.height = 800;
             maskCanvas.style.position = 'absolute';
-            maskCanvas.style.top = '0';
-            maskCanvas.style.left = '0';
-            maskCanvas.style.width = '100%';
-            maskCanvas.style.height = '100%';
+            maskCanvas.style.left = '21.7%'; // Cat starts at ~217/1000
+            maskCanvas.style.top = '71.8%'; // Cat starts at ~718/1000
+            maskCanvas.style.width = '80%'; // 800/1000 of the frame
+            maskCanvas.style.height = '28.2%'; // From 718 to 1000 = 282px = 28.2%
             maskCanvas.style.objectFit = 'contain';
             maskCanvas.style.objectPosition = 'top left';
             const maskCtx = maskCanvas.getContext('2d');
             
-            // Merge all user layers
+            // Merge all user layers (no scaling needed - keep at 800x800)
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = 800;
             tempCanvas.height = 800;
@@ -429,9 +432,9 @@
                 tempCtx.drawImage(layer.canvas, 0, 0);
             });
             
-            // Scale user's 800x800 to 1000x1000
-            maskCtx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
-            console.log('User canvas drawn. Canvas size:', maskCanvas.width, 'x', maskCanvas.height);
+            // Draw user's canvas directly (800x800)
+            maskCtx.drawImage(tempCanvas, 0, 0);
+            console.log('User canvas positioned at bottom-left:', maskCanvas.style.left, maskCanvas.style.top);
             console.log('tempCanvas has content:', tempCtx.getImageData(0,0,1,1).data[3] > 0);
             compositionContainer.appendChild(maskCanvas);
             
