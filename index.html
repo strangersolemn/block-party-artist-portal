@@ -356,11 +356,7 @@
         let maskImageData = null;
 
         // Cat animation
-        let catFrames = [];
         let catAnimationRunning = false;
-        let catCurrentFrame = 0;
-        let catFrameTimer = 0;
-        const catFrameDurations = [53, 105]; // Frame 1: 53ms (1 frame), Frame 2: 105ms (2 frames) at 19fps
 
         // Music variables
         let acidSynth, bassFilter, isPlaying = false, currentStep = 0, samplesLoaded = false;
@@ -381,95 +377,54 @@
         ];
 
         // Cat animation functions
-        async function loadCatFrames() {
-            try {
-                console.log('Loading cat frame 1...');
-                const frame1 = await loadCatFrame('cat-frame-1.svg');
-                console.log('Cat frame 1 loaded');
-                
-                console.log('Loading cat frame 2...');
-                const frame2 = await loadCatFrame('cat-frame-2.svg');
-                console.log('Cat frame 2 loaded');
-                
-                catFrames = [frame1, frame2];
-                console.log('Cat animation frames loaded successfully');
-                return true;
-            } catch (error) {
-                console.error('Error loading cat frames:', error);
-                alert('Failed to load cat animation frames. Make sure cat-frame-1.svg and cat-frame-2.svg are uploaded to GitHub!');
-                return false;
-            }
-        }
-
-        function loadCatFrame(url) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => {
-                    console.log(`Loaded: ${url}`);
-                    resolve(img);
-                };
-                img.onerror = (e) => {
-                    console.error(`Failed to load: ${url}`, e);
-                    reject(new Error(`Failed to load ${url}`));
-                };
-                img.src = url;
-            });
-        }
-
         function startCatAnimation() {
-            if (catFrames.length === 0) {
-                alert('Cat animation not loaded yet. Please upload cat-frame-1.svg and cat-frame-2.svg to GitHub!');
-                return;
-            }
+            if (catAnimationRunning) return; // Already running
             
             catAnimationRunning = true;
-            catCurrentFrame = 0;
-            catFrameTimer = 0;
-            animateCat();
-        }
-
-        function animateCat() {
-            if (!catAnimationRunning) return;
             
             const frogDisplay = document.querySelector('.frog-display');
             
-            // Create overlay canvas if it doesn't exist
-            let overlayCanvas = document.getElementById('catOverlay');
-            if (!overlayCanvas) {
-                overlayCanvas = document.createElement('canvas');
-                overlayCanvas.id = 'catOverlay';
-                overlayCanvas.width = 1000;
-                overlayCanvas.height = 1000;
-                overlayCanvas.style.position = 'absolute';
-                overlayCanvas.style.top = '0';
-                overlayCanvas.style.left = '0';
-                overlayCanvas.style.width = '100%';
-                overlayCanvas.style.height = '100%';
-                overlayCanvas.style.objectFit = 'contain';
-                overlayCanvas.style.pointerEvents = 'none';
-                overlayCanvas.style.zIndex = '10';
+            // Create composition container
+            let compositionContainer = document.getElementById('compositionContainer');
+            if (!compositionContainer) {
+                compositionContainer = document.createElement('div');
+                compositionContainer.id = 'compositionContainer';
+                compositionContainer.style.position = 'absolute';
+                compositionContainer.style.top = '0';
+                compositionContainer.style.left = '0';
+                compositionContainer.style.width = '100%';
+                compositionContainer.style.height = '100%';
+                compositionContainer.style.pointerEvents = 'none';
+                compositionContainer.style.display = 'flex';
+                compositionContainer.style.alignItems = 'center';
+                compositionContainer.style.justifyContent = 'center';
                 frogDisplay.style.position = 'relative';
-                frogDisplay.appendChild(overlayCanvas);
+                frogDisplay.appendChild(compositionContainer);
             }
             
-            const overlayCtx = overlayCanvas.getContext('2d');
-            overlayCtx.clearRect(0, 0, 1000, 1000);
+            // Clear any existing content
+            compositionContainer.innerHTML = '';
             
-            // Draw current cat frame
-            overlayCtx.drawImage(catFrames[catCurrentFrame], 0, 0, 1000, 1000);
+            // Create wrapper to hold all 3 layers
+            const layerWrapper = document.createElement('div');
+            layerWrapper.style.position = 'relative';
+            layerWrapper.style.width = '100%';
+            layerWrapper.style.height = '100%';
             
-            // Composite user's mask on top
-            compositeMaskOnCat(overlayCtx);
+            // Layer 1: Frog GIF (already in HTML, so we just add our layers on top)
             
-            // Advance frame
-            const frameDuration = catFrameDurations[catCurrentFrame];
-            setTimeout(() => {
-                catCurrentFrame = (catCurrentFrame + 1) % catFrames.length;
-                requestAnimationFrame(animateCat);
-            }, frameDuration);
-        }
-
-        function compositeMaskOnCat(overlayCtx) {
+            // Layer 2: User's drawn mask
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = 1000;
+            maskCanvas.height = 1000;
+            maskCanvas.style.position = 'absolute';
+            maskCanvas.style.top = '0';
+            maskCanvas.style.left = '0';
+            maskCanvas.style.width = '100%';
+            maskCanvas.style.height = '100%';
+            maskCanvas.style.objectFit = 'contain';
+            const maskCtx = maskCanvas.getContext('2d');
+            
             // Merge all user layers
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = 800;
@@ -480,9 +435,23 @@
                 tempCtx.drawImage(layer.canvas, 0, 0);
             });
             
-            // Scale and position mask (800x800) to fit cat canvas (1000x1000)
-            const scale = 1000 / 800;
-            overlayCtx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
+            // Scale user's 800x800 to 1000x1000
+            maskCtx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
+            layerWrapper.appendChild(maskCanvas);
+            
+            // Layer 3: Cat border GIF (on top)
+            const catBorderGif = document.createElement('img');
+            catBorderGif.src = 'cat-border.gif';
+            catBorderGif.style.position = 'absolute';
+            catBorderGif.style.top = '0';
+            catBorderGif.style.left = '0';
+            catBorderGif.style.width = '100%';
+            catBorderGif.style.height = '100%';
+            catBorderGif.style.objectFit = 'contain';
+            catBorderGif.style.pointerEvents = 'none';
+            layerWrapper.appendChild(catBorderGif);
+            
+            compositionContainer.appendChild(layerWrapper);
         }
 
         // Layer management
@@ -854,7 +823,6 @@
 
         window.addEventListener('load', async function() {
             await loadMaskPath();
-            await loadCatFrames();
             await initCanvas();
             setupAudio();
             loadSamples();
