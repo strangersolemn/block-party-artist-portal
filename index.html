@@ -120,6 +120,16 @@
             object-position: top left;
         }
 
+        /* Style for all layer canvases */
+        .canvas-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
         .svg-overlay {
             position: absolute;
             top: 0;
@@ -468,10 +478,7 @@
         }
         
         function renderFrame(canvas) {
-            if (!catAnimationRunning) {
-                console.log('Animation stopped');
-                return;
-            }
+            if (!catAnimationRunning) return;
             
             const ctx = canvas.getContext('2d');
             const now = performance.now();
@@ -481,23 +488,22 @@
             if (elapsed >= frameDurations[currentFrameIndex]) {
                 currentFrameIndex = (currentFrameIndex + 1) % 2;
                 frameStartTime = now;
-                console.log('Frame switched to:', currentFrameIndex);
             }
             
             // Clear
             ctx.clearRect(0, 0, 1000, 1000);
             
-            // Layer 1: Frog
+            // Layer 1: Frog GIF
             if (frogImage) {
                 ctx.drawImage(frogImage, 0, 0, 1000, 1000);
-                console.log('Drew frog');
-            } else {
-                console.log('No frog image!');
             }
             
-            // Layer 2: User's art - position in bottom-left like cat outline
-            // Cat outline in 1000x1000 starts at approx (217, 718), size ~350x280
-            // User draws at 800x800, scale to fit cat region
+            // Layer 2: Cat outline FIRST (behind user art)
+            if (catOutlineFrames[currentFrameIndex]) {
+                ctx.drawImage(catOutlineFrames[currentFrameIndex], 0, 0, 1000, 1000);
+            }
+            
+            // Layer 3: User's art ON TOP of cat outline
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = 800;
             tempCanvas.height = 800;
@@ -507,18 +513,8 @@
                 tempCtx.drawImage(layer.canvas, 0, 0);
             });
             
-            // Draw at same position/scale as cat
-            // Scale factor: mask-simple 8000 -> 1000 = 0.125, so 800 -> 100
-            ctx.drawImage(tempCanvas, 0, 0, 800, 800, 217, 718, 100, 100);
-            console.log('Drew user art at (217,718), size 100x100');
-            
-            // Layer 3: Cat outline
-            if (catOutlineFrames[currentFrameIndex]) {
-                ctx.drawImage(catOutlineFrames[currentFrameIndex], 0, 0, 1000, 1000);
-                console.log('Drew cat outline frame', currentFrameIndex);
-            } else {
-                console.log('No cat outline frame', currentFrameIndex);
-            }
+            // Draw at same position/scale as cat - full 1000x1000 to match
+            ctx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
             
             // Next frame
             animationFrameId = requestAnimationFrame(() => renderFrame(canvas));
