@@ -277,7 +277,7 @@
         <div class="panel">
             <h2>Your Frog</h2>
             <div class="frog-display">
-                <img src="frog.gif" alt="Frog Animation" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                <img src="frog.gif?v=2" alt="Frog Animation" style="max-width: 100%; max-height: 100%; object-fit: contain;">
             </div>
             <button class="action-btn" onclick="generateFrog()">🎲 Generate Frog</button>
             <button class="action-btn" onclick="playMusic()">🎵 Play/Pause</button>
@@ -432,7 +432,6 @@
             if (!catAnimationRunning) return;
             
             const frogDisplay = document.querySelector('.frog-display');
-            const displayRect = frogDisplay.getBoundingClientRect();
             
             // Create overlay canvas if it doesn't exist
             let overlayCanvas = document.getElementById('catOverlay');
@@ -446,7 +445,9 @@
                 overlayCanvas.style.left = '0';
                 overlayCanvas.style.width = '100%';
                 overlayCanvas.style.height = '100%';
+                overlayCanvas.style.objectFit = 'contain';
                 overlayCanvas.style.pointerEvents = 'none';
+                overlayCanvas.style.zIndex = '10';
                 frogDisplay.style.position = 'relative';
                 frogDisplay.appendChild(overlayCanvas);
             }
