@@ -383,27 +383,42 @@
         // Cat animation functions
         async function loadCatFrames() {
             try {
+                console.log('Loading cat frame 1...');
                 const frame1 = await loadCatFrame('cat-frame-1.svg');
+                console.log('Cat frame 1 loaded');
+                
+                console.log('Loading cat frame 2...');
                 const frame2 = await loadCatFrame('cat-frame-2.svg');
+                console.log('Cat frame 2 loaded');
+                
                 catFrames = [frame1, frame2];
-                console.log('Cat animation frames loaded');
+                console.log('Cat animation frames loaded successfully');
+                return true;
             } catch (error) {
                 console.error('Error loading cat frames:', error);
+                alert('Failed to load cat animation frames. Make sure cat-frame-1.svg and cat-frame-2.svg are uploaded to GitHub!');
+                return false;
             }
         }
 
         function loadCatFrame(url) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = reject;
+                img.onload = () => {
+                    console.log(`Loaded: ${url}`);
+                    resolve(img);
+                };
+                img.onerror = (e) => {
+                    console.error(`Failed to load: ${url}`, e);
+                    reject(new Error(`Failed to load ${url}`));
+                };
                 img.src = url;
             });
         }
 
         function startCatAnimation() {
             if (catFrames.length === 0) {
-                alert('Cat animation not loaded yet');
+                alert('Cat animation not loaded yet. Please upload cat-frame-1.svg and cat-frame-2.svg to GitHub!');
                 return;
             }
             
