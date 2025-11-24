@@ -498,23 +498,41 @@
                 ctx.drawImage(frogImage, 0, 0, 1000, 1000);
             }
             
-            // Layer 2: Cat outline FIRST (behind user art)
+            // Layer 2: User's art CLIPPED to cat shape
+            if (catOutlineFrames[currentFrameIndex]) {
+                // Create temporary canvas for composition
+                const compCanvas = document.createElement('canvas');
+                compCanvas.width = 1000;
+                compCanvas.height = 1000;
+                const compCtx = compCanvas.getContext('2d');
+                
+                // Draw cat outline as mask
+                compCtx.drawImage(catOutlineFrames[currentFrameIndex], 0, 0, 1000, 1000);
+                
+                // Set composite mode to only draw inside
+                compCtx.globalCompositeOperation = 'source-in';
+                
+                // Draw user's art
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 800;
+                tempCanvas.height = 800;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                layers.forEach(layer => {
+                    tempCtx.drawImage(layer.canvas, 0, 0);
+                });
+                
+                // Scale user art to 1000x1000
+                compCtx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
+                
+                // Draw the clipped result
+                ctx.drawImage(compCanvas, 0, 0);
+            }
+            
+            // Layer 3: Cat outline on top
             if (catOutlineFrames[currentFrameIndex]) {
                 ctx.drawImage(catOutlineFrames[currentFrameIndex], 0, 0, 1000, 1000);
             }
-            
-            // Layer 3: User's art ON TOP of cat outline
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 800;
-            tempCanvas.height = 800;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            layers.forEach(layer => {
-                tempCtx.drawImage(layer.canvas, 0, 0);
-            });
-            
-            // Draw at same position/scale as cat - full 1000x1000 to match
-            ctx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
             
             // Next frame
             animationFrameId = requestAnimationFrame(() => renderFrame(canvas));
