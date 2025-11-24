@@ -468,7 +468,10 @@
         }
         
         function renderFrame(canvas) {
-            if (!catAnimationRunning) return;
+            if (!catAnimationRunning) {
+                console.log('Animation stopped');
+                return;
+            }
             
             const ctx = canvas.getContext('2d');
             const now = performance.now();
@@ -478,6 +481,7 @@
             if (elapsed >= frameDurations[currentFrameIndex]) {
                 currentFrameIndex = (currentFrameIndex + 1) % 2;
                 frameStartTime = now;
+                console.log('Frame switched to:', currentFrameIndex);
             }
             
             // Clear
@@ -486,6 +490,9 @@
             // Layer 1: Frog
             if (frogImage) {
                 ctx.drawImage(frogImage, 0, 0, 1000, 1000);
+                console.log('Drew frog');
+            } else {
+                console.log('No frog image!');
             }
             
             // Layer 2: User's art - simple 800→1000 scale (1.25x)
@@ -501,10 +508,14 @@
             // Both mask-simple and cat-outline use SAME SHAPE
             // Just scale: 800x800 → 1000x1000 (multiply by 1.25)
             ctx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
+            console.log('Drew user art, layers count:', layers.length);
             
             // Layer 3: Cat outline
             if (catOutlineFrames[currentFrameIndex]) {
                 ctx.drawImage(catOutlineFrames[currentFrameIndex], 0, 0, 1000, 1000);
+                console.log('Drew cat outline frame', currentFrameIndex);
+            } else {
+                console.log('No cat outline frame', currentFrameIndex);
             }
             
             // Next frame
