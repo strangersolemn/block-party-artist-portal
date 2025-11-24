@@ -402,15 +402,9 @@
             // Clear any existing content
             compositionContainer.innerHTML = '';
             
-            // Create wrapper to hold all 3 layers
-            const layerWrapper = document.createElement('div');
-            layerWrapper.style.position = 'relative';
-            layerWrapper.style.width = '100%';
-            layerWrapper.style.height = '100%';
+            // Layer 1: Frog GIF (already in HTML background)
             
-            // Layer 1: Frog GIF (already in HTML, so we just add our layers on top)
-            
-            // Layer 2: User's drawn mask (middle layer - positioned bottom left)
+            // Layer 2: User's drawn mask
             const maskCanvas = document.createElement('canvas');
             maskCanvas.width = 1000;
             maskCanvas.height = 1000;
@@ -434,7 +428,7 @@
             
             // Scale user's 800x800 to 1000x1000
             maskCtx.drawImage(tempCanvas, 0, 0, 800, 800, 0, 0, 1000, 1000);
-            layerWrapper.appendChild(maskCanvas);
+            compositionContainer.appendChild(maskCanvas);
             
             // Layer 3: Cat border GIF (on top)
             const catBorderGif = document.createElement('img');
@@ -446,9 +440,9 @@
             catBorderGif.style.height = '100%';
             catBorderGif.style.objectFit = 'contain';
             catBorderGif.style.pointerEvents = 'none';
-            layerWrapper.appendChild(catBorderGif);
+            compositionContainer.appendChild(catBorderGif);
             
-            compositionContainer.appendChild(layerWrapper);
+            console.log('Composition layers added directly');
         }
 
         // Layer management
