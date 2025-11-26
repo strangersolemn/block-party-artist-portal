@@ -294,7 +294,7 @@
         <div class="panel">
             <h2>Your Frog</h2>
             <div class="frog-display">
-                <img src="frog.gif?v=2" alt="Frog Animation">
+                <p style="color: #f9bad1; text-align: center; padding: 20px;">Click "Generate Frog" to create a random frog!</p>
             </div>
             <button class="action-btn" onclick="generateFrog()">🎲 Generate Frog</button>
             <button class="action-btn" onclick="playMusic()">🎵 Play/Pause</button>
@@ -452,7 +452,6 @@
             try {
                 const frame1 = new Image();
                 const frame2 = new Image();
-                const frog = new Image();
                 
                 await Promise.all([
                     new Promise(resolve => {
@@ -462,16 +461,11 @@
                     new Promise(resolve => {
                         frame2.onload = resolve;
                         frame2.src = 'cat-outline-2.svg';
-                    }),
-                    new Promise(resolve => {
-                        frog.onload = resolve;
-                        frog.src = 'frog.gif';
                     })
                 ]);
                 
                 catOutlineFrames = [frame1, frame2];
-                frogImage = frog;
-                console.log('All assets loaded');
+                console.log('Cat outline frames loaded');
             } catch (error) {
                 console.error('Error loading assets:', error);
                 alert('Failed to load animation assets!');
@@ -548,12 +542,8 @@
             }
             
             // Clear
+            // Clear
             ctx.clearRect(0, 0, 1000, 1000);
-            
-            // Layer 1: Frog GIF
-            if (frogImage) {
-                ctx.drawImage(frogImage, 0, 0, 1000, 1000);
-            }
             
             // Layer 2: User's art with MANUAL positioning
             const tempCanvas = document.createElement('canvas');
