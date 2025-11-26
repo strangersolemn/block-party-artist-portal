@@ -372,6 +372,29 @@
         let lastY = 0;
         let maskImageData = null;
 
+        // Trait system for frog generation
+        const traitFolders = {
+            body: { folder: 'Body_sprites', count: 1, colorFilter: true },
+            eyes: { folder: 'Eyes_sprites', count: 19, colorFilter: true },
+            mouth: { folder: 'Mouth_sprites', count: 2, colorFilter: false },
+            head: { folder: 'Head_sprites', count: 35, colorFilter: false }
+        };
+        
+        const colorVariants = [
+            { name: 'Green', filter: 'none' },
+            { name: 'Blue', filter: 'hue-rotate(92deg) saturate(166%)' },
+            { name: 'Red', filter: 'hue-rotate(239deg) saturate(200%)' },
+            { name: 'Pink', filter: 'hue-rotate(197deg) saturate(200%)' },
+            { name: 'Purple', filter: 'hue-rotate(158deg) saturate(198%)' }
+        ];
+        
+        let currentFrogTraits = null;
+        let frogAnimationRunning = false;
+        let frogAnimationId = null;
+        let frogFrameIndex = 0;
+        let frogFrameTime = 0;
+        const frogFrameDuration = 1000 / 19; // 19 fps = ~52.6ms per frame
+
         // Cat animation
         let catAnimationRunning = false;
         let catOutlineFrames = [];
@@ -477,6 +500,35 @@
                 frogDisplay.appendChild(compositionCanvas);
             }
             
+            // Add positioning controls UI
+            let controlsDiv = document.getElementById('positionControls');
+            if (!controlsDiv) {
+                controlsDiv = document.createElement('div');
+                controlsDiv.id = 'positionControls';
+                controlsDiv.style.position = 'absolute';
+                controlsDiv.style.bottom = '10px';
+                controlsDiv.style.left = '10px';
+                controlsDiv.style.background = 'rgba(0,0,0,0.8)';
+                controlsDiv.style.color = 'yellow';
+                controlsDiv.style.padding = '15px';
+                controlsDiv.style.borderRadius = '10px';
+                controlsDiv.style.fontFamily = 'monospace';
+                controlsDiv.style.fontSize = '14px';
+                controlsDiv.style.zIndex = '1000';
+                controlsDiv.innerHTML = `
+                    <div style="margin-bottom: 10px;"><strong>POSITIONING CONTROLS:</strong></div>
+                    <div>Arrow Keys = Move (Shift = 10px)</div>
+                    <div>+/- = Scale</div>
+                    <div>C = Copy Coords</div>
+                    <div style="margin-top: 10px; color: lime;">
+                        X: <span id="coordX">0</span> 
+                        Y: <span id="coordY">0</span> 
+                        Scale: <span id="coordScale">1.00</span>
+                    </div>
+                `;
+                frogDisplay.appendChild(controlsDiv);
+            }
+            
             currentFrameIndex = 0;
             frameStartTime = performance.now();
             renderFrame(compositionCanvas);
@@ -521,9 +573,12 @@
             ctx.globalAlpha = 1.0;
             
             // Display coordinates on screen
-            ctx.fillStyle = 'yellow';
-            ctx.font = 'bold 24px Arial';
-            ctx.fillText(`X: ${maskOffsetX} Y: ${maskOffsetY} Scale: ${maskScale.toFixed(2)}`, 20, 40);
+            const coordXEl = document.getElementById('coordX');
+            const coordYEl = document.getElementById('coordY');
+            const coordScaleEl = document.getElementById('coordScale');
+            if (coordXEl) coordXEl.textContent = maskOffsetX;
+            if (coordYEl) coordYEl.textContent = maskOffsetY;
+            if (coordScaleEl) coordScaleEl.textContent = maskScale.toFixed(2);
             
             // Layer 3: Cat outline on top
             if (catOutlineFrames[currentFrameIndex]) {
@@ -890,7 +945,127 @@
         }
 
         function toggleFullscreen() {}
-        function generateFrog() { alert('Frog generator ready!'); }
+        function generateFrog() {
+            // Stop any existing animation
+            if (frogAnimationRunning) {
+                cancelAnimationFrame(frogAnimationId);
+                frogAnimationRunning = false;
+            }
+            
+            // Generate random traits
+            const selectedColor = colorVariants[Math.floor(Math.random() * colorVariants.length)];
+            const traits = {
+                body: Math.floor(Math.random() * traitFolders.body.count) + 1,
+                eyes: Math.floor(Math.random() * traitFolders.eyes.count) + 1,
+                mouth: Math.floor(Math.random() * traitFolders.mouth.count) + 1,
+                head: Math.floor(Math.random() * traitFolders.head.count) + 1,
+                color: selectedColor
+            };
+            
+            currentFrogTraits = traits;
+            console.log('Generated frog:', traits);
+            
+            // Load and display frog
+            loadAndAnimateFrog(traits);
+        }
+        
+        async function loadAndAnimateFrog(traits) {
+            const frogDisplay = document.querySelector('.frog-display');
+            frogDisplay.innerHTML = ''; // Clear existing
+            frogDisplay.style.position = 'relative';
+            
+            // Create canvas for sprite animation
+            const frogCanvas = document.createElement('canvas');
+            frogCanvas.width = 1000; // Single frame width
+            frogCanvas.height = 1000;
+            frogCanvas.style.width = '100%';
+            frogCanvas.style.height = '100%';
+            frogCanvas.style.objectFit = 'contain';
+            frogDisplay.appendChild(frogCanvas);
+            
+            const ctx = frogCanvas.getContext('2d');
+            
+            // Load all trait sprites
+            const spriteImages = {};
+            try {
+                spriteImages.body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
+                spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
+                spriteImages.mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
+                spriteImages.head = await loadImage(`${traitFolders.head.folder}/${traits.head}Head_sprite.avif`);
+                
+                console.log('All sprites loaded');
+                
+                // Start animation
+                frogAnimationRunning = true;
+                frogFrameIndex = 0;
+                frogFrameTime = performance.now();
+                animateFrog(frogCanvas, ctx, spriteImages, traits);
+                
+            } catch (error) {
+                console.error('Error loading sprites:', error);
+                frogDisplay.innerHTML = '<p style="color:red; padding:20px;">Error loading frog sprites!</p>';
+            }
+        }
+        
+        function animateFrog(canvas, ctx, sprites, traits) {
+            if (!frogAnimationRunning) return;
+            
+            const now = performance.now();
+            const elapsed = now - frogFrameTime;
+            
+            // Advance frame every ~52.6ms (19fps)
+            if (elapsed >= frogFrameDuration) {
+                frogFrameIndex = (frogFrameIndex + 1) % 3; // 3 frames
+                frogFrameTime = now;
+            }
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, 1000, 1000);
+            
+            // Calculate source position (sprite sheets are 3 frames side-by-side)
+            const frameX = frogFrameIndex * 1000; // Each frame is 1000px wide
+            
+            // Create temp canvases for color filtering
+            const drawSprite = (img, applyFilter) => {
+                if (applyFilter && traits.color.filter !== 'none') {
+                    // Use temporary canvas for filtering
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = 1000;
+                    tempCanvas.height = 1000;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(img, frameX, 0, 1000, 1000, 0, 0, 1000, 1000);
+                    
+                    // Apply filter
+                    tempCtx.filter = traits.color.filter;
+                    tempCtx.globalCompositeOperation = 'source-atop';
+                    tempCtx.drawImage(tempCanvas, 0, 0);
+                    
+                    // Draw filtered result
+                    ctx.drawImage(tempCanvas, 0, 0);
+                } else {
+                    // Draw directly without filter
+                    ctx.drawImage(img, frameX, 0, 1000, 1000, 0, 0, 1000, 1000);
+                }
+            };
+            
+            // Draw layers bottom to top
+            drawSprite(sprites.body, true);  // Body with color filter
+            drawSprite(sprites.mouth, false); // Mouth no filter
+            drawSprite(sprites.eyes, true);   // Eyes with same color filter as body
+            drawSprite(sprites.head, false);  // Head no filter
+            
+            // Continue animation
+            frogAnimationId = requestAnimationFrame(() => animateFrog(canvas, ctx, sprites, traits));
+        }
+        
+        function loadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error(`Failed to load: ${url}`));
+                img.src = url;
+            });
+        }
         
         function playMusic() {
             if (!samplesLoaded) { alert('Loading...'); return; }
