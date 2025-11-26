@@ -963,13 +963,16 @@
             const frogDisplay = document.querySelector('.frog-display');
             frogDisplay.innerHTML = ''; // Clear existing
             frogDisplay.style.position = 'relative';
+            frogDisplay.style.display = 'flex';
+            frogDisplay.style.alignItems = 'center';
+            frogDisplay.style.justifyContent = 'center';
             
-            // Create canvas for sprite animation
+            // Create canvas for sprite display
             const frogCanvas = document.createElement('canvas');
             frogCanvas.width = 1000; // Single frame width
             frogCanvas.height = 1000;
-            frogCanvas.style.width = '100%';
-            frogCanvas.style.height = '100%';
+            frogCanvas.style.maxWidth = '100%';
+            frogCanvas.style.maxHeight = '100%';
             frogCanvas.style.objectFit = 'contain';
             frogDisplay.appendChild(frogCanvas);
             
@@ -985,37 +988,23 @@
                 
                 console.log('All sprites loaded');
                 
-                // Start animation
-                frogAnimationRunning = true;
-                frogFrameIndex = 0;
-                frogFrameTime = performance.now();
-                animateFrog(frogCanvas, ctx, spriteImages, traits);
+                // Draw STATIC frog (first frame only, no animation)
+                drawStaticFrog(ctx, spriteImages, traits);
                 
             } catch (error) {
                 console.error('Error loading sprites:', error);
-                frogDisplay.innerHTML = '<p style="color:red; padding:20px;">Error loading frog sprites!</p>';
+                frogDisplay.innerHTML = '<p style="color:red; padding:20px;">Error loading frog sprites!<br>' + error.message + '</p>';
             }
         }
         
-        function animateFrog(canvas, ctx, sprites, traits) {
-            if (!frogAnimationRunning) return;
-            
-            const now = performance.now();
-            const elapsed = now - frogFrameTime;
-            
-            // Advance frame every ~52.6ms (19fps)
-            if (elapsed >= frogFrameDuration) {
-                frogFrameIndex = (frogFrameIndex + 1) % 3; // 3 frames
-                frogFrameTime = now;
-            }
-            
+        function drawStaticFrog(ctx, sprites, traits) {
             // Clear canvas
             ctx.clearRect(0, 0, 1000, 1000);
             
-            // Calculate source position (sprite sheets are 3 frames side-by-side)
-            const frameX = frogFrameIndex * 1000; // Each frame is 1000px wide
+            // Use FIRST frame only (frameX = 0)
+            const frameX = 0;
             
-            // Create temp canvases for color filtering
+            // Draw each layer
             const drawSprite = (img, applyFilter) => {
                 if (applyFilter && traits.color.filter !== 'none') {
                     // Use temporary canvas for filtering
@@ -1023,11 +1012,15 @@
                     tempCanvas.width = 1000;
                     tempCanvas.height = 1000;
                     const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // Draw sprite frame
                     tempCtx.drawImage(img, frameX, 0, 1000, 1000, 0, 0, 1000, 1000);
                     
-                    // Apply filter
+                    // Apply filter by drawing over itself with filter
                     tempCtx.filter = traits.color.filter;
                     tempCtx.globalCompositeOperation = 'source-atop';
+                    const filteredImg = new Image();
+                    filteredImg.src = tempCanvas.toDataURL();
                     tempCtx.drawImage(tempCanvas, 0, 0);
                     
                     // Draw filtered result
@@ -1044,8 +1037,7 @@
             drawSprite(sprites.eyes, true);   // Eyes with same color filter as body
             drawSprite(sprites.head, false);  // Head no filter
             
-            // Continue animation
-            frogAnimationId = requestAnimationFrame(() => animateFrog(canvas, ctx, sprites, traits));
+            console.log('Static frog drawn with color:', traits.color.name);
         }
         
         function loadImage(url) {
