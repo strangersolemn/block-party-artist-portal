@@ -942,8 +942,24 @@
                 frogAnimationRunning = false;
             }
             
-            // Generate random traits
-            const selectedColor = colorVariants[Math.floor(Math.random() * colorVariants.length)];
+            // Stop cat animation too if running
+            if (catAnimationRunning) {
+                cancelAnimationFrame(animationFrameId);
+                catAnimationRunning = false;
+            }
+            
+            // Weighted random color selection (rarity system)
+            // Green: 70%, Blue: 10%, Red: 8%, Pink: 7%, Purple: 5%
+            const colorPool = [
+                ...Array(70).fill(0), // Green (70 entries)
+                ...Array(10).fill(1), // Blue (10 entries)
+                ...Array(8).fill(2),  // Red (8 entries)
+                ...Array(7).fill(3),  // Pink (7 entries)
+                ...Array(5).fill(4)   // Purple (5 entries)
+            ];
+            const randomColorIndex = colorPool[Math.floor(Math.random() * colorPool.length)];
+            const selectedColor = colorVariants[randomColorIndex];
+            
             const traits = {
                 body: Math.floor(Math.random() * traitFolders.body.count) + 1,
                 eyes: Math.floor(Math.random() * traitFolders.eyes.count) + 1,
