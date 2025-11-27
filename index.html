@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- UPDATED VERSION TEST 999 -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1043,6 +1042,7 @@
                 img.onerror = () => reject(new Error(`Failed to load: ${url}`));
                 img.src = url;
             });
+        }
         
         function previewCombination() {
             if (!currentFrogTraits) {
