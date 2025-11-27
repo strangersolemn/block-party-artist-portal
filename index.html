@@ -293,7 +293,6 @@
             }
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -416,14 +415,6 @@
 
         // Music variables (now initialized in setupAudio function)
         let acidSynth, bassFilter, isPlaying = false, currentStep = 0;
-        let kickPlayer, clapPlayer, hatPlayer, finalPlayer;
-        
-        const sampleUrls = {
-            kick: 'https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0',
-            clap: 'https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0', 
-            hat: 'https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0',
-            final: 'https://ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0'
-        };
 
         // Cat animation functions
         function startCatAnimation() {
@@ -980,33 +971,11 @@
             frogDisplay.style.display = 'flex';
             frogDisplay.style.alignItems = 'center';
             frogDisplay.style.justifyContent = 'center';
-            frogDisplay.style.cursor = 'pointer';
             
-            // Create background canvas for flowing lines
-            const bgCanvas = document.createElement('canvas');
-            bgCanvas.width = 500;
-            bgCanvas.height = 500;
-            bgCanvas.style.position = 'absolute';
-            bgCanvas.style.top = '0';
-            bgCanvas.style.left = '0';
-            bgCanvas.style.width = '100%';
-            bgCanvas.style.height = '100%';
-            bgCanvas.style.zIndex = '0';
-            frogDisplay.appendChild(bgCanvas);
-            
-            const bgCtx = bgCanvas.getContext('2d');
-            
-            // Create canvas for sprite animation (on top of background)
+            // Create canvas for sprite display
             const frogCanvas = document.createElement('canvas');
             frogCanvas.width = 500;
             frogCanvas.height = 500;
-            frogCanvas.style.position = 'absolute';
-            frogCanvas.style.top = '0';
-            frogCanvas.style.left = '0';
-            frogCanvas.style.width = '100%';
-            frogCanvas.style.height = '100%';
-            frogCanvas.style.zIndex = '1';
-            frogCanvas.style.cursor = 'pointer';
             frogDisplay.appendChild(frogCanvas);
             
             const ctx = frogCanvas.getContext('2d');
@@ -1021,84 +990,8 @@
                 
                 console.log('All sprites loaded');
                 
-                // Setup audio
-                if (!acidSynth) {
-                    setupAudio();
-                }
-                
-                // Setup background animation
-                let flowOffset = 0;
-                let kickHitIntensity = 0;
-                let lineColorState = false;
-                let lastColorFlip = 0;
-                const colorFlipInterval = 200;
-                const darkBlue = '#0066ff';
-                const lightBlue = '#66ccff';
-                
-                function animateBackground() {
-                    bgCtx.fillStyle = '#0a0a1b';
-                    bgCtx.fillRect(0, 0, 500, 500);
-                    
-                    flowOffset += 1.5;
-                    if (flowOffset > 20) flowOffset = 0;
-                    
-                    // Flash between colors when playing
-                    let currentLineColor = darkBlue;
-                    if (frogAnimationRunning) {
-                        if (Date.now() - lastColorFlip > colorFlipInterval) {
-                            lineColorState = !lineColorState;
-                            lastColorFlip = Date.now();
-                        }
-                        currentLineColor = lineColorState ? lightBlue : darkBlue;
-                    } else {
-                        currentLineColor = '#004499';
-                    }
-                    
-                    // Draw flowing lines
-                    for (let y = -20; y < 520; y += 20) {
-                        let actualY = y + flowOffset;
-                        let baseOffset = frogAnimationRunning ? Math.sin((y + flowOffset) * 0.1 + Date.now() * 0.002) * 10 : 0;
-                        
-                        let reactionOffset = 0;
-                        if (kickHitIntensity > 0 && frogAnimationRunning) {
-                            let rippleTime = Date.now() * 0.015;
-                            let rippleFreq = (y + flowOffset) * 0.08;
-                            let ripple = Math.sin(rippleFreq + rippleTime) * kickHitIntensity * 150;
-                            reactionOffset = ripple;
-                        }
-                        
-                        let totalOffset = baseOffset + reactionOffset;
-                        
-                        bgCtx.fillStyle = currentLineColor;
-                        bgCtx.fillRect(totalOffset, actualY, 500, 3);
-                    }
-                    
-                    kickHitIntensity *= 0.92;
-                    requestAnimationFrame(animateBackground);
-                }
-                
-                animateBackground();
-                
-                // Store kickHitIntensity trigger in traits for music to access
-                traits.triggerKick = () => { kickHitIntensity = 1.0; };
-                
-                // Store traits globally so music can access
-                currentFrogTraits = traits;
-                
-                // Draw first frame
+                // Draw STATIC frog (first frame only)
                 drawFrogFrame(ctx, spriteImages, traits, 0);
-                
-                // Add click handler to start/stop animation + music
-                frogCanvas.onclick = async () => {
-                    console.log('Frog clicked!');
-                    if (frogAnimationRunning) {
-                        console.log('Stopping animation...');
-                        stopFrogAnimation();
-                    } else {
-                        console.log('Starting animation...');
-                        startFrogAnimation(ctx, spriteImages, traits);
-                    }
-                };
                 
             } catch (error) {
                 console.error('Error loading sprites:', error);
@@ -1142,44 +1035,6 @@
             drawSprite(sprites.head, false);
         }
         
-        function startFrogAnimation(ctx, sprites, traits) {
-            frogAnimationRunning = true;
-            frogFrameIndex = 0;
-            frogFrameTime = performance.now();
-            
-            // Start music
-            startMusicTrack();
-            
-            // Animation loop
-            function animate() {
-                if (!frogAnimationRunning) return;
-                
-                const now = performance.now();
-                const elapsed = now - frogFrameTime;
-                
-                // Advance frame every ~52.6ms (19fps)
-                if (elapsed >= frogFrameDuration) {
-                    frogFrameIndex = (frogFrameIndex + 1) % 3; // Loop 0,1,2
-                    frogFrameTime = now;
-                    
-                    // Draw current frame
-                    drawFrogFrame(ctx, sprites, traits, frogFrameIndex);
-                }
-                
-                frogAnimationId = requestAnimationFrame(animate);
-            }
-            
-            animate();
-        }
-        
-        function stopFrogAnimation() {
-            frogAnimationRunning = false;
-            if (frogAnimationId) {
-                cancelAnimationFrame(frogAnimationId);
-            }
-            stopMusicTrack();
-        }
-        
         function loadImage(url) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
@@ -1187,158 +1042,6 @@
                 img.onerror = () => reject(new Error(`Failed to load: ${url}`));
                 img.src = url;
             });
-        }
-        
-        // Music system
-        async function setupAudio() {
-            try {
-                console.log('Setting up audio... Tone available?', typeof Tone !== 'undefined');
-                
-                if (typeof Tone === 'undefined') {
-                    console.error('Tone.js not loaded!');
-                    return;
-                }
-                
-                // Load drum samples
-                kickPlayer = new Tone.Player(sampleUrls.kick).toDestination();
-                kickPlayer.volume.value = -5;
-                
-                clapPlayer = new Tone.Player(sampleUrls.clap).toDestination();
-                clapPlayer.volume.value = -8;
-                
-                hatPlayer = new Tone.Player(sampleUrls.hat).toDestination();
-                hatPlayer.volume.value = -12;
-                
-                finalPlayer = new Tone.Player(sampleUrls.final).toDestination();
-                finalPlayer.volume.value = 10;
-                finalPlayer.playbackRate = 0.95;
-                
-                await Tone.loaded();
-                
-                // Setup synth
-                acidSynth = new Tone.MonoSynth({
-                    oscillator: { type: "sawtooth" },
-                    envelope: { attack: 0.01, decay: 0.4, sustain: 0.3, release: 0.4 }
-                });
-
-                bassFilter = new Tone.Filter({ type: "lowpass", frequency: 250, Q: 22 });
-                const distortion = new Tone.Distortion(0.3);
-                acidSynth.chain(bassFilter, distortion, Tone.Destination);
-                acidSynth.volume.value = -10;
-                
-                console.log('Audio setup complete!');
-            } catch (error) {
-                console.error('Audio setup failed:', error);
-            }
-        }
-        
-        // Strudel bassline pattern
-        const strudelPattern = [
-            { note: 'c2', play: true },
-            { note: null, play: false },
-            { note: null, play: true },
-            { note: 'b2', play: true },
-            { note: null, play: true },
-            { note: 'ab3', play: true },
-            { note: null, play: false },
-            { note: 'bb1', play: true },
-            { note: null, play: false },
-            { note: 'c2', play: true },
-            { note: 'd4', play: true },
-            { note: null, play: true },
-            { note: 'ab1', play: false },
-            { note: null, play: false },
-            { note: 'eb2', play: true },
-            { note: null, play: true }
-        ];
-        
-        async function startMusicTrack() {
-            try {
-                await Tone.start();
-                
-                isPlaying = true;
-                currentStep = 0;
-                
-                Tone.Transport.bpm.value = 123;
-                
-                Tone.Transport.scheduleRepeat((time) => {
-                    let step = strudelPattern[currentStep % strudelPattern.length];
-                    let stepIn16 = currentStep % 16;
-                    let barCount = Math.floor(currentStep / 16) % 16;
-                    
-                    // BASSLINE
-                    if (step.play && step.note) {
-                        if (!(barCount === 15 && stepIn16 >= 9)) {
-                            acidSynth.triggerAttackRelease(step.note, "16n", time, 0.8);
-                            
-                            let progress = barCount / 15;
-                            let cutoffFreq = 200 + (progress * 400);
-                            let resonanceValue = 2 + (progress * 2.25);
-                            let baseMovement = Math.sin(time * 0.5) * 50;
-                            let finalCutoff = cutoffFreq + baseMovement;
-                            
-                            bassFilter.frequency.setValueAtTime(finalCutoff, time);
-                            bassFilter.Q.setValueAtTime(resonanceValue, time);
-                            
-                            // Trigger visual kick on bassline hit
-                            if (currentFrogTraits && currentFrogTraits.triggerKick) {
-                                currentFrogTraits.triggerKick();
-                            }
-                        }
-                    }
-                    
-                    // DRUMS
-                    let isFirstHalf = barCount < 8;
-                    
-                    if (isFirstHalf) {
-                        if (stepIn16 % 4 === 0) {
-                            kickPlayer.start(time);
-                        }
-                    } else {
-                        if (barCount === 8 && stepIn16 === 0) {
-                            kickPlayer.start(time);
-                        }
-                    }
-                    
-                    if (barCount === 0 && stepIn16 === 2) {
-                        kickPlayer.start(time);
-                    }
-                    
-                    if (barCount === 15 && (stepIn16 >= 12)) {
-                        clapPlayer.start(time);
-                    }
-                    
-                    if (stepIn16 % 8 === 4 && !(barCount === 15 && stepIn16 >= 12)) {
-                        clapPlayer.start(time);
-                    }
-                    
-                    if (stepIn16 % 4 === 2) {
-                        hatPlayer.start(time);
-                    }
-                    
-                    // Final sound on 16th bar 13th step only
-                    if (barCount === 15 && stepIn16 === 12) {
-                        finalPlayer.start(time);
-                    }
-                    
-                    currentStep++;
-                    
-                }, "16n");
-                
-                Tone.Transport.start();
-                console.log('Music started');
-                
-            } catch (error) {
-                console.error('Failed to start music:', error);
-            }
-        }
-
-        function stopMusicTrack() {
-            isPlaying = false;
-            Tone.Transport.stop();
-            Tone.Transport.cancel();
-            console.log('Music stopped');
-        }
         
         function previewCombination() { 
             startCatAnimation();
