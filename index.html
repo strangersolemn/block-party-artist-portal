@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Block Party Artist Portal</title>
-    <script src="/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0"></script>
     <style>
         * {
             margin: 0;
@@ -420,23 +419,8 @@
         let maskOffsetY = 0;
         let maskScale = 1.0;
 
-        // Music variables
-        let acidSynth, bassFilter, isPlaying = false, currentStep = 0, samplesLoaded = false;
-        let kickPlayer, clapPlayer, hatPlayer, finalPlayer;
-
-        const sampleUrls = {
-            kick: '/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0',
-            clap: '/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0', 
-            hat: '/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0',
-            final: '/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0'
-        };
-
-        let strudelPattern = [
-            { note: 'C2', play: true }, { note: 'A1', play: true }, { note: 'B1', play: true }, { note: null, play: false },
-            { note: 'C2', play: true }, { note: null, play: false }, { note: 'B1', play: true }, { note: 'C2', play: true },
-            { note: 'Eb2', play: true }, { note: null, play: false }, { note: 'A1', play: true }, { note: null, play: false },
-            { note: 'B1', play: true }, { note: null, play: false }, { note: 'C2', play: true }, { note: null, play: false }
-        ];
+        // Music variables (now initialized in setupAudio function)
+        let acidSynth, bassFilter, isPlaying = false, currentStep = 0;
 
         // Cat animation functions
         function startCatAnimation() {
