@@ -162,6 +162,26 @@
             overflow-y: auto;
             z-index: 200;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+            transition: width 0.3s, height 0.3s;
+        }
+        
+        .floating-tools.collapsed {
+            width: 50px;
+            height: 50px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        
+        .floating-tools.collapsed * {
+            display: none;
+        }
+        
+        .floating-tools.collapsed::before {
+            content: "🎨";
+            display: block;
+            font-size: 24px;
+            text-align: center;
+            line-height: 20px;
         }
 
         .floating-tools h3 {
@@ -308,8 +328,8 @@
             <h2>Your Mask</h2>
             <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
             
-            <div class="floating-tools">
-                <h3>Tools</h3>
+            <div class="floating-tools" id="floatingTools">
+                <h3>Tools <button onclick="toggleTools()" style="float:right; background:none; border:none; cursor:pointer; font-size:16px;">−</button></h3>
                 
                 <div class="tool-group">
                     <label>Layers</label>
@@ -352,7 +372,7 @@
 
             <div class="canvas-wrapper">
                 <div class="canvas-container" id="canvasContainer">
-                    <img src="mask-outline.svg" class="svg-overlay" id="maskOutline" alt="Mask Outline" style="z-index: 1000;">
+                    <img src="mask-centered.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; object-fit: contain;">
                 </div>
             </div>
         </div>
@@ -572,15 +592,14 @@
         function addLayer() {
             const container = document.getElementById('canvasContainer');
             const newCanvas = document.createElement('canvas');
-            newCanvas.width = 800;
-            newCanvas.height = 800;
+            newCanvas.width = 2000; // Match centered mask PNG size
+            newCanvas.height = 2000;
             newCanvas.style.position = 'absolute';
             newCanvas.style.top = '0';
             newCanvas.style.left = '0';
             newCanvas.style.width = '100%';
             newCanvas.style.height = '100%';
             newCanvas.style.cursor = 'crosshair';
-            newCanvas.style.imageRendering = 'pixelated';
             newCanvas.style.zIndex = layers.length + 1;
             
             const newCtx = newCanvas.getContext('2d');
@@ -591,9 +610,7 @@
                 name: `Layer ${layers.length + 1}`
             });
             
-            // Insert before the SVG overlay
-            const svgOverlay = document.getElementById('maskOutline');
-            container.insertBefore(newCanvas, svgOverlay);
+            container.appendChild(newCanvas);
             
             setupCanvasEvents(newCanvas);
             updateLayersList();
@@ -664,13 +681,12 @@
                     addLayer();
                     const targetCtx = layers[currentLayerIndex].ctx;
                     
-                    // Scale image to fit canvas
-                    const scale = Math.min(800 / img.width, 800 / img.height);
-                    const x = (800 - img.width * scale) / 2;
-                    const y = (800 - img.height * scale) / 2;
+                    // Scale image to fit 2000x2000 canvas
+                    const scale = Math.min(2000 / img.width, 2000 / img.height);
+                    const x = (2000 - img.width * scale) / 2;
+                    const y = (2000 - img.height * scale) / 2;
                     
                     targetCtx.drawImage(img, x, y, img.width * scale, img.height * scale);
-                    applyMaskToLayer(currentLayerIndex);
                     
                     layers[currentLayerIndex].name = `Image ${layers.length}`;
                     updateLayersList();
@@ -757,8 +773,8 @@
         function startDrawing(e) {
             isDrawing = true;
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 800 / rect.width;
-            const scaleY = 800 / rect.height;
+            const scaleX = 2000 / rect.width;
+            const scaleY = 2000 / rect.height;
             lastX = (e.clientX - rect.left) * scaleX;
             lastY = (e.clientY - rect.top) * scaleY;
         }
@@ -767,8 +783,8 @@
             if (!isDrawing || !canvas) return;
             
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 800 / rect.width;
-            const scaleY = 800 / rect.height;
+            const scaleX = 2000 / rect.width; // Changed from 800 to 2000
+            const scaleY = 2000 / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
             
@@ -788,9 +804,6 @@
             ctx.lineTo(x, y);
             ctx.stroke();
             
-            // Apply mask after each stroke
-            applyMask();
-            
             lastX = x;
             lastY = y;
         }
@@ -801,8 +814,8 @@
             e.preventDefault();
             const touch = e.touches[0];
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 800 / rect.width;
-            const scaleY = 800 / rect.height;
+            const scaleX = 2000 / rect.width;
+            const scaleY = 2000 / rect.height;
             isDrawing = true;
             lastX = (touch.clientX - rect.left) * scaleX;
             lastY = (touch.clientY - rect.top) * scaleY;
@@ -830,15 +843,15 @@
         
         function clearCanvas() {
             if (canvas && ctx) {
-                ctx.clearRect(0, 0, 800, 800);
+                ctx.clearRect(0, 0, 2000, 2000);
             }
         }
 
         function downloadMaskPNG() {
             // Merge all layers
             const mergeCanvas = document.createElement('canvas');
-            mergeCanvas.width = 800;
-            mergeCanvas.height = 800;
+            mergeCanvas.width = 2000;
+            mergeCanvas.height = 2000;
             const mergeCtx = mergeCanvas.getContext('2d');
             
             layers.forEach(layer => {
@@ -924,6 +937,12 @@
         }
 
         function toggleFullscreen() {}
+        
+        function toggleTools() {
+            const tools = document.getElementById('floatingTools');
+            tools.classList.toggle('collapsed');
+        }
+        
         function generateFrog() {
             // Stop any existing animation
             if (frogAnimationRunning) {
@@ -1055,38 +1074,42 @@
             
             // Create single canvas for composition
             const compCanvas = document.createElement('canvas');
-            compCanvas.width = 500;
-            compCanvas.height = 500;
+            compCanvas.width = 1000; // Match positioned mask size
+            compCanvas.height = 1000;
             frogDisplay.appendChild(compCanvas);
             
             const ctx = compCanvas.getContext('2d');
             
-            // Load frog sprites and draw them
+            // Load frog sprites and compose
             loadAndCompositeFrog(ctx, currentFrogTraits);
         }
         
         async function loadAndCompositeFrog(ctx, traits) {
             try {
-                // Load sprites
+                // Load frog sprites
                 const body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
                 const eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
                 const mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
                 const head = await loadImage(`${traitFolders.head.folder}/${traits.head}Head_sprite.avif`);
                 
-                // Draw frog (first frame, 500x500)
+                // Load positioned mask PNG
+                const positionedMask = await loadImage('mask-positioned.png');
+                
+                // Scale frog from 500x500 to 1000x1000 and draw
                 const drawSprite = (img, applyFilter) => {
                     if (applyFilter && traits.color.filter !== 'none') {
                         const temp = document.createElement('canvas');
-                        temp.width = 500;
-                        temp.height = 500;
+                        temp.width = 1000;
+                        temp.height = 1000;
                         const tempCtx = temp.getContext('2d');
-                        tempCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 500, 500);
+                        // Draw sprite scaled up from 500 to 1000
+                        tempCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
                         tempCtx.filter = traits.color.filter;
                         tempCtx.globalCompositeOperation = 'source-atop';
                         tempCtx.drawImage(temp, 0, 0);
                         ctx.drawImage(temp, 0, 0);
                     } else {
-                        ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 500, 500);
+                        ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
                     }
                 };
                 
@@ -1095,24 +1118,27 @@
                 drawSprite(eyes, true);
                 drawSprite(head, false);
                 
-                // Now overlay user's drawn mask
+                // Merge user's drawn layers
                 const maskCanvas = document.createElement('canvas');
-                maskCanvas.width = 800;
-                maskCanvas.height = 800;
+                maskCanvas.width = 2000;
+                maskCanvas.height = 2000;
                 const maskCtx = maskCanvas.getContext('2d');
                 
-                // Merge all layers from drawing
                 layers.forEach(layer => {
                     maskCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Scale mask from 800x800 to 500x500 and draw on top
-                ctx.drawImage(maskCanvas, 0, 0, 800, 800, 0, 0, 500, 500);
+                // Scale user drawing from 2000x2000 to 1000x1000 and draw
+                ctx.drawImage(maskCanvas, 0, 0, 2000, 2000, 0, 0, 1000, 1000);
+                
+                // Draw positioned mask PNG on top
+                ctx.drawImage(positionedMask, 0, 0, 1000, 1000);
                 
                 console.log('Composition complete!');
                 
             } catch (error) {
                 console.error('Error compositing:', error);
+                alert('Error: ' + error.message);
             }
         }
         function submitArtwork() { downloadMaskPNG(); }
@@ -1168,3 +1194,4 @@
     </script>
 </body>
 </html>
+                        <!-- FILE COMPLETE - LINE 1170 -->
