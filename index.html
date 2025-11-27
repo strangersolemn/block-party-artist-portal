@@ -307,7 +307,6 @@
                 <p style="color: #f9bad1; text-align: center; padding: 20px;">Click "Generate Frog" to create a random frog!</p>
             </div>
             <button class="action-btn" onclick="generateFrog()">🎲 Generate Frog</button>
-            <button class="action-btn" onclick="playMusic()">🎵 Play/Pause</button>
         </div>
 
         <div class="panel canvas-panel" id="canvasPanel">
@@ -1204,11 +1203,6 @@
             console.log('Music stopped');
         }
         
-        function playMusic() {
-            if (!samplesLoaded) { alert('Loading...'); return; }
-            isPlaying ? stopFullTrack() : startFullTrack();
-        }
-
         function previewCombination() { 
             startCatAnimation();
         }
@@ -1218,7 +1212,6 @@
             await loadMaskPath();
             await initCanvas();
             setupAudio();
-            loadSamples();
         });
         
         // Keyboard controls for manual positioning
