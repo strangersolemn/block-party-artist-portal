@@ -419,10 +419,10 @@
         let kickPlayer, clapPlayer, hatPlayer, finalPlayer;
         
         const sampleUrls = {
-            kick: 'https://www.ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0',
-            clap: 'https://www.ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0', 
-            hat: 'https://www.ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0',
-            final: 'https://www.ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0'
+            kick: 'https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0',
+            clap: 'https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0', 
+            hat: 'https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0',
+            final: 'https://ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0'
         };
 
         // Cat animation functions
@@ -1079,8 +1079,11 @@
                 
                 animateBackground();
                 
-                // Store kickHitIntensity trigger for music
-                sprites.triggerKick = () => { kickHitIntensity = 1.0; };
+                // Store kickHitIntensity trigger in traits for music to access
+                traits.triggerKick = () => { kickHitIntensity = 1.0; };
+                
+                // Store traits globally so music can access
+                currentFrogTraits = traits;
                 
                 // Draw first frame
                 drawFrogFrame(ctx, spriteImages, traits, 0);
