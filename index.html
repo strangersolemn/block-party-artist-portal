@@ -298,7 +298,7 @@
             }
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -1025,10 +1025,13 @@
                 drawFrogFrame(ctx, spriteImages, traits, 0);
                 
                 // Add click handler to start/stop animation + music
-                frogCanvas.onclick = () => {
+                frogCanvas.onclick = async () => {
+                    console.log('Frog clicked!');
                     if (frogAnimationRunning) {
+                        console.log('Stopping animation...');
                         stopFrogAnimation();
                     } else {
+                        console.log('Starting animation...');
                         startFrogAnimation(ctx, spriteImages, traits);
                     }
                 };
@@ -1125,6 +1128,13 @@
         // Music system
         function setupAudio() {
             try {
+                console.log('Setting up audio... Tone available?', typeof Tone !== 'undefined');
+                
+                if (typeof Tone === 'undefined') {
+                    console.error('Tone.js not loaded!');
+                    return;
+                }
+                
                 acidSynth = new Tone.MonoSynth({
                     oscillator: { type: "sawtooth" },
                     envelope: { attack: 0.01, decay: 0.4, sustain: 0.3, release: 0.4 }
@@ -1135,7 +1145,7 @@
                 acidSynth.chain(bassFilter, distortion, Tone.Destination);
                 acidSynth.volume.value = -10;
                 
-                console.log('Audio setup complete');
+                console.log('Audio setup complete!');
             } catch (error) {
                 console.error('Audio setup failed:', error);
             }
