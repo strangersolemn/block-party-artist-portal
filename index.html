@@ -61,13 +61,23 @@
             min-height: 0;
             position: relative;
             aspect-ratio: 1 / 1;
+            max-width: 100%;
+            max-height: 100%;
         }
 
-        .frog-display img {
-            width: 100%;
-            height: 100%;
+        .frog-display p {
+            color: #f9bad1;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .frog-display canvas {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
             object-fit: contain;
-            object-position: top left;
         }
 
         .action-btn {
@@ -983,12 +993,14 @@
             frogDisplay.style.alignItems = 'center';
             frogDisplay.style.justifyContent = 'center';
             
-            // Create canvas for sprite display
+            // Create canvas for sprite display - 500x500 for single frame
             const frogCanvas = document.createElement('canvas');
-            frogCanvas.width = 1000; // Single frame width
-            frogCanvas.height = 1000;
+            frogCanvas.width = 500; // Single frame width
+            frogCanvas.height = 500; // Single frame height
             frogCanvas.style.maxWidth = '100%';
             frogCanvas.style.maxHeight = '100%';
+            frogCanvas.style.width = '100%';
+            frogCanvas.style.height = '100%';
             frogCanvas.style.objectFit = 'contain';
             frogDisplay.appendChild(frogCanvas);
             
@@ -1015,35 +1027,34 @@
         
         function drawStaticFrog(ctx, sprites, traits) {
             // Clear canvas
-            ctx.clearRect(0, 0, 1000, 1000);
+            ctx.clearRect(0, 0, 500, 500);
             
-            // Use FIRST frame only (frameX = 0)
-            const frameX = 0;
+            // Extract ONLY the first frame from sprite sheet
+            // Sprite sheets are 1500px wide (3 frames × 500px each)
+            // We want frame 0: x=0, y=0, width=500, height=500
             
             // Draw each layer
             const drawSprite = (img, applyFilter) => {
                 if (applyFilter && traits.color.filter !== 'none') {
                     // Use temporary canvas for filtering
                     const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = 1000;
-                    tempCanvas.height = 1000;
+                    tempCanvas.width = 500;
+                    tempCanvas.height = 500;
                     const tempCtx = tempCanvas.getContext('2d');
                     
-                    // Draw sprite frame
-                    tempCtx.drawImage(img, frameX, 0, 1000, 1000, 0, 0, 1000, 1000);
+                    // Draw ONLY first frame: source (0, 0, 500, 500) to dest (0, 0, 500, 500)
+                    tempCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 500, 500);
                     
-                    // Apply filter by drawing over itself with filter
+                    // Apply filter
                     tempCtx.filter = traits.color.filter;
                     tempCtx.globalCompositeOperation = 'source-atop';
-                    const filteredImg = new Image();
-                    filteredImg.src = tempCanvas.toDataURL();
                     tempCtx.drawImage(tempCanvas, 0, 0);
                     
-                    // Draw filtered result
+                    // Draw filtered result to main canvas
                     ctx.drawImage(tempCanvas, 0, 0);
                 } else {
-                    // Draw directly without filter
-                    ctx.drawImage(img, frameX, 0, 1000, 1000, 0, 0, 1000, 1000);
+                    // Draw ONLY first frame directly: source (0, 0, 500, 500)
+                    ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 500, 500);
                 }
             };
             
