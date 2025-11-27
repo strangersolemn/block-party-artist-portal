@@ -60,8 +60,6 @@
             min-height: 0;
             position: relative;
             aspect-ratio: 1 / 1;
-            max-width: 100%;
-            max-height: 100%;
         }
 
         .frog-display p {
@@ -72,10 +70,8 @@
         }
         
         .frog-display canvas {
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;
-            height: auto;
+            width: 100%;
+            height: 100%;
             object-fit: contain;
         }
 
@@ -402,7 +398,7 @@
         let frogAnimationId = null;
         let frogFrameIndex = 0;
         let frogFrameTime = 0;
-        const frogFrameDuration = 1000 / 19; // 19 fps = ~52.6ms per frame
+        const frogFrameDuration = 1000 / 19; // 19 fps = 52.63ms per frame
 
         // Cat animation
         let catAnimationRunning = false;
@@ -420,6 +416,14 @@
 
         // Music variables (now initialized in setupAudio function)
         let acidSynth, bassFilter, isPlaying = false, currentStep = 0;
+        let kickPlayer, clapPlayer, hatPlayer, finalPlayer;
+        
+        const sampleUrls = {
+            kick: 'https://www.ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0',
+            clap: 'https://www.ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0', 
+            hat: 'https://www.ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0',
+            final: 'https://www.ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0'
+        };
 
         // Cat animation functions
         function startCatAnimation() {
@@ -978,13 +982,31 @@
             frogDisplay.style.justifyContent = 'center';
             frogDisplay.style.cursor = 'pointer';
             
-            // Create canvas for sprite animation
+            // Create background canvas for flowing lines
+            const bgCanvas = document.createElement('canvas');
+            bgCanvas.width = 500;
+            bgCanvas.height = 500;
+            bgCanvas.style.position = 'absolute';
+            bgCanvas.style.top = '0';
+            bgCanvas.style.left = '0';
+            bgCanvas.style.width = '100%';
+            bgCanvas.style.height = '100%';
+            bgCanvas.style.zIndex = '0';
+            frogDisplay.appendChild(bgCanvas);
+            
+            const bgCtx = bgCanvas.getContext('2d');
+            
+            // Create canvas for sprite animation (on top of background)
             const frogCanvas = document.createElement('canvas');
             frogCanvas.width = 500;
             frogCanvas.height = 500;
-            frogCanvas.style.maxWidth = '100%';
-            frogCanvas.style.maxHeight = '100%';
-            frogCanvas.style.objectFit = 'contain';
+            frogCanvas.style.position = 'absolute';
+            frogCanvas.style.top = '0';
+            frogCanvas.style.left = '0';
+            frogCanvas.style.width = '100%';
+            frogCanvas.style.height = '100%';
+            frogCanvas.style.zIndex = '1';
+            frogCanvas.style.cursor = 'pointer';
             frogDisplay.appendChild(frogCanvas);
             
             const ctx = frogCanvas.getContext('2d');
@@ -1003,6 +1025,62 @@
                 if (!acidSynth) {
                     setupAudio();
                 }
+                
+                // Setup background animation
+                let flowOffset = 0;
+                let kickHitIntensity = 0;
+                let lineColorState = false;
+                let lastColorFlip = 0;
+                const colorFlipInterval = 200;
+                const darkBlue = '#0066ff';
+                const lightBlue = '#66ccff';
+                
+                function animateBackground() {
+                    bgCtx.fillStyle = '#0a0a1b';
+                    bgCtx.fillRect(0, 0, 500, 500);
+                    
+                    flowOffset += 1.5;
+                    if (flowOffset > 20) flowOffset = 0;
+                    
+                    // Flash between colors when playing
+                    let currentLineColor = darkBlue;
+                    if (frogAnimationRunning) {
+                        if (Date.now() - lastColorFlip > colorFlipInterval) {
+                            lineColorState = !lineColorState;
+                            lastColorFlip = Date.now();
+                        }
+                        currentLineColor = lineColorState ? lightBlue : darkBlue;
+                    } else {
+                        currentLineColor = '#004499';
+                    }
+                    
+                    // Draw flowing lines
+                    for (let y = -20; y < 520; y += 20) {
+                        let actualY = y + flowOffset;
+                        let baseOffset = frogAnimationRunning ? Math.sin((y + flowOffset) * 0.1 + Date.now() * 0.002) * 10 : 0;
+                        
+                        let reactionOffset = 0;
+                        if (kickHitIntensity > 0 && frogAnimationRunning) {
+                            let rippleTime = Date.now() * 0.015;
+                            let rippleFreq = (y + flowOffset) * 0.08;
+                            let ripple = Math.sin(rippleFreq + rippleTime) * kickHitIntensity * 150;
+                            reactionOffset = ripple;
+                        }
+                        
+                        let totalOffset = baseOffset + reactionOffset;
+                        
+                        bgCtx.fillStyle = currentLineColor;
+                        bgCtx.fillRect(totalOffset, actualY, 500, 3);
+                    }
+                    
+                    kickHitIntensity *= 0.92;
+                    requestAnimationFrame(animateBackground);
+                }
+                
+                animateBackground();
+                
+                // Store kickHitIntensity trigger for music
+                sprites.triggerKick = () => { kickHitIntensity = 1.0; };
                 
                 // Draw first frame
                 drawFrogFrame(ctx, spriteImages, traits, 0);
@@ -1109,7 +1187,7 @@
         }
         
         // Music system
-        function setupAudio() {
+        async function setupAudio() {
             try {
                 console.log('Setting up audio... Tone available?', typeof Tone !== 'undefined');
                 
@@ -1118,6 +1196,23 @@
                     return;
                 }
                 
+                // Load drum samples
+                kickPlayer = new Tone.Player(sampleUrls.kick).toDestination();
+                kickPlayer.volume.value = -5;
+                
+                clapPlayer = new Tone.Player(sampleUrls.clap).toDestination();
+                clapPlayer.volume.value = -8;
+                
+                hatPlayer = new Tone.Player(sampleUrls.hat).toDestination();
+                hatPlayer.volume.value = -12;
+                
+                finalPlayer = new Tone.Player(sampleUrls.final).toDestination();
+                finalPlayer.volume.value = 10;
+                finalPlayer.playbackRate = 0.95;
+                
+                await Tone.loaded();
+                
+                // Setup synth
                 acidSynth = new Tone.MonoSynth({
                     oscillator: { type: "sawtooth" },
                     envelope: { attack: 0.01, decay: 0.4, sustain: 0.3, release: 0.4 }
@@ -1181,7 +1276,46 @@
                             
                             bassFilter.frequency.setValueAtTime(finalCutoff, time);
                             bassFilter.Q.setValueAtTime(resonanceValue, time);
+                            
+                            // Trigger visual kick on bassline hit
+                            if (currentFrogTraits && currentFrogTraits.triggerKick) {
+                                currentFrogTraits.triggerKick();
+                            }
                         }
+                    }
+                    
+                    // DRUMS
+                    let isFirstHalf = barCount < 8;
+                    
+                    if (isFirstHalf) {
+                        if (stepIn16 % 4 === 0) {
+                            kickPlayer.start(time);
+                        }
+                    } else {
+                        if (barCount === 8 && stepIn16 === 0) {
+                            kickPlayer.start(time);
+                        }
+                    }
+                    
+                    if (barCount === 0 && stepIn16 === 2) {
+                        kickPlayer.start(time);
+                    }
+                    
+                    if (barCount === 15 && (stepIn16 >= 12)) {
+                        clapPlayer.start(time);
+                    }
+                    
+                    if (stepIn16 % 8 === 4 && !(barCount === 15 && stepIn16 >= 12)) {
+                        clapPlayer.start(time);
+                    }
+                    
+                    if (stepIn16 % 4 === 2) {
+                        hatPlayer.start(time);
+                    }
+                    
+                    // Final sound on 16th bar 13th step only
+                    if (barCount === 15 && stepIn16 === 12) {
+                        finalPlayer.start(time);
                     }
                     
                     currentStep++;
