@@ -399,9 +399,10 @@
         // Trait system for frog generation
         const traitFolders = {
             body: { folder: 'Body_sprites', count: 1, colorFilter: true },
-            eyes: { folder: 'Eyes_sprites', count: 19, colorFilter: true },
+            eyes: { folder: 'Eyes_sprites', count: 20, colorFilter: true },
             mouth: { folder: 'Mouth_sprites', count: 2, colorFilter: false },
-            head: { folder: 'Head_sprites', count: 35, colorFilter: false }
+            head: { folder: 'Head_sprites', count: 35, colorFilter: false },
+            clothing: { folder: 'Clothing_sprites', count: 12, colorFilter: false }
         };
         
         const colorVariants = [
@@ -973,6 +974,7 @@
                 eyes: Math.floor(Math.random() * traitFolders.eyes.count) + 1,
                 mouth: Math.floor(Math.random() * traitFolders.mouth.count) + 1,
                 head: Math.floor(Math.random() * traitFolders.head.count) + 1,
+                clothing: Math.floor(Math.random() * traitFolders.clothing.count) + 1,
                 color: selectedColor
             };
             
@@ -1006,6 +1008,7 @@
                 spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
                 spriteImages.mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
                 spriteImages.head = await loadImage(`${traitFolders.head.folder}/${traits.head}Head_sprite.avif`);
+                spriteImages.clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
                 
                 console.log('All sprites loaded');
                 
@@ -1051,6 +1054,7 @@
             drawSprite(sprites.body, true);
             drawSprite(sprites.mouth, false);
             drawSprite(sprites.eyes, true);
+            drawSprite(sprites.clothing, false);
             drawSprite(sprites.head, false);
         }
         
@@ -1091,6 +1095,7 @@
                 const eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
                 const mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
                 const head = await loadImage(`${traitFolders.head.folder}/${traits.head}Head_sprite.avif`);
+                const clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
                 
                 // Load positioned mask PNG
                 const positionedMask = await loadImage('mask-positioned.png');
@@ -1116,6 +1121,7 @@
                 drawSprite(body, true);
                 drawSprite(mouth, false);
                 drawSprite(eyes, true);
+                drawSprite(clothing, false);
                 drawSprite(head, false);
                 
                 // Merge user's drawn layers
