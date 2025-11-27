@@ -1043,8 +1043,76 @@
                 img.src = url;
             });
         
-        function previewCombination() { 
-            startCatAnimation();
+        function previewCombination() {
+            if (!currentFrogTraits) {
+                alert('Generate a frog first!');
+                return;
+            }
+            
+            const frogDisplay = document.querySelector('.frog-display');
+            frogDisplay.innerHTML = '';
+            
+            // Create single canvas for composition
+            const compCanvas = document.createElement('canvas');
+            compCanvas.width = 500;
+            compCanvas.height = 500;
+            frogDisplay.appendChild(compCanvas);
+            
+            const ctx = compCanvas.getContext('2d');
+            
+            // Load frog sprites and draw them
+            loadAndCompositeFrog(ctx, currentFrogTraits);
+        }
+        
+        async function loadAndCompositeFrog(ctx, traits) {
+            try {
+                // Load sprites
+                const body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
+                const eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
+                const mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
+                const head = await loadImage(`${traitFolders.head.folder}/${traits.head}Head_sprite.avif`);
+                
+                // Draw frog (first frame, 500x500)
+                const drawSprite = (img, applyFilter) => {
+                    if (applyFilter && traits.color.filter !== 'none') {
+                        const temp = document.createElement('canvas');
+                        temp.width = 500;
+                        temp.height = 500;
+                        const tempCtx = temp.getContext('2d');
+                        tempCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 500, 500);
+                        tempCtx.filter = traits.color.filter;
+                        tempCtx.globalCompositeOperation = 'source-atop';
+                        tempCtx.drawImage(temp, 0, 0);
+                        ctx.drawImage(temp, 0, 0);
+                    } else {
+                        ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 500, 500);
+                    }
+                };
+                
+                drawSprite(body, true);
+                drawSprite(mouth, false);
+                drawSprite(eyes, true);
+                drawSprite(head, false);
+                
+                // Now overlay user's drawn mask
+                const maskCanvas = document.createElement('canvas');
+                maskCanvas.width = 800;
+                maskCanvas.height = 800;
+                const maskCtx = maskCanvas.getContext('2d');
+                
+                // Merge all layers from drawing
+                layers.forEach(layer => {
+                    maskCtx.drawImage(layer.canvas, 0, 0);
+                });
+                
+                // Scale mask from 800x800 to 500x500 and draw on top
+                ctx.drawImage(maskCanvas, 0, 0, 800, 800, 0, 0, 500, 500);
+                
+                console.log('Composition complete!');
+                
+            } catch (error) {
+                console.error('Error compositing:', error);
+            }
         }
         function submitArtwork() { downloadMaskPNG(); }
 
