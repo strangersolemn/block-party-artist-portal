@@ -107,11 +107,12 @@
 
         .canvas-container {
             position: relative;
-            width: 600px;
-            height: 600px;
-            max-width: 90%;
-            max-height: 90%;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
             aspect-ratio: 1 / 1;
+            margin: auto;
         }
 
         #maskCanvas {
@@ -1098,8 +1099,7 @@
                 const head = await loadImage(`${traitFolders.head.folder}/${traits.head}head_sprite.avif`);
                 const clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
                 
-                // Load positioned mask and cat outline PNGs
-                const positionedMask = await loadImage('mask-positioned.png');
+                // Load cat outline PNG
                 const catOutline = await loadImage('cat-outline.png');
                 
                 // Scale frog from 500x500 to 1000x1000 and draw
@@ -1120,14 +1120,12 @@
                     }
                 };
                 
+                // Draw frog layers
                 drawSprite(body, true);
                 drawSprite(mouth, false);
                 drawSprite(eyes, true);
                 drawSprite(clothing, false);
                 drawSprite(head, false);
-                
-                // Draw positioned mask PNG (the black silhouette for behind user's art)
-                ctx.drawImage(positionedMask, 0, 0, 1000, 1000);
                 
                 // Merge user's drawn layers
                 const maskCanvas = document.createElement('canvas');
@@ -1139,7 +1137,7 @@
                     maskCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Scale user drawing from 2000x2000 to 1000x1000 and draw ON TOP of positioned mask
+                // Scale user drawing from 2000x2000 to 1000x1000 and draw
                 ctx.drawImage(maskCanvas, 0, 0, 2000, 2000, 0, 0, 1000, 1000);
                 
                 // Draw cat outline on TOP of everything
