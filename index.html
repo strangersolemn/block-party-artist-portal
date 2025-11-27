@@ -298,6 +298,7 @@
             }
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -992,15 +993,14 @@
             frogDisplay.style.display = 'flex';
             frogDisplay.style.alignItems = 'center';
             frogDisplay.style.justifyContent = 'center';
+            frogDisplay.style.cursor = 'pointer';
             
-            // Create canvas for sprite display - 500x500 for single frame
+            // Create canvas for sprite animation
             const frogCanvas = document.createElement('canvas');
-            frogCanvas.width = 500; // Single frame width
-            frogCanvas.height = 500; // Single frame height
+            frogCanvas.width = 500;
+            frogCanvas.height = 500;
             frogCanvas.style.maxWidth = '100%';
             frogCanvas.style.maxHeight = '100%';
-            frogCanvas.style.width = '100%';
-            frogCanvas.style.height = '100%';
             frogCanvas.style.objectFit = 'contain';
             frogDisplay.appendChild(frogCanvas);
             
@@ -1016,8 +1016,22 @@
                 
                 console.log('All sprites loaded');
                 
-                // Draw STATIC frog (first frame only, no animation)
-                drawStaticFrog(ctx, spriteImages, traits);
+                // Setup audio
+                if (!acidSynth) {
+                    setupAudio();
+                }
+                
+                // Draw first frame
+                drawFrogFrame(ctx, spriteImages, traits, 0);
+                
+                // Add click handler to start/stop animation + music
+                frogCanvas.onclick = () => {
+                    if (frogAnimationRunning) {
+                        stopFrogAnimation();
+                    } else {
+                        startFrogAnimation(ctx, spriteImages, traits);
+                    }
+                };
                 
             } catch (error) {
                 console.error('Error loading sprites:', error);
@@ -1025,46 +1039,78 @@
             }
         }
         
-        function drawStaticFrog(ctx, sprites, traits) {
+        function drawFrogFrame(ctx, sprites, traits, frameIndex) {
             // Clear canvas
             ctx.clearRect(0, 0, 500, 500);
             
-            // Extract ONLY the first frame from sprite sheet
-            // Sprite sheets are 1500px wide (3 frames × 500px each)
-            // We want frame 0: x=0, y=0, width=500, height=500
+            // Calculate source X position for current frame (0, 500, or 1000)
+            const frameX = frameIndex * 500;
             
             // Draw each layer
             const drawSprite = (img, applyFilter) => {
                 if (applyFilter && traits.color.filter !== 'none') {
-                    // Use temporary canvas for filtering
                     const tempCanvas = document.createElement('canvas');
                     tempCanvas.width = 500;
                     tempCanvas.height = 500;
                     const tempCtx = tempCanvas.getContext('2d');
                     
-                    // Draw ONLY first frame: source (0, 0, 500, 500) to dest (0, 0, 500, 500)
-                    tempCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 500, 500);
+                    // Draw current frame
+                    tempCtx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
                     
                     // Apply filter
                     tempCtx.filter = traits.color.filter;
                     tempCtx.globalCompositeOperation = 'source-atop';
                     tempCtx.drawImage(tempCanvas, 0, 0);
                     
-                    // Draw filtered result to main canvas
                     ctx.drawImage(tempCanvas, 0, 0);
                 } else {
-                    // Draw ONLY first frame directly: source (0, 0, 500, 500)
-                    ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 500, 500);
+                    ctx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
                 }
             };
             
             // Draw layers bottom to top
-            drawSprite(sprites.body, true);  // Body with color filter
-            drawSprite(sprites.mouth, false); // Mouth no filter
-            drawSprite(sprites.eyes, true);   // Eyes with same color filter as body
-            drawSprite(sprites.head, false);  // Head no filter
+            drawSprite(sprites.body, true);
+            drawSprite(sprites.mouth, false);
+            drawSprite(sprites.eyes, true);
+            drawSprite(sprites.head, false);
+        }
+        
+        function startFrogAnimation(ctx, sprites, traits) {
+            frogAnimationRunning = true;
+            frogFrameIndex = 0;
+            frogFrameTime = performance.now();
             
-            console.log('Static frog drawn with color:', traits.color.name);
+            // Start music
+            startMusicTrack();
+            
+            // Animation loop
+            function animate() {
+                if (!frogAnimationRunning) return;
+                
+                const now = performance.now();
+                const elapsed = now - frogFrameTime;
+                
+                // Advance frame every ~52.6ms (19fps)
+                if (elapsed >= frogFrameDuration) {
+                    frogFrameIndex = (frogFrameIndex + 1) % 3; // Loop 0,1,2
+                    frogFrameTime = now;
+                    
+                    // Draw current frame
+                    drawFrogFrame(ctx, sprites, traits, frogFrameIndex);
+                }
+                
+                frogAnimationId = requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+        
+        function stopFrogAnimation() {
+            frogAnimationRunning = false;
+            if (frogAnimationId) {
+                cancelAnimationFrame(frogAnimationId);
+            }
+            stopMusicTrack();
         }
         
         function loadImage(url) {
@@ -1074,6 +1120,94 @@
                 img.onerror = () => reject(new Error(`Failed to load: ${url}`));
                 img.src = url;
             });
+        }
+        
+        // Music system
+        function setupAudio() {
+            try {
+                acidSynth = new Tone.MonoSynth({
+                    oscillator: { type: "sawtooth" },
+                    envelope: { attack: 0.01, decay: 0.4, sustain: 0.3, release: 0.4 }
+                });
+
+                bassFilter = new Tone.Filter({ type: "lowpass", frequency: 250, Q: 22 });
+                const distortion = new Tone.Distortion(0.3);
+                acidSynth.chain(bassFilter, distortion, Tone.Destination);
+                acidSynth.volume.value = -10;
+                
+                console.log('Audio setup complete');
+            } catch (error) {
+                console.error('Audio setup failed:', error);
+            }
+        }
+        
+        // Strudel bassline pattern
+        const strudelPattern = [
+            { note: 'c2', play: true },
+            { note: null, play: false },
+            { note: null, play: true },
+            { note: 'b2', play: true },
+            { note: null, play: true },
+            { note: 'ab3', play: true },
+            { note: null, play: false },
+            { note: 'bb1', play: true },
+            { note: null, play: false },
+            { note: 'c2', play: true },
+            { note: 'd4', play: true },
+            { note: null, play: true },
+            { note: 'ab1', play: false },
+            { note: null, play: false },
+            { note: 'eb2', play: true },
+            { note: null, play: true }
+        ];
+        
+        async function startMusicTrack() {
+            try {
+                await Tone.start();
+                
+                isPlaying = true;
+                currentStep = 0;
+                
+                Tone.Transport.bpm.value = 123;
+                
+                Tone.Transport.scheduleRepeat((time) => {
+                    let step = strudelPattern[currentStep % strudelPattern.length];
+                    let stepIn16 = currentStep % 16;
+                    let barCount = Math.floor(currentStep / 16) % 16;
+                    
+                    // BASSLINE
+                    if (step.play && step.note) {
+                        if (!(barCount === 15 && stepIn16 >= 9)) {
+                            acidSynth.triggerAttackRelease(step.note, "16n", time, 0.8);
+                            
+                            let progress = barCount / 15;
+                            let cutoffFreq = 200 + (progress * 400);
+                            let resonanceValue = 2 + (progress * 2.25);
+                            let baseMovement = Math.sin(time * 0.5) * 50;
+                            let finalCutoff = cutoffFreq + baseMovement;
+                            
+                            bassFilter.frequency.setValueAtTime(finalCutoff, time);
+                            bassFilter.Q.setValueAtTime(resonanceValue, time);
+                        }
+                    }
+                    
+                    currentStep++;
+                    
+                }, "16n");
+                
+                Tone.Transport.start();
+                console.log('Music started');
+                
+            } catch (error) {
+                console.error('Failed to start music:', error);
+            }
+        }
+
+        function stopMusicTrack() {
+            isPlaying = false;
+            Tone.Transport.stop();
+            Tone.Transport.cancel();
+            console.log('Music stopped');
         }
         
         function playMusic() {
