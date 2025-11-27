@@ -374,7 +374,7 @@
             <div class="canvas-wrapper">
                 <div class="canvas-container" id="canvasContainer">
                     <img src="mask-centered.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; object-fit: contain;">
-                    <img src="cat-outline.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; object-fit: contain;">
+                    <img src="cat-outline-centered.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; object-fit: contain;">
                 </div>
             </div>
         </div>
@@ -1099,8 +1099,9 @@
                 const head = await loadImage(`${traitFolders.head.folder}/${traits.head}head_sprite.avif`);
                 const clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
                 
-                // Load cat outline PNG
-                const catOutline = await loadImage('cat-outline.png');
+                // Load cat images
+                const catFull = await loadImage('cat-full.png');
+                const catOutline = await loadImage('cat-outline-positioned.png');
                 
                 // Scale frog from 500x500 to 1000x1000 and draw
                 const drawSprite = (img, applyFilter) => {
@@ -1127,6 +1128,9 @@
                 drawSprite(clothing, false);
                 drawSprite(head, false);
                 
+                // Draw full cat image (behind the mask area)
+                ctx.drawImage(catFull, 0, 0, 1000, 1000);
+                
                 // Merge user's drawn layers
                 const maskCanvas = document.createElement('canvas');
                 maskCanvas.width = 2000;
@@ -1137,10 +1141,10 @@
                     maskCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Scale user drawing from 2000x2000 to 1000x1000 and draw
+                // Scale user drawing from 2000x2000 to 1000x1000 and draw ON TOP of cat
                 ctx.drawImage(maskCanvas, 0, 0, 2000, 2000, 0, 0, 1000, 1000);
                 
-                // Draw cat outline on TOP of everything
+                // Draw positioned cat outline on TOP of everything
                 ctx.drawImage(catOutline, 0, 0, 1000, 1000);
                 
                 console.log('Composition complete!');
