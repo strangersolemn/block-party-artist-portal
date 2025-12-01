@@ -716,42 +716,50 @@
             layerCtx.putImageData(imageData, 0, 0);
         }
 
-        // Load mask and create clipping region
-        let maskPath2D = null;
+        // Load mask and create clipping region using PNG
+        let maskImageData = null;
         
         async function loadMaskPath() {
             try {
-                const response = await fetch('mask-fill.svg');
-                const svgText = await response.text();
-                const parser = new DOMParser();
-                const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-                const pathElement = svgDoc.querySelector('path');
+                // Load mask-centered.png and create pixel mask
+                const maskImg = new Image();
+                maskImg.src = 'mask-centered.png';
                 
-                if (pathElement) {
-                    const pathData = pathElement.getAttribute('d');
-                    
-                    // Store the path for clipping during drawing
-                    maskPath2D = new Path2D(pathData);
-                    
-                    // Create offscreen canvas to render mask for pixel checking
-                    const maskCanvas = document.createElement('canvas');
-                    maskCanvas.width = 2000;
-                    maskCanvas.height = 2000;
-                    const maskCtx = maskCanvas.getContext('2d');
-                    
-                    // Scale from 8000 to 2000
-                    maskCtx.scale(0.25, 0.25);
-                    maskCtx.fillStyle = 'white';
-                    maskCtx.fill(maskPath2D);
-                    
-                    // Get mask image data
-                    maskImageData = maskCtx.getImageData(0, 0, 2000, 2000);
-                    
-                    console.log('Mask loaded successfully');
-                }
+                await new Promise((resolve, reject) => {
+                    maskImg.onload = resolve;
+                    maskImg.onerror = reject;
+                });
+                
+                // Create canvas to read mask pixels (scaled to 2000x2000)
+                const maskCanvas = document.createElement('canvas');
+                maskCanvas.width = 2000;
+                maskCanvas.height = 2000;
+                const maskCtx = maskCanvas.getContext('2d');
+                
+                // Draw mask scaled from 8000 to 2000
+                maskCtx.drawImage(maskImg, 0, 0, 2000, 2000);
+                
+                // Get pixel data - we'll use alpha channel to determine if point is inside mask
+                maskImageData = maskCtx.getImageData(0, 0, 2000, 2000);
+                
+                console.log('Mask loaded successfully from PNG');
             } catch (error) {
                 console.error('Error loading mask:', error);
             }
+        }
+        
+        // Check if a point is inside the mask
+        function isInsideMask(x, y) {
+            if (!maskImageData) return true; // Allow drawing if mask not loaded
+            
+            const ix = Math.floor(x);
+            const iy = Math.floor(y);
+            
+            if (ix < 0 || ix >= 2000 || iy < 0 || iy >= 2000) return false;
+            
+            // Get alpha value at this pixel (every 4th value starting at index 3)
+            const index = (iy * 2000 + ix) * 4 + 3;
+            return maskImageData.data[index] > 128; // Inside mask if alpha > 128
         }
 
         // Apply mask to canvas
@@ -790,18 +798,16 @@
             if (!isDrawing || !canvas) return;
             
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 2000 / rect.width; // Changed from 800 to 2000
+            const scaleX = 2000 / rect.width;
             const scaleY = 2000 / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
             
-            ctx.save();
-            
-            // Apply clipping to mask shape
-            if (maskPath2D) {
-                ctx.scale(0.25, 0.25); // Scale from 8000 to 2000
-                ctx.clip(maskPath2D);
-                ctx.scale(4, 4); // Scale back
+            // Only draw if inside the mask
+            if (!isInsideMask(x, y)) {
+                lastX = x;
+                lastY = y;
+                return;
             }
             
             ctx.lineWidth = brushSize;
@@ -819,8 +825,6 @@
             ctx.moveTo(lastX, lastY);
             ctx.lineTo(x, y);
             ctx.stroke();
-            
-            ctx.restore();
             
             lastX = x;
             lastY = y;
@@ -1156,24 +1160,21 @@
                     maskCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // FIXED: User drawing is CENTERED in 2000x2000, but cat is in BOTTOM-LEFT of 1000x1000
-                // From cat-outline-2 SVG: cat image is 286x301 at position (0, 699) in 1000x1000
-                // From mask-fill.svg: mask is centered in 8000x8000 space
+                // EXACT COORDINATES from image analysis:
+                // Drawing canvas (2000x2000): mask at left=519, right=1480, top=296, bottom=1639
+                // Preview (1000x1000): cat outline at left=0, right=314, top=697, bottom=1000
                 
-                // The mask in 2000x2000 is centered, roughly at x:500-1500, y:300-1700
-                // We need to extract this and place it at x:0-286, y:699-1000 in the preview
+                // Source region (mask area in 2000x2000 drawing)
+                const srcX = 519;
+                const srcY = 296;
+                const srcW = 961;   // 1480 - 519
+                const srcH = 1343;  // 1639 - 296
                 
-                // Source region (where the mask content is in 2000x2000)
-                const srcX = 450;   // Left edge of mask content
-                const srcY = 250;   // Top edge of mask content  
-                const srcW = 1100;  // Width of mask content
-                const srcH = 1500;  // Height of mask content
-                
-                // Destination (where cat is in 1000x1000 preview)
-                const dstX = -15;   // Slight adjustment left
-                const dstY = 680;   // Top of cat area
-                const dstW = 300;   // Width to match cat
-                const dstH = 410;   // Height to match cat (extends past bottom)
+                // Destination (cat outline area in 1000x1000 preview)
+                const dstX = 0;
+                const dstY = 697;
+                const dstW = 314;
+                const dstH = 303;
                 
                 ctx.drawImage(maskCanvas, 
                     srcX, srcY, srcW, srcH,  // Source: mask region from drawing
