@@ -101,9 +101,12 @@
 
         .canvas-container {
             position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: min(100%, calc(100vh - 200px));
+            max-height: min(100%, calc(100vh - 200px));
             aspect-ratio: 1 / 1;
-            max-width: 100%;
-            max-height: 100%;
+            margin: auto;
         }
 
         /* Drawing canvas - stacked layers */
@@ -286,7 +289,10 @@
 
             <div class="canvas-wrapper">
                 <div class="canvas-container" id="canvasContainer">
-                    <!-- Layers added by JS -->
+                    <!-- Static background and overlay -->
+                    <img src="mask-centered.png" id="maskBgImg" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0;">
+                    <!-- Drawing canvas added by JS -->
+                    <img src="cat-outline-centered.png" id="outlineImg" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:100;">
                 </div>
             </div>
         </div>
@@ -337,20 +343,17 @@
 
         async function initDrawingCanvas() {
             const container = document.getElementById('canvasContainer');
-            container.innerHTML = ''; // Clear any existing content
             
-            // 1. Background mask image (shows where user can draw)
-            const maskBgImg = document.createElement('img');
-            maskBgImg.src = 'mask-centered.png';
-            maskBgImg.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0;';
-            container.appendChild(maskBgImg);
-            
-            // 2. Drawing canvas (where user draws)
+            // Create drawing canvas and insert between background and outline
             drawingCanvas = document.createElement('canvas');
             drawingCanvas.width = CANVAS_SIZE;
             drawingCanvas.height = CANVAS_SIZE;
-            drawingCanvas.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; cursor:crosshair; z-index:1;';
-            container.appendChild(drawingCanvas);
+            drawingCanvas.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; cursor:crosshair; z-index:50;';
+            
+            // Insert before the outline image
+            const outlineImg = document.getElementById('outlineImg');
+            container.insertBefore(drawingCanvas, outlineImg);
+            
             drawingCtx = drawingCanvas.getContext('2d');
             
             // Setup drawing events
@@ -361,12 +364,6 @@
             drawingCanvas.addEventListener('touchstart', handleTouchStart, { passive: false });
             drawingCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
             drawingCanvas.addEventListener('touchend', stopDrawing);
-            
-            // 3. Cat outline overlay (whiskers visible on top)
-            const outlineImg = document.createElement('img');
-            outlineImg.src = 'cat-outline-centered.png';
-            outlineImg.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:100;';
-            container.appendChild(outlineImg);
             
             console.log('Drawing canvas initialized');
         }
