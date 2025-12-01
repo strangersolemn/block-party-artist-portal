@@ -624,27 +624,28 @@
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
                 // 3. Draw user's mask art - REPOSITIONED from centered to bottom-left
-                // EXACT COORDINATES:
-                // User draws in 2000x2000 canvas, mask is centered at:
-                //   x: 532-1468, y: 312-1633 (size: 936 x 1321)
-                // Cat in 1000x1000 preview is at:
-                //   x: 0-377, y: 621-1000 (size: 377 x 379)
+                // The drawing canvas is 2000x2000, displaying an 8000x8000 coordinate space
+                // The mask-centered.png shows the mask in the CENTER of the 8000x8000 space
+                // The cat-outline-positioned.png shows the cat in BOTTOM-LEFT of 1000x1000
                 
-                // Extract the mask region from centered drawing and place in bottom-left
-                const srcX = 532;           // Left edge of mask in 2000x2000
-                const srcY = 312;           // Top edge of mask in 2000x2000
-                const srcW = 936;           // Width of mask area
-                const srcH = 1321;          // Height of mask area
+                // SIMPLE APPROACH: Scale the entire 2000x2000 drawing to fit in bottom-left
+                // Cat outline bounding box: x=0-315, y=696-1000 (315x304)
+                // But we need to match the mask shape, not cat outline
                 
-                const dstX = 0;             // Left edge of cat in 1000x1000
-                const dstY = 621;           // Top edge of cat in 1000x1000
-                const dstW = 377;           // Width of cat area
-                const dstH = 379;           // Height of cat area
+                // The mask in 8000x8000 is roughly centered, taking up about 47% width, 66% height
+                // Scale factor from drawing (2000) to preview (1000) = 0.5
+                // But we also need to reposition from center to bottom-left
+                
+                // Cat face area in preview: approximately x=-50 to 350, y=550 to 1050
+                // Scale drawing to ~40% and position in bottom-left
+                const scale = 0.175;  // Scale drawing down significantly
+                const offsetX = -80;  // Shift left 
+                const offsetY = 470;  // Shift down to bottom
                 
                 ctx.drawImage(
                     drawingCanvas,
-                    srcX, srcY, srcW, srcH,  // Source: mask region from centered drawing
-                    dstX, dstY, dstW, dstH   // Dest: cat position in preview
+                    0, 0, 2000, 2000,  // Full source
+                    offsetX, offsetY, 2000 * scale, 2000 * scale  // Scaled and positioned
                 );
                 
                 // 4. Draw cat outline on top
