@@ -59,7 +59,6 @@
             margin-bottom: 12px;
             min-height: 0;
             position: relative;
-            aspect-ratio: 1 / 1;
         }
 
         .frog-display p {
@@ -67,12 +66,6 @@
             text-align: center;
             padding: 20px;
             font-size: 0.95rem;
-        }
-        
-        .frog-display canvas {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
         }
 
         .action-btn {
@@ -94,6 +87,7 @@
             transform: translateY(-1px);
         }
 
+        /* DRAWING PANEL - SIMPLE APPROACH */
         .canvas-wrapper {
             flex: 1;
             display: flex;
@@ -107,26 +101,12 @@
 
         .canvas-container {
             position: relative;
-            width: 100%;
-            height: 100%;
+            aspect-ratio: 1 / 1;
             max-width: 100%;
             max-height: 100%;
-            aspect-ratio: 1 / 1;
-            margin: auto;
         }
 
-        #maskCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            cursor: crosshair;
-            object-fit: contain;
-            object-position: top left;
-        }
-
-        /* Style for all layer canvases */
+        /* Drawing canvas - stacked layers */
         .canvas-container canvas {
             position: absolute;
             top: 0;
@@ -136,20 +116,21 @@
             cursor: crosshair;
         }
 
-        .svg-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+        .canvas-container .mask-bg {
+            z-index: 0;
             pointer-events: none;
-            z-index: 100;
-            opacity: 1;
-            filter: brightness(1.5);
-            object-fit: contain;
-            object-position: top left;
         }
 
+        .canvas-container .drawing-layer {
+            z-index: 1;
+        }
+
+        .canvas-container .outline-overlay {
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        /* Floating tools */
         .floating-tools {
             position: absolute;
             top: 15px;
@@ -162,27 +143,6 @@
             max-height: calc(100% - 30px);
             overflow-y: auto;
             z-index: 200;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-            transition: width 0.3s, height 0.3s;
-        }
-        
-        .floating-tools.collapsed {
-            width: 50px;
-            height: 50px;
-            overflow: hidden;
-            cursor: pointer;
-        }
-        
-        .floating-tools.collapsed * {
-            display: none;
-        }
-        
-        .floating-tools.collapsed::before {
-            content: "🎨";
-            display: block;
-            font-size: 24px;
-            text-align: center;
-            line-height: 20px;
         }
 
         .floating-tools h3 {
@@ -237,59 +197,11 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s;
             font-size: 0.85rem;
         }
 
         .tool-btn:hover {
             background: #3d6a40;
-        }
-
-        .layer-item {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 8px;
-            margin: 5px 0;
-            border-radius: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-            cursor: pointer;
-        }
-
-        .layer-item.active {
-            background: rgba(46, 81, 48, 0.4);
-            border: 1px solid #2e5130;
-        }
-
-        .layer-item button {
-            background: #ef4d99;
-            border: none;
-            padding: 3px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            color: white;
-            font-size: 0.7rem;
-        }
-
-        .fullscreen-btn {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(10, 10, 27, 0.95);
-            border: 2px solid #2e5130;
-            color: #2e5130;
-            padding: 10px 15px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 1.2rem;
-            transition: all 0.3s;
-            z-index: 99;
-        }
-
-        .fullscreen-btn:hover {
-            background: #2e5130;
-            color: white;
         }
 
         .footer-controls {
@@ -306,6 +218,13 @@
             font-size: 1.1rem;
         }
 
+        /* Preview composition */
+        .preview-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
         @media (max-width: 1024px) {
             .app-container {
                 grid-template-columns: 1fr;
@@ -317,28 +236,21 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- LEFT PANEL: Frog Preview -->
         <div class="panel">
             <h2>Your Frog</h2>
-            <div class="frog-display">
-                <p style="color: #f9bad1; text-align: center; padding: 20px;">Click "Generate Frog" to create a random frog!</p>
+            <div class="frog-display" id="frogDisplay">
+                <p>Click "Generate Frog" to create a random frog!</p>
             </div>
             <button class="action-btn" onclick="generateFrog()">🎲 Generate Frog</button>
         </div>
 
-        <div class="panel canvas-panel" id="canvasPanel">
-            <h2>Your Mask</h2>
-            <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+        <!-- RIGHT PANEL: Drawing Canvas -->
+        <div class="panel">
+            <h2>Draw Your Mask</h2>
             
-            <div class="floating-tools" id="floatingTools">
-                <h3>Tools <button onclick="toggleTools()" style="float:right; background:none; border:none; cursor:pointer; font-size:16px;">−</button></h3>
-                
-                <div class="tool-group">
-                    <label>Layers</label>
-                    <div id="layersList"></div>
-                    <button class="tool-btn" onclick="addLayer()">+ Add Layer</button>
-                    <button class="tool-btn" onclick="document.getElementById('imageUpload').click()">📁 Upload Image</button>
-                    <input type="file" id="imageUpload" accept="image/*" onchange="uploadImage(event)" style="display:none">
-                </div>
+            <div class="floating-tools">
+                <h3>Tools</h3>
                 
                 <div class="tool-group">
                     <label>Colors</label>
@@ -359,365 +271,121 @@
                 </div>
 
                 <div class="tool-group">
-                    <label>Brush: <span id="brushSizeValue">10</span>px</label>
-                    <input type="range" min="1" max="50" value="10" id="brushSize" oninput="updateBrushSize(this.value)">
+                    <label>Brush: <span id="brushSizeValue">15</span>px</label>
+                    <input type="range" min="1" max="80" value="15" id="brushSize" 
+                           oninput="brushSize = this.value; document.getElementById('brushSizeValue').textContent = this.value;"
+                           style="width: 100%;">
                 </div>
 
                 <div class="tool-group">
-                    <button class="tool-btn" onclick="setTool('brush')">🖌️ Brush</button>
-                    <button class="tool-btn" onclick="setTool('eraser')">🧹 Eraser</button>
-                    <button class="tool-btn" onclick="clearCanvas()">🗑️ Clear</button>
-                    <button class="tool-btn" onclick="downloadMaskPNG()">💾 Download PNG</button>
+                    <button class="tool-btn" onclick="currentTool = 'brush'">🖌️ Brush</button>
+                    <button class="tool-btn" onclick="currentTool = 'eraser'">🧹 Eraser</button>
+                    <button class="tool-btn" onclick="clearDrawing()">🗑️ Clear</button>
                 </div>
             </div>
 
             <div class="canvas-wrapper">
                 <div class="canvas-container" id="canvasContainer">
-                    <img src="mask-centered.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; object-fit: contain;">
-                    <img src="cat-outline-centered.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; object-fit: contain;">
+                    <!-- Layers added by JS -->
                 </div>
             </div>
         </div>
 
+        <!-- FOOTER -->
         <div class="footer-controls">
             <button class="action-btn" onclick="previewCombination()">👁️ Preview Together</button>
-            <button class="action-btn primary" onclick="submitArtwork()">🚀 Submit Creation</button>
+            <button class="action-btn primary" onclick="downloadArt()">💾 Download Mask</button>
         </div>
     </div>
 
     <script>
-        let layers = [];
-        let currentLayerIndex = 0;
-        let canvas, ctx;
-        let drawingCanvas, drawingCtx;
-        let isDrawing = false;
-        let currentColor = '#000000';
-        let brushSize = 10;
-        let currentTool = 'brush';
-        let lastX = 0;
-        let lastY = 0;
-        let maskImageData = null;
-
-        // Trait system for frog generation
+        // ============ CONFIG ============
+        const CANVAS_SIZE = 2000;  // Internal drawing resolution
+        
+        // Trait system
         const traitFolders = {
-            body: { folder: 'Body_sprites', count: 1, colorFilter: true },
-            eyes: { folder: 'Eyes_sprites', count: 25, colorFilter: true },
-            mouth: { folder: 'Mouth_sprites', count: 2, colorFilter: false },
-            head: { folder: 'Head_sprites', count: 44, colorFilter: false },
-            clothing: { folder: 'Clothing_sprites', count: 12, colorFilter: false }
+            body: { folder: 'Body_sprites', count: 1 },
+            eyes: { folder: 'Eyes_sprites', count: 25 },
+            mouth: { folder: 'Mouth_sprites', count: 2 },
+            head: { folder: 'Head_sprites', count: 44 },
+            clothing: { folder: 'Clothing_sprites', count: 12 }
         };
         
         const colorVariants = [
-            { name: 'Green', filter: 'none' },
-            { name: 'Blue', filter: 'hue-rotate(92deg) saturate(166%)' },
-            { name: 'Red', filter: 'hue-rotate(239deg) saturate(200%)' },
-            { name: 'Pink', filter: 'hue-rotate(197deg) saturate(200%)' },
-            { name: 'Purple', filter: 'hue-rotate(158deg) saturate(198%)' }
+            { name: 'Green', filter: 'none', weight: 70 },
+            { name: 'Blue', filter: 'hue-rotate(92deg) saturate(166%)', weight: 10 },
+            { name: 'Red', filter: 'hue-rotate(239deg) saturate(200%)', weight: 8 },
+            { name: 'Pink', filter: 'hue-rotate(197deg) saturate(200%)', weight: 7 },
+            { name: 'Purple', filter: 'hue-rotate(158deg) saturate(198%)', weight: 5 }
         ];
-        
+
+        // ============ STATE ============
+        let drawingCanvas, drawingCtx;
+        let isDrawing = false;
+        let currentColor = '#000000';
+        let brushSize = 15;
+        let currentTool = 'brush';
+        let lastX = 0, lastY = 0;
         let currentFrogTraits = null;
-        let frogAnimationRunning = false;
-        let frogAnimationId = null;
-        let frogFrameIndex = 0;
-        let frogFrameTime = 0;
-        const frogFrameDuration = 1000 / 19; // 19 fps = 52.63ms per frame
+        let maskClipPath = null;
 
-        // Cat animation
-        let catAnimationRunning = false;
-        let catOutlineFrames = [];
-        let frogImage = null;
-        let animationFrameId = null;
-        let currentFrameIndex = 0;
-        let frameStartTime = 0;
-        const frameDurations = [53, 105]; // ms per frame at 19fps
-        
-        // Manual positioning controls
-        let maskOffsetX = 0;
-        let maskOffsetY = 0;
-        let maskScale = 1.0;
+        // ============ INIT ============
+        window.onload = async function() {
+            await initDrawingCanvas();
+            await loadMaskClipPath();
+        };
 
-        // Music variables (now initialized in setupAudio function)
-        let acidSynth, bassFilter, isPlaying = false, currentStep = 0;
-
-        // Cat animation functions
-        function startCatAnimation() {
-            if (catAnimationRunning) {
-                console.log('Animation already running');
-                return;
-            }
-            
-            catAnimationRunning = true;
-            
-            // Load assets if not loaded
-            if (catOutlineFrames.length === 0) {
-                console.log('Loading cat outline frames...');
-                loadCompositionAssets().then(() => {
-                    console.log('Assets loaded, starting animation');
-                    beginAnimation();
-                });
-            } else {
-                beginAnimation();
-            }
-        }
-        
-        async function loadCompositionAssets() {
-            try {
-                const frame1 = new Image();
-                const frame2 = new Image();
-                
-                await Promise.all([
-                    new Promise(resolve => {
-                        frame1.onload = resolve;
-                        frame1.src = 'cat-outline-1.svg';
-                    }),
-                    new Promise(resolve => {
-                        frame2.onload = resolve;
-                        frame2.src = 'cat-outline-2.svg';
-                    })
-                ]);
-                
-                catOutlineFrames = [frame1, frame2];
-                console.log('Cat outline frames loaded');
-            } catch (error) {
-                console.error('Error loading assets:', error);
-                alert('Failed to load animation assets!');
-            }
-        }
-        
-        function beginAnimation() {
-            const frogDisplay = document.querySelector('.frog-display');
-            frogDisplay.style.position = 'relative';
-            
-            // Create or get composition canvas
-            let compositionCanvas = document.getElementById('compositionCanvas');
-            if (!compositionCanvas) {
-                compositionCanvas = document.createElement('canvas');
-                compositionCanvas.id = 'compositionCanvas';
-                compositionCanvas.width = 1000;
-                compositionCanvas.height = 1000;
-                compositionCanvas.style.position = 'absolute';
-                compositionCanvas.style.top = '0';
-                compositionCanvas.style.left = '0';
-                compositionCanvas.style.width = '100%';
-                compositionCanvas.style.height = '100%';
-                compositionCanvas.style.objectFit = 'contain';
-                compositionCanvas.style.objectPosition = 'top left';
-                compositionCanvas.style.pointerEvents = 'none';
-                frogDisplay.appendChild(compositionCanvas);
-            }
-            
-            // Add positioning controls UI
-            let controlsDiv = document.getElementById('positionControls');
-            if (!controlsDiv) {
-                controlsDiv = document.createElement('div');
-                controlsDiv.id = 'positionControls';
-                controlsDiv.style.position = 'absolute';
-                controlsDiv.style.bottom = '10px';
-                controlsDiv.style.left = '10px';
-                controlsDiv.style.background = 'rgba(0,0,0,0.8)';
-                controlsDiv.style.color = 'yellow';
-                controlsDiv.style.padding = '15px';
-                controlsDiv.style.borderRadius = '10px';
-                controlsDiv.style.fontFamily = 'monospace';
-                controlsDiv.style.fontSize = '14px';
-                controlsDiv.style.zIndex = '1000';
-                controlsDiv.innerHTML = `
-                    <div style="margin-bottom: 10px;"><strong>POSITIONING CONTROLS:</strong></div>
-                    <div>Arrow Keys = Move (Shift = 10px)</div>
-                    <div>+/- = Scale</div>
-                    <div>C = Copy Coords</div>
-                    <div style="margin-top: 10px; color: lime;">
-                        X: <span id="coordX">0</span> 
-                        Y: <span id="coordY">0</span> 
-                        Scale: <span id="coordScale">1.00</span>
-                    </div>
-                `;
-                frogDisplay.appendChild(controlsDiv);
-            }
-            
-            currentFrameIndex = 0;
-            frameStartTime = performance.now();
-            renderFrame(compositionCanvas);
-        }
-        
-        function renderFrame(canvas) {
-            if (!catAnimationRunning) return;
-            
-            const ctx = canvas.getContext('2d');
-            const now = performance.now();
-            const elapsed = now - frameStartTime;
-            
-            // Advance frame if duration passed
-            if (elapsed >= frameDurations[currentFrameIndex]) {
-                currentFrameIndex = (currentFrameIndex + 1) % 2;
-                frameStartTime = now;
-            }
-            
-            // Clear
-            // Clear
-            ctx.clearRect(0, 0, 1000, 1000);
-            
-            // Layer 2: User's art with MANUAL positioning
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 800;
-            tempCanvas.height = 800;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            layers.forEach(layer => {
-                tempCtx.drawImage(layer.canvas, 0, 0);
-            });
-            
-            // Draw with manual offset and scale
-            const drawWidth = 1000 * maskScale;
-            const drawHeight = 1000 * maskScale;
-            ctx.globalAlpha = 0.5;
-            ctx.drawImage(tempCanvas, 0, 0, 800, 800, maskOffsetX, maskOffsetY, drawWidth, drawHeight);
-            ctx.globalAlpha = 1.0;
-            
-            // Display coordinates on screen
-            const coordXEl = document.getElementById('coordX');
-            const coordYEl = document.getElementById('coordY');
-            const coordScaleEl = document.getElementById('coordScale');
-            if (coordXEl) coordXEl.textContent = maskOffsetX;
-            if (coordYEl) coordYEl.textContent = maskOffsetY;
-            if (coordScaleEl) coordScaleEl.textContent = maskScale.toFixed(2);
-            
-            // Layer 3: Cat outline on top
-            if (catOutlineFrames[currentFrameIndex]) {
-                ctx.drawImage(catOutlineFrames[currentFrameIndex], 0, 0, 1000, 1000);
-            }
-            
-            // Next frame
-            animationFrameId = requestAnimationFrame(() => renderFrame(canvas));
-        }
-
-        // Layer management
-        function addLayer() {
+        async function initDrawingCanvas() {
             const container = document.getElementById('canvasContainer');
-            const newCanvas = document.createElement('canvas');
-            newCanvas.width = 2000; // Match centered mask PNG size
-            newCanvas.height = 2000;
-            newCanvas.style.position = 'absolute';
-            newCanvas.style.top = '0';
-            newCanvas.style.left = '0';
-            newCanvas.style.width = '100%';
-            newCanvas.style.height = '100%';
-            newCanvas.style.cursor = 'crosshair';
-            newCanvas.style.zIndex = layers.length + 1;
             
-            const newCtx = newCanvas.getContext('2d');
+            // 1. Background mask (shows where user can draw)
+            const bgCanvas = document.createElement('canvas');
+            bgCanvas.width = CANVAS_SIZE;
+            bgCanvas.height = CANVAS_SIZE;
+            bgCanvas.className = 'mask-bg';
+            container.appendChild(bgCanvas);
             
-            layers.push({
-                canvas: newCanvas,
-                ctx: newCtx,
-                name: `Layer ${layers.length + 1}`
-            });
-            
-            container.appendChild(newCanvas);
-            
-            setupCanvasEvents(newCanvas);
-            updateLayersList();
-            selectLayer(layers.length - 1);
-        }
-
-        function selectLayer(index) {
-            currentLayerIndex = index;
-            canvas = layers[index].canvas;
-            ctx = layers[index].ctx;
-            updateLayersList();
-        }
-
-        function deleteLayer(index) {
-            if (layers.length <= 1) {
-                alert('Cannot delete the last layer');
-                return;
-            }
-            
-            layers[index].canvas.remove();
-            layers.splice(index, 1);
-            
-            if (currentLayerIndex >= layers.length) {
-                currentLayerIndex = layers.length - 1;
-            }
-            
-            canvas = layers[currentLayerIndex].canvas;
-            ctx = layers[currentLayerIndex].ctx;
-            
-            updateLayersList();
-        }
-
-        function updateLayersList() {
-            const list = document.getElementById('layersList');
-            list.innerHTML = '';
-            
-            layers.forEach((layer, index) => {
-                const item = document.createElement('div');
-                item.className = 'layer-item' + (index === currentLayerIndex ? ' active' : '');
-                item.innerHTML = `
-                    <span style="flex: 1;">${layer.name}</span>
-                    <button onclick="event.stopPropagation(); deleteLayer(${index})">🗑️</button>
-                `;
-                item.onclick = () => selectLayer(index);
-                list.appendChild(item);
-            });
-        }
-
-        function setupCanvasEvents(canvasElement) {
-            canvasElement.addEventListener('mousedown', startDrawing);
-            canvasElement.addEventListener('mousemove', draw);
-            canvasElement.addEventListener('mouseup', stopDrawing);
-            canvasElement.addEventListener('mouseout', stopDrawing);
-            canvasElement.addEventListener('touchstart', handleTouchStart, { passive: false });
-            canvasElement.addEventListener('touchmove', handleTouchMove, { passive: false });
-            canvasElement.addEventListener('touchend', stopDrawing);
-        }
-
-        // Image upload
-        function uploadImage(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    addLayer();
-                    const targetCtx = layers[currentLayerIndex].ctx;
-                    
-                    // Scale image to fit 2000x2000 canvas
-                    const scale = Math.min(2000 / img.width, 2000 / img.height);
-                    const x = (2000 - img.width * scale) / 2;
-                    const y = (2000 - img.height * scale) / 2;
-                    
-                    targetCtx.drawImage(img, x, y, img.width * scale, img.height * scale);
-                    
-                    layers[currentLayerIndex].name = `Image ${layers.length}`;
-                    updateLayersList();
-                };
-                img.src = e.target.result;
+            // Draw the mask background
+            const bgCtx = bgCanvas.getContext('2d');
+            const maskBg = new Image();
+            maskBg.onload = () => {
+                bgCtx.drawImage(maskBg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
             };
-            reader.readAsDataURL(file);
+            maskBg.src = 'mask-centered.png';
+            
+            // 2. Drawing canvas (where user draws)
+            drawingCanvas = document.createElement('canvas');
+            drawingCanvas.width = CANVAS_SIZE;
+            drawingCanvas.height = CANVAS_SIZE;
+            drawingCanvas.className = 'drawing-layer';
+            container.appendChild(drawingCanvas);
+            drawingCtx = drawingCanvas.getContext('2d');
+            
+            // Setup drawing events
+            drawingCanvas.addEventListener('mousedown', startDrawing);
+            drawingCanvas.addEventListener('mousemove', draw);
+            drawingCanvas.addEventListener('mouseup', stopDrawing);
+            drawingCanvas.addEventListener('mouseout', stopDrawing);
+            drawingCanvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            drawingCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            drawingCanvas.addEventListener('touchend', stopDrawing);
+            
+            // 3. Outline overlay (cat whiskers visible on top)
+            const outlineCanvas = document.createElement('canvas');
+            outlineCanvas.width = CANVAS_SIZE;
+            outlineCanvas.height = CANVAS_SIZE;
+            outlineCanvas.className = 'outline-overlay';
+            container.appendChild(outlineCanvas);
+            
+            const outlineCtx = outlineCanvas.getContext('2d');
+            const outlineImg = new Image();
+            outlineImg.onload = () => {
+                outlineCtx.drawImage(outlineImg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            };
+            outlineImg.src = 'cat-outline-centered.png';
         }
 
-        function applyMaskToLayer(layerIndex) {
-            if (!maskImageData) return;
-            
-            const layerCtx = layers[layerIndex].ctx;
-            const imageData = layerCtx.getImageData(0, 0, 800, 800);
-            const pixels = imageData.data;
-            const maskPixels = maskImageData.data;
-            
-            for (let i = 0; i < pixels.length; i += 4) {
-                if (maskPixels[i] === 0) {
-                    pixels[i + 3] = 0;
-                }
-            }
-            
-            layerCtx.putImageData(imageData, 0, 0);
-        }
-
-        // Load mask and create clipping region
-        async function loadMaskPath() {
+        async function loadMaskClipPath() {
             try {
                 const response = await fetch('mask-simple.svg');
                 const svgText = await response.text();
@@ -727,252 +395,118 @@
                 
                 if (pathElement) {
                     const pathData = pathElement.getAttribute('d');
-                    
-                    // Create offscreen canvas to render mask
-                    const maskCanvas = document.createElement('canvas');
-                    maskCanvas.width = 800;
-                    maskCanvas.height = 800;
-                    const maskCtx = maskCanvas.getContext('2d');
-                    
-                    // Create path and scale it
-                    const path = new Path2D(pathData);
-                    maskCtx.scale(0.1, 0.1); // Scale from 8000 to 800
-                    maskCtx.fillStyle = 'white';
-                    maskCtx.fill(path);
-                    
-                    // Get mask image data
-                    maskImageData = maskCtx.getImageData(0, 0, 800, 800);
-                    
-                    console.log('Mask loaded successfully');
+                    maskClipPath = new Path2D(pathData);
+                    console.log('Mask clip path loaded');
                 }
             } catch (error) {
-                console.error('Error loading mask:', error);
+                console.error('Error loading mask path:', error);
             }
         }
 
-        // Apply mask to canvas
-        function applyMask() {
-            if (!maskImageData) return;
-            
-            const imageData = ctx.getImageData(0, 0, 800, 800);
-            const pixels = imageData.data;
-            const maskPixels = maskImageData.data;
-            
-            // Apply mask: if mask pixel is black (0), make drawing pixel transparent
-            for (let i = 0; i < pixels.length; i += 4) {
-                if (maskPixels[i] === 0) {
-                    pixels[i + 3] = 0; // Set alpha to 0 (transparent)
-                }
-            }
-            
-            ctx.putImageData(imageData, 0, 0);
-        }
-
-        async function initCanvas() {
-            // Create first layer
-            addLayer();
+        // ============ DRAWING ============
+        function getCanvasCoords(e) {
+            const rect = drawingCanvas.getBoundingClientRect();
+            const scaleX = CANVAS_SIZE / rect.width;
+            const scaleY = CANVAS_SIZE / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
         }
 
         function startDrawing(e) {
             isDrawing = true;
-            const rect = e.target.getBoundingClientRect();
-            const scaleX = 2000 / rect.width;
-            const scaleY = 2000 / rect.height;
-            lastX = (e.clientX - rect.left) * scaleX;
-            lastY = (e.clientY - rect.top) * scaleY;
+            const coords = getCanvasCoords(e);
+            lastX = coords.x;
+            lastY = coords.y;
         }
 
         function draw(e) {
-            if (!isDrawing || !canvas) return;
+            if (!isDrawing) return;
             
-            const rect = e.target.getBoundingClientRect();
-            const scaleX = 2000 / rect.width; // Changed from 800 to 2000
-            const scaleY = 2000 / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
+            const coords = getCanvasCoords(e);
             
-            ctx.lineWidth = brushSize;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+            drawingCtx.lineWidth = brushSize * (CANVAS_SIZE / 500); // Scale brush
+            drawingCtx.lineCap = 'round';
+            drawingCtx.lineJoin = 'round';
             
-            if (currentTool === 'brush') {
-                ctx.strokeStyle = currentColor;
-                ctx.globalCompositeOperation = 'source-over';
-            } else if (currentTool === 'eraser') {
-                ctx.globalCompositeOperation = 'destination-out';
+            if (currentTool === 'eraser') {
+                drawingCtx.globalCompositeOperation = 'destination-out';
+                drawingCtx.strokeStyle = 'rgba(0,0,0,1)';
+            } else {
+                drawingCtx.globalCompositeOperation = 'source-over';
+                drawingCtx.strokeStyle = currentColor;
             }
             
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
+            // Apply clipping to mask shape
+            drawingCtx.save();
+            if (maskClipPath) {
+                drawingCtx.scale(CANVAS_SIZE / 8000, CANVAS_SIZE / 8000);
+                drawingCtx.clip(maskClipPath);
+                drawingCtx.scale(8000 / CANVAS_SIZE, 8000 / CANVAS_SIZE);
+            }
             
-            lastX = x;
-            lastY = y;
+            drawingCtx.beginPath();
+            drawingCtx.moveTo(lastX, lastY);
+            drawingCtx.lineTo(coords.x, coords.y);
+            drawingCtx.stroke();
+            
+            drawingCtx.restore();
+            
+            lastX = coords.x;
+            lastY = coords.y;
         }
 
-        function stopDrawing() { isDrawing = false; }
+        function stopDrawing() {
+            isDrawing = false;
+        }
 
         function handleTouchStart(e) {
             e.preventDefault();
             const touch = e.touches[0];
-            const rect = e.target.getBoundingClientRect();
-            const scaleX = 2000 / rect.width;
-            const scaleY = 2000 / rect.height;
-            isDrawing = true;
-            lastX = (touch.clientX - rect.left) * scaleX;
-            lastY = (touch.clientY - rect.top) * scaleY;
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            drawingCanvas.dispatchEvent(mouseEvent);
         }
 
         function handleTouchMove(e) {
             e.preventDefault();
-            if (!isDrawing) return;
             const touch = e.touches[0];
-            draw({ target: e.target, clientX: touch.clientX, clientY: touch.clientY });
-        }
-
-        function selectColor(color, element) {
-            currentColor = color;
-            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
-            element.classList.add('active');
-        }
-
-        function updateBrushSize(size) {
-            brushSize = size;
-            document.getElementById('brushSizeValue').textContent = size;
-        }
-
-        function setTool(tool) { currentTool = tool; }
-        
-        function clearCanvas() {
-            if (canvas && ctx) {
-                ctx.clearRect(0, 0, 2000, 2000);
-            }
-        }
-
-        function downloadMaskPNG() {
-            // Merge all layers
-            const mergeCanvas = document.createElement('canvas');
-            mergeCanvas.width = 2000;
-            mergeCanvas.height = 2000;
-            const mergeCtx = mergeCanvas.getContext('2d');
-            
-            layers.forEach(layer => {
-                mergeCtx.drawImage(layer.canvas, 0, 0);
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
             });
-            
-            const link = document.createElement('a');
-            link.download = 'block-party-mask.png';
-            link.href = mergeCanvas.toDataURL('image/png');
-            link.click();
+            drawingCanvas.dispatchEvent(mouseEvent);
         }
 
-        // Music functions (keeping them short)
-        async function loadSamples() {
-            try {
-                kickPlayer = new Tone.Player(sampleUrls.kick).toDestination();
-                kickPlayer.volume.value = -5;
-                clapPlayer = new Tone.Player(sampleUrls.clap).toDestination();
-                clapPlayer.volume.value = -8;
-                hatPlayer = new Tone.Player(sampleUrls.hat).toDestination();
-                hatPlayer.volume.value = -12;
-                finalPlayer = new Tone.Player(sampleUrls.final).toDestination();
-                finalPlayer.volume.value = 10;
-                finalPlayer.playbackRate = 0.95;
-                await Tone.loaded();
-                samplesLoaded = true;
-            } catch (error) {}
+        function selectColor(color, btn) {
+            currentColor = color;
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
         }
 
-        function setupAudio() {
-            try {
-                acidSynth = new Tone.MonoSynth({
-                    oscillator: { type: "sawtooth" },
-                    envelope: { attack: 0.01, decay: 0.4, sustain: 0.3, release: 0.4 }
-                });
-                bassFilter = new Tone.Filter({ type: "lowpass", frequency: 250, Q: 22 });
-                const distortion = new Tone.Distortion(0.3);
-                acidSynth.chain(bassFilter, distortion, Tone.Destination);
-                acidSynth.volume.value = -10;
-            } catch (error) {}
+        function clearDrawing() {
+            drawingCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
         }
 
-        async function startFullTrack() {
-            await Tone.start();
-            if (!samplesLoaded) return;
-            isPlaying = true;
-            currentStep = 0;
-            Tone.Transport.bpm.value = 123;
-            
-            Tone.Transport.scheduleRepeat((time) => {
-                let step = strudelPattern[currentStep % strudelPattern.length];
-                let stepIn16 = currentStep % 16;
-                let barCount = Math.floor(currentStep / 16) % 16;
-                
-                if (step.play && step.note && !(barCount === 15 && stepIn16 >= 9)) {
-                    acidSynth.triggerAttackRelease(step.note, "16n", time, 0.8);
-                    let progress = barCount / 15;
-                    let cutoffFreq = 200 + (progress * 400);
-                    let resonanceValue = 2 + (progress * 2.25);
-                    let baseMovement = Math.sin(time * 0.5) * 50;
-                    bassFilter.frequency.setValueAtTime(cutoffFreq + baseMovement, time);
-                    bassFilter.Q.setValueAtTime(resonanceValue, time);
-                }
-                
-                let isFirstHalf = barCount < 8;
-                if (isFirstHalf && stepIn16 % 4 === 0) kickPlayer.start(time);
-                if (!isFirstHalf && barCount === 8 && stepIn16 === 0) kickPlayer.start(time);
-                if (barCount === 0 && stepIn16 === 2) kickPlayer.start(time);
-                if (barCount === 15 && stepIn16 >= 12) clapPlayer.start(time);
-                if (stepIn16 % 8 === 4 && !(barCount === 15 && stepIn16 >= 12)) clapPlayer.start(time);
-                if (stepIn16 % 4 === 2) hatPlayer.start(time);
-                if (barCount === 15 && stepIn16 === 12) finalPlayer.start(time);
-                currentStep++;
-            }, "16n");
-            
-            Tone.Transport.start();
-        }
-
-        function stopFullTrack() {
-            isPlaying = false;
-            Tone.Transport.stop();
-            Tone.Transport.cancel();
-        }
-
-        function toggleFullscreen() {}
-        
-        function toggleTools() {
-            const tools = document.getElementById('floatingTools');
-            tools.classList.toggle('collapsed');
-        }
-        
+        // ============ FROG GENERATION ============
         function generateFrog() {
-            // Stop any existing animation
-            if (frogAnimationRunning) {
-                cancelAnimationFrame(frogAnimationId);
-                frogAnimationRunning = false;
+            // Weighted random color selection
+            const totalWeight = colorVariants.reduce((sum, c) => sum + c.weight, 0);
+            let random = Math.random() * totalWeight;
+            let selectedColor = colorVariants[0];
+            for (const color of colorVariants) {
+                random -= color.weight;
+                if (random <= 0) {
+                    selectedColor = color;
+                    break;
+                }
             }
             
-            // Stop cat animation too if running
-            if (catAnimationRunning) {
-                cancelAnimationFrame(animationFrameId);
-                catAnimationRunning = false;
-            }
-            
-            // Weighted random color selection (rarity system)
-            // Green: 70%, Blue: 10%, Red: 8%, Pink: 7%, Purple: 5%
-            const colorPool = [
-                ...Array(70).fill(0), // Green (70 entries)
-                ...Array(10).fill(1), // Blue (10 entries)
-                ...Array(8).fill(2),  // Red (8 entries)
-                ...Array(7).fill(3),  // Pink (7 entries)
-                ...Array(5).fill(4)   // Purple (5 entries)
-            ];
-            const randomColorIndex = colorPool[Math.floor(Math.random() * colorPool.length)];
-            const selectedColor = colorVariants[randomColorIndex];
-            
-            const traits = {
-                body: Math.floor(Math.random() * traitFolders.body.count) + 1,
+            currentFrogTraits = {
+                body: 1,
                 eyes: Math.floor(Math.random() * traitFolders.eyes.count) + 1,
                 mouth: Math.floor(Math.random() * traitFolders.mouth.count) + 1,
                 head: Math.floor(Math.random() * traitFolders.head.count) + 1,
@@ -980,86 +514,56 @@
                 color: selectedColor
             };
             
-            currentFrogTraits = traits;
-            console.log('Generated frog:', traits);
-            
-            // Load and display frog
-            loadAndAnimateFrog(traits);
+            console.log('Generated frog:', currentFrogTraits);
+            displayFrog(currentFrogTraits);
         }
-        
-        async function loadAndAnimateFrog(traits) {
-            const frogDisplay = document.querySelector('.frog-display');
-            frogDisplay.innerHTML = ''; // Clear existing
-            frogDisplay.style.position = 'relative';
-            frogDisplay.style.display = 'flex';
-            frogDisplay.style.alignItems = 'center';
-            frogDisplay.style.justifyContent = 'center';
+
+        async function displayFrog(traits) {
+            const display = document.getElementById('frogDisplay');
+            display.innerHTML = '';
             
-            // Create canvas for sprite display
-            const frogCanvas = document.createElement('canvas');
-            frogCanvas.width = 500;
-            frogCanvas.height = 500;
-            frogDisplay.appendChild(frogCanvas);
+            const canvas = document.createElement('canvas');
+            canvas.width = 500;
+            canvas.height = 500;
+            canvas.style.maxWidth = '100%';
+            canvas.style.maxHeight = '100%';
+            display.appendChild(canvas);
             
-            const ctx = frogCanvas.getContext('2d');
+            const ctx = canvas.getContext('2d');
             
-            // Load all trait sprites
-            const spriteImages = {};
             try {
-                spriteImages.body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
-                spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
-                spriteImages.mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
-                spriteImages.head = await loadImage(`${traitFolders.head.folder}/${traits.head}head_sprite.avif`);
-                spriteImages.clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
+                // Load sprites
+                const sprites = {
+                    body: await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`),
+                    eyes: await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`),
+                    mouth: await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`),
+                    head: await loadImage(`${traitFolders.head.folder}/${traits.head}head_sprite.avif`),
+                    clothing: await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`)
+                };
                 
-                console.log('All sprites loaded');
+                // Draw first frame (static)
+                const drawSprite = (img, applyFilter) => {
+                    if (applyFilter && traits.color.filter !== 'none') {
+                        ctx.filter = traits.color.filter;
+                    } else {
+                        ctx.filter = 'none';
+                    }
+                    ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 500, 500);
+                };
                 
-                // Draw STATIC frog (first frame only)
-                drawFrogFrame(ctx, spriteImages, traits, 0);
+                drawSprite(sprites.body, true);
+                drawSprite(sprites.mouth, false);
+                drawSprite(sprites.eyes, true);
+                drawSprite(sprites.clothing, false);
+                drawSprite(sprites.head, false);
+                ctx.filter = 'none';
                 
             } catch (error) {
-                console.error('Error loading sprites:', error);
-                frogDisplay.innerHTML = '<p style="color:red; padding:20px;">Error loading frog sprites!<br>' + error.message + '</p>';
+                console.error('Error loading frog:', error);
+                display.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
             }
         }
-        
-        function drawFrogFrame(ctx, sprites, traits, frameIndex) {
-            // Clear canvas
-            ctx.clearRect(0, 0, 500, 500);
-            
-            // Calculate source X position for current frame (0, 500, or 1000)
-            const frameX = frameIndex * 500;
-            
-            // Draw each layer
-            const drawSprite = (img, applyFilter) => {
-                if (applyFilter && traits.color.filter !== 'none') {
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = 500;
-                    tempCanvas.height = 500;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    
-                    // Draw current frame
-                    tempCtx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
-                    
-                    // Apply filter
-                    tempCtx.filter = traits.color.filter;
-                    tempCtx.globalCompositeOperation = 'source-atop';
-                    tempCtx.drawImage(tempCanvas, 0, 0);
-                    
-                    ctx.drawImage(tempCanvas, 0, 0);
-                } else {
-                    ctx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
-                }
-            };
-            
-            // Draw layers bottom to top
-            drawSprite(sprites.body, true);
-            drawSprite(sprites.mouth, false);
-            drawSprite(sprites.eyes, true);
-            drawSprite(sprites.clothing, false);
-            drawSprite(sprites.head, false);
-        }
-        
+
         function loadImage(url) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
@@ -1068,143 +572,121 @@
                 img.src = url;
             });
         }
-        
-        function previewCombination() {
+
+        // ============ PREVIEW COMBINATION ============
+        async function previewCombination() {
             if (!currentFrogTraits) {
                 alert('Generate a frog first!');
                 return;
             }
             
-            const frogDisplay = document.querySelector('.frog-display');
-            frogDisplay.innerHTML = '';
+            const display = document.getElementById('frogDisplay');
+            display.innerHTML = '';
             
-            // Create single canvas for composition
-            const compCanvas = document.createElement('canvas');
-            compCanvas.width = 1000; // Match positioned mask size
-            compCanvas.height = 1000;
-            frogDisplay.appendChild(compCanvas);
+            // Create composition canvas (1000x1000 to match cat-full.png)
+            const canvas = document.createElement('canvas');
+            canvas.width = 1000;
+            canvas.height = 1000;
+            canvas.style.maxWidth = '100%';
+            canvas.style.maxHeight = '100%';
+            display.appendChild(canvas);
             
-            const ctx = compCanvas.getContext('2d');
+            const ctx = canvas.getContext('2d');
             
-            // Load frog sprites and compose
-            loadAndCompositeFrog(ctx, currentFrogTraits);
-        }
-        
-        async function loadAndCompositeFrog(ctx, traits) {
             try {
-                // Load frog sprites
-                const body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
-                const eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
-                const mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
-                const head = await loadImage(`${traitFolders.head.folder}/${traits.head}head_sprite.avif`);
-                const clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
-                
-                // Load cat images
-                const catFull = await loadImage('cat-full.png');
-                const catOutline = await loadImage('cat-outline-positioned.png');
-                
-                // Scale frog from 500x500 to 1000x1000 and draw
-                const drawSprite = (img, applyFilter) => {
-                    if (applyFilter && traits.color.filter !== 'none') {
-                        const temp = document.createElement('canvas');
-                        temp.width = 1000;
-                        temp.height = 1000;
-                        const tempCtx = temp.getContext('2d');
-                        // Draw sprite scaled up from 500 to 1000
-                        tempCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                        tempCtx.filter = traits.color.filter;
-                        tempCtx.globalCompositeOperation = 'source-atop';
-                        tempCtx.drawImage(temp, 0, 0);
-                        ctx.drawImage(temp, 0, 0);
-                    } else {
-                        ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                    }
+                // 1. Draw frog (scaled from 500 to 1000)
+                const sprites = {
+                    body: await loadImage(`${traitFolders.body.folder}/${currentFrogTraits.body}body-sprite.avif`),
+                    eyes: await loadImage(`${traitFolders.eyes.folder}/${currentFrogTraits.eyes}eyes_sprite.avif`),
+                    mouth: await loadImage(`${traitFolders.mouth.folder}/${currentFrogTraits.mouth}Mouth-sprite.avif`),
+                    head: await loadImage(`${traitFolders.head.folder}/${currentFrogTraits.head}head_sprite.avif`),
+                    clothing: await loadImage(`${traitFolders.clothing.folder}/${currentFrogTraits.clothing}clothing.avif`)
                 };
                 
-                // Draw frog layers
-                drawSprite(body, true);
-                drawSprite(mouth, false);
-                drawSprite(eyes, true);
-                drawSprite(clothing, false);
-                drawSprite(head, false);
+                const drawSprite = (img, applyFilter) => {
+                    if (applyFilter && currentFrogTraits.color.filter !== 'none') {
+                        ctx.filter = currentFrogTraits.color.filter;
+                    } else {
+                        ctx.filter = 'none';
+                    }
+                    ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
+                };
                 
-                // Draw full cat image (behind the mask area)
+                drawSprite(sprites.body, true);
+                drawSprite(sprites.mouth, false);
+                drawSprite(sprites.eyes, true);
+                drawSprite(sprites.clothing, false);
+                drawSprite(sprites.head, false);
+                ctx.filter = 'none';
+                
+                // 2. Draw cat-full.png (the cat body in bottom-left)
+                const catFull = await loadImage('cat-full.png');
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // Merge user's drawn layers
-                const maskCanvas = document.createElement('canvas');
-                maskCanvas.width = 2000;
-                maskCanvas.height = 2000;
-                const maskCtx = maskCanvas.getContext('2d');
+                // 3. Draw user's mask art - REPOSITIONED from centered to bottom-left
+                // EXACT COORDINATES:
+                // User draws in 2000x2000 canvas, mask is centered at:
+                //   x: 532-1468, y: 312-1633 (size: 936 x 1321)
+                // Cat in 1000x1000 preview is at:
+                //   x: 0-377, y: 621-1000 (size: 377 x 379)
                 
-                layers.forEach(layer => {
-                    maskCtx.drawImage(layer.canvas, 0, 0);
-                });
+                // Extract the mask region from centered drawing and place in bottom-left
+                const srcX = 532;           // Left edge of mask in 2000x2000
+                const srcY = 312;           // Top edge of mask in 2000x2000
+                const srcW = 936;           // Width of mask area
+                const srcH = 1321;          // Height of mask area
                 
-                // Scale user drawing from 2000x2000 to 1000x1000 and draw ON TOP of cat
-                ctx.drawImage(maskCanvas, 0, 0, 2000, 2000, 0, 0, 1000, 1000);
+                const dstX = 0;             // Left edge of cat in 1000x1000
+                const dstY = 621;           // Top edge of cat in 1000x1000
+                const dstW = 377;           // Width of cat area
+                const dstH = 379;           // Height of cat area
                 
-                // Draw positioned cat outline on TOP of everything
+                ctx.drawImage(
+                    drawingCanvas,
+                    srcX, srcY, srcW, srcH,  // Source: mask region from centered drawing
+                    dstX, dstY, dstW, dstH   // Dest: cat position in preview
+                );
+                
+                // 4. Draw cat outline on top
+                const catOutline = await loadImage('cat-outline-positioned.png');
                 ctx.drawImage(catOutline, 0, 0, 1000, 1000);
                 
-                console.log('Composition complete!');
+                console.log('Preview composition complete!');
                 
             } catch (error) {
-                console.error('Error compositing:', error);
-                alert('Error: ' + error.message);
+                console.error('Error creating preview:', error);
+                display.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
             }
         }
-        function submitArtwork() { downloadMaskPNG(); }
 
-        window.addEventListener('load', async function() {
-            await loadMaskPath();
-            await initCanvas();
-            setupAudio();
-        });
-        
-        // Keyboard controls for manual positioning
-        window.addEventListener('keydown', function(e) {
-            if (!catAnimationRunning) return;
+        // ============ DOWNLOAD ============
+        function downloadArt() {
+            // Create a canvas with just the masked drawing
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = CANVAS_SIZE;
+            exportCanvas.height = CANVAS_SIZE;
+            const exportCtx = exportCanvas.getContext('2d');
             
-            const step = e.shiftKey ? 10 : 1; // Hold Shift for bigger steps
-            
-            switch(e.key) {
-                case 'ArrowLeft':
-                    maskOffsetX -= step;
-                    e.preventDefault();
-                    break;
-                case 'ArrowRight':
-                    maskOffsetX += step;
-                    e.preventDefault();
-                    break;
-                case 'ArrowUp':
-                    maskOffsetY -= step;
-                    e.preventDefault();
-                    break;
-                case 'ArrowDown':
-                    maskOffsetY += step;
-                    e.preventDefault();
-                    break;
-                case '+':
-                case '=':
-                    maskScale += 0.01;
-                    e.preventDefault();
-                    break;
-                case '-':
-                case '_':
-                    maskScale = Math.max(0.1, maskScale - 0.01);
-                    e.preventDefault();
-                    break;
-                case 'c':
-                case 'C':
-                    // Copy coordinates to clipboard
-                    const coords = `X: ${maskOffsetX}, Y: ${maskOffsetY}, Scale: ${maskScale}`;
-                    navigator.clipboard.writeText(coords);
-                    alert('Coordinates copied: ' + coords);
-                    break;
+            // Apply mask clipping
+            if (maskClipPath) {
+                exportCtx.save();
+                exportCtx.scale(CANVAS_SIZE / 8000, CANVAS_SIZE / 8000);
+                exportCtx.clip(maskClipPath);
+                exportCtx.scale(8000 / CANVAS_SIZE, 8000 / CANVAS_SIZE);
             }
-        });
+            
+            exportCtx.drawImage(drawingCanvas, 0, 0);
+            
+            if (maskClipPath) {
+                exportCtx.restore();
+            }
+            
+            // Download
+            const link = document.createElement('a');
+            link.download = 'mask-art.png';
+            link.href = exportCanvas.toDataURL('image/png');
+            link.click();
+        }
     </script>
 </body>
 </html>
-                        <!-- FILE COMPLETE - LINE 1170 -->
