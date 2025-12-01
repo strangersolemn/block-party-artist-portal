@@ -337,27 +337,19 @@
 
         async function initDrawingCanvas() {
             const container = document.getElementById('canvasContainer');
+            container.innerHTML = ''; // Clear any existing content
             
-            // 1. Background mask (shows where user can draw)
-            const bgCanvas = document.createElement('canvas');
-            bgCanvas.width = CANVAS_SIZE;
-            bgCanvas.height = CANVAS_SIZE;
-            bgCanvas.className = 'mask-bg';
-            container.appendChild(bgCanvas);
-            
-            // Draw the mask background
-            const bgCtx = bgCanvas.getContext('2d');
-            const maskBg = new Image();
-            maskBg.onload = () => {
-                bgCtx.drawImage(maskBg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            };
-            maskBg.src = 'mask-centered.png';
+            // 1. Background mask image (shows where user can draw)
+            const maskBgImg = document.createElement('img');
+            maskBgImg.src = 'mask-centered.png';
+            maskBgImg.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0;';
+            container.appendChild(maskBgImg);
             
             // 2. Drawing canvas (where user draws)
             drawingCanvas = document.createElement('canvas');
             drawingCanvas.width = CANVAS_SIZE;
             drawingCanvas.height = CANVAS_SIZE;
-            drawingCanvas.className = 'drawing-layer';
+            drawingCanvas.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; cursor:crosshair; z-index:1;';
             container.appendChild(drawingCanvas);
             drawingCtx = drawingCanvas.getContext('2d');
             
@@ -370,19 +362,13 @@
             drawingCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
             drawingCanvas.addEventListener('touchend', stopDrawing);
             
-            // 3. Outline overlay (cat whiskers visible on top)
-            const outlineCanvas = document.createElement('canvas');
-            outlineCanvas.width = CANVAS_SIZE;
-            outlineCanvas.height = CANVAS_SIZE;
-            outlineCanvas.className = 'outline-overlay';
-            container.appendChild(outlineCanvas);
-            
-            const outlineCtx = outlineCanvas.getContext('2d');
-            const outlineImg = new Image();
-            outlineImg.onload = () => {
-                outlineCtx.drawImage(outlineImg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            };
+            // 3. Cat outline overlay (whiskers visible on top)
+            const outlineImg = document.createElement('img');
             outlineImg.src = 'cat-outline-centered.png';
+            outlineImg.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:100;';
+            container.appendChild(outlineImg);
+            
+            console.log('Drawing canvas initialized');
         }
 
         async function loadMaskClipPath() {
