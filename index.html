@@ -716,12 +716,38 @@
             layerCtx.putImageData(imageData, 0, 0);
         }
 
-        // Load mask for reference (no clipping during drawing)
-        let maskImageData = null;
-        
+        // Load mask and create clipping region
         async function loadMaskPath() {
-            // No clipping needed - we'll clip in the preview instead
-            console.log('Drawing enabled everywhere - clipping applied in preview only');
+            try {
+                const response = await fetch('mask-simple.svg');
+                const svgText = await response.text();
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+                const pathElement = svgDoc.querySelector('path');
+                
+                if (pathElement) {
+                    const pathData = pathElement.getAttribute('d');
+                    
+                    // Create offscreen canvas to render mask
+                    const maskCanvas = document.createElement('canvas');
+                    maskCanvas.width = 800;
+                    maskCanvas.height = 800;
+                    const maskCtx = maskCanvas.getContext('2d');
+                    
+                    // Create path and scale it
+                    const path = new Path2D(pathData);
+                    maskCtx.scale(0.1, 0.1); // Scale from 8000 to 800
+                    maskCtx.fillStyle = 'white';
+                    maskCtx.fill(path);
+                    
+                    // Get mask image data
+                    maskImageData = maskCtx.getImageData(0, 0, 800, 800);
+                    
+                    console.log('Mask loaded successfully');
+                }
+            } catch (error) {
+                console.error('Error loading mask:', error);
+            }
         }
 
         // Apply mask to canvas
@@ -760,7 +786,7 @@
             if (!isDrawing || !canvas) return;
             
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 2000 / rect.width;
+            const scaleX = 2000 / rect.width; // Changed from 800 to 2000
             const scaleY = 2000 / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
@@ -1102,7 +1128,7 @@
                 drawSprite(clothing, false);
                 drawSprite(head, false);
                 
-                // Draw full cat image (behind the mask area)
+                // Draw full cat image (the cat body in bottom-left)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
                 // Merge user's drawn layers
@@ -1115,41 +1141,27 @@
                     userCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // EXACT COORDINATES from image analysis:
-                // Drawing canvas (2000x2000): mask at left=519, right=1480, top=296, bottom=1639
-                // Preview (1000x1000): cat full at left=0, right=377, top=622, bottom=1000
-                
-                // Create a temporary canvas to mask the user's art with cat shape
+                // Create masked version of user art (only show inside cat shape)
                 const maskedArt = document.createElement('canvas');
                 maskedArt.width = 1000;
                 maskedArt.height = 1000;
                 const maskedCtx = maskedArt.getContext('2d');
                 
-                // First, draw the cat-full.png - this defines the mask shape
-                maskedCtx.drawImage(catFull, 0, 0, 1000, 1000);
+                // Draw cat-full as the mask shape
+                maskedCtx.drawImage(catFull, 0, 0);
                 
-                // Use 'source-in' to only keep user art where cat pixels exist
+                // Use source-in: only keep parts of next draw where current pixels exist
                 maskedCtx.globalCompositeOperation = 'source-in';
                 
-                // Draw user's art scaled and positioned to match cat area
-                // Source: centered mask area in 2000x2000
-                const srcX = 519;
-                const srcY = 296;
-                const srcW = 961;
-                const srcH = 1343;
-                
-                // Destination: cat area in 1000x1000
-                const dstX = 0;
-                const dstY = 622;
-                const dstW = 377;
-                const dstH = 378;
-                
+                // Draw user art scaled and positioned
+                // Source: mask area in 2000x2000 (centered)
+                // Dest: cat area in 1000x1000 (bottom-left)
                 maskedCtx.drawImage(userCanvas, 
-                    srcX, srcY, srcW, srcH,
-                    dstX, dstY, dstW, dstH
+                    519, 296, 961, 1343,    // Source: centered mask region
+                    0, 622, 377, 378        // Dest: cat position
                 );
                 
-                // Now draw the masked art onto main canvas
+                // Draw masked art on main canvas
                 ctx.drawImage(maskedArt, 0, 0);
                 
                 // Draw positioned cat outline on TOP of everything
