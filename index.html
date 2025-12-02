@@ -1180,26 +1180,58 @@
                 );
                 
                 // Step 3: Draw the masked art with ROTATION
-                // Rotate clockwise by ~12.5 degrees (0.218 radians)
-                const rotationAngle = 12.5 * Math.PI / 180;
+                // Rotate clockwise by ~17.5 degrees (12.5 + 5)
+                const rotationAngle = 17.5 * Math.PI / 180;
                 
-                // Scale up by 5%
-                const scale = 1.05;
+                // Scale: 5% bigger overall, plus 3% taller toward bottom
+                const scaleX = 1.05;
+                const scaleY = 1.08;  // 5% + 3% = 8% taller
                 
                 // Calculate center of destination area for rotation
                 const centerX = dstX + dstW / 2;
                 const centerY = dstY + dstH / 2;
                 
-                // Shift down 5% along the rotated axis (perpendicular to rotation)
+                // Shift down 5% along the rotated axis
                 const shiftAmount = dstH * 0.05;
                 const shiftX = Math.sin(rotationAngle) * shiftAmount;
                 const shiftY = Math.cos(rotationAngle) * shiftAmount;
                 
+                // Use the cat outline as a clipping mask to prevent spillover
                 ctx.save();
+                
+                // Create clipping path from mask-positioned
+                const clipCanvas = document.createElement('canvas');
+                clipCanvas.width = 1000;
+                clipCanvas.height = 1000;
+                const clipCtx = clipCanvas.getContext('2d');
+                clipCtx.drawImage(maskPositioned, 0, 0);
+                
+                // Apply the transformed art
                 ctx.translate(centerX + shiftX, centerY + shiftY);
                 ctx.rotate(rotationAngle);
-                ctx.scale(scale, scale);
+                ctx.scale(scaleX, scaleY);
                 ctx.drawImage(extractedArt, -dstW / 2, -dstH / 2);
+                ctx.restore();
+                
+                // Now clip any spillover by redrawing the area outside the mask as transparent
+                // Draw mask-positioned with destination-out to erase anything outside
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-in';
+                
+                // Create a canvas that's all white except where the frog and mask are
+                const keepCanvas = document.createElement('canvas');
+                keepCanvas.width = 1000;
+                keepCanvas.height = 1000;
+                const keepCtx = keepCanvas.getContext('2d');
+                
+                // Fill everything white (keep all)
+                keepCtx.fillStyle = 'white';
+                keepCtx.fillRect(0, 0, 1000, 1000);
+                
+                // The mask area - draw the mask shape
+                keepCtx.drawImage(maskPositioned, 0, 0);
+                
+                ctx.drawImage(keepCanvas, 0, 0);
                 ctx.restore();
                 
                 // Draw positioned cat outline on TOP of everything
