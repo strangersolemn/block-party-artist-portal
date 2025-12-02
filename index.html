@@ -1144,33 +1144,47 @@
                 // Load mask-positioned.png to use as the mask shape  
                 const maskPositioned = await loadImage('mask-positioned.png');
                 
-                // The user draws on a 2000x2000 canvas where mask-centered.png shows them the shape
-                // mask-centered is at: left=519, right=1480, top=296, bottom=1639 (in 2000x2000)
-                // mask-positioned is at: left=0, right=284, top=706, bottom=1000 (in 1000x1000)
+                // COORDINATES:
+                // mask-centered in 2000x2000: left=520, top=297, right=1480, bottom=1640 (size 960x1343)
+                // mask-positioned in 1000x1000: left=0, top=706, right=284, bottom=1000 (size 284x294)
+                // cat-outline in 1000x1000: left=0, top=697, right=314, bottom=1000 (size 314x303)
                 
-                // Step 1: Extract just the mask region from user's 2000x2000 drawing
+                // We need to map from centered to positioned, aligning with cat outline
+                const srcX = 520;
+                const srcY = 297;
+                const srcW = 960;
+                const srcH = 1343;
+                
+                // Destination should match cat-outline position for proper alignment
+                const dstX = 0;
+                const dstY = 697;
+                const dstW = 314;
+                const dstH = 303;
+                
+                // Step 1: Extract and scale user's drawing to match cat outline area
                 const extractedArt = document.createElement('canvas');
-                extractedArt.width = 284;  // Width of mask-positioned
-                extractedArt.height = 294; // Height of mask-positioned
+                extractedArt.width = dstW;
+                extractedArt.height = dstH;
                 const extractedCtx = extractedArt.getContext('2d');
                 
-                // Copy from centered mask area to extracted canvas
+                // Copy from centered mask area, scaled to cat outline size
                 extractedCtx.drawImage(userCanvas,
-                    519, 296, 961, 1343,    // Source: centered mask region in 2000x2000
-                    0, 0, 284, 294          // Dest: full extracted canvas
+                    srcX, srcY, srcW, srcH,
+                    0, 0, dstW, dstH
                 );
                 
                 // Step 2: Apply mask to extracted art
                 extractedCtx.globalCompositeOperation = 'destination-in';
                 
-                // Draw just the mask shape part of mask-positioned (crop it)
+                // Draw the mask (need to align mask-positioned with cat-outline)
+                // mask-positioned starts at y=706, cat-outline at y=697, so offset by 9px
                 extractedCtx.drawImage(maskPositioned,
                     0, 706, 284, 294,       // Source: mask area in mask-positioned
-                    0, 0, 284, 294          // Dest: full extracted canvas
+                    0, 9, 284, 294          // Dest: offset down by 9px to align with cat outline
                 );
                 
                 // Step 3: Draw the masked art at the correct position in preview
-                ctx.drawImage(extractedArt, 0, 706);
+                ctx.drawImage(extractedArt, dstX, dstY);
                 
                 // Draw positioned cat outline on TOP of everything
                 ctx.drawImage(catOutline, 0, 0, 1000, 1000);
