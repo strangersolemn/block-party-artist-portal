@@ -716,50 +716,12 @@
             layerCtx.putImageData(imageData, 0, 0);
         }
 
-        // Load mask and create clipping region using PNG
+        // Load mask for reference (no clipping during drawing)
         let maskImageData = null;
         
         async function loadMaskPath() {
-            try {
-                // Load mask-centered.png and create pixel mask
-                const maskImg = new Image();
-                maskImg.src = 'mask-centered.png';
-                
-                await new Promise((resolve, reject) => {
-                    maskImg.onload = resolve;
-                    maskImg.onerror = reject;
-                });
-                
-                // Create canvas to read mask pixels (scaled to 2000x2000)
-                const maskCanvas = document.createElement('canvas');
-                maskCanvas.width = 2000;
-                maskCanvas.height = 2000;
-                const maskCtx = maskCanvas.getContext('2d');
-                
-                // Draw mask scaled from 8000 to 2000
-                maskCtx.drawImage(maskImg, 0, 0, 2000, 2000);
-                
-                // Get pixel data - we'll use alpha channel to determine if point is inside mask
-                maskImageData = maskCtx.getImageData(0, 0, 2000, 2000);
-                
-                console.log('Mask loaded successfully from PNG');
-            } catch (error) {
-                console.error('Error loading mask:', error);
-            }
-        }
-        
-        // Check if a point is inside the mask
-        function isInsideMask(x, y) {
-            if (!maskImageData) return true; // Allow drawing if mask not loaded
-            
-            const ix = Math.floor(x);
-            const iy = Math.floor(y);
-            
-            if (ix < 0 || ix >= 2000 || iy < 0 || iy >= 2000) return false;
-            
-            // Get alpha value at this pixel (every 4th value starting at index 3)
-            const index = (iy * 2000 + ix) * 4 + 3;
-            return maskImageData.data[index] > 128; // Inside mask if alpha > 128
+            // No clipping needed - we'll clip in the preview instead
+            console.log('Drawing enabled everywhere - clipping applied in preview only');
         }
 
         // Apply mask to canvas
@@ -802,13 +764,6 @@
             const scaleY = 2000 / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
-            
-            // Only draw if inside the mask
-            if (!isInsideMask(x, y)) {
-                lastX = x;
-                lastY = y;
-                return;
-            }
             
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
@@ -1151,35 +1106,51 @@
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
                 // Merge user's drawn layers
-                const maskCanvas = document.createElement('canvas');
-                maskCanvas.width = 2000;
-                maskCanvas.height = 2000;
-                const maskCtx = maskCanvas.getContext('2d');
+                const userCanvas = document.createElement('canvas');
+                userCanvas.width = 2000;
+                userCanvas.height = 2000;
+                const userCtx = userCanvas.getContext('2d');
                 
                 layers.forEach(layer => {
-                    maskCtx.drawImage(layer.canvas, 0, 0);
+                    userCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
                 // EXACT COORDINATES from image analysis:
                 // Drawing canvas (2000x2000): mask at left=519, right=1480, top=296, bottom=1639
-                // Preview (1000x1000): cat outline at left=0, right=314, top=697, bottom=1000
+                // Preview (1000x1000): cat full at left=0, right=377, top=622, bottom=1000
                 
-                // Source region (mask area in 2000x2000 drawing)
+                // Create a temporary canvas to mask the user's art with cat shape
+                const maskedArt = document.createElement('canvas');
+                maskedArt.width = 1000;
+                maskedArt.height = 1000;
+                const maskedCtx = maskedArt.getContext('2d');
+                
+                // First, draw the cat-full.png - this defines the mask shape
+                maskedCtx.drawImage(catFull, 0, 0, 1000, 1000);
+                
+                // Use 'source-in' to only keep user art where cat pixels exist
+                maskedCtx.globalCompositeOperation = 'source-in';
+                
+                // Draw user's art scaled and positioned to match cat area
+                // Source: centered mask area in 2000x2000
                 const srcX = 519;
                 const srcY = 296;
-                const srcW = 961;   // 1480 - 519
-                const srcH = 1343;  // 1639 - 296
+                const srcW = 961;
+                const srcH = 1343;
                 
-                // Destination (cat outline area in 1000x1000 preview)
+                // Destination: cat area in 1000x1000
                 const dstX = 0;
-                const dstY = 697;
-                const dstW = 314;
-                const dstH = 303;
+                const dstY = 622;
+                const dstW = 377;
+                const dstH = 378;
                 
-                ctx.drawImage(maskCanvas, 
-                    srcX, srcY, srcW, srcH,  // Source: mask region from drawing
-                    dstX, dstY, dstW, dstH   // Dest: cat position in preview
+                maskedCtx.drawImage(userCanvas, 
+                    srcX, srcY, srcW, srcH,
+                    dstX, dstY, dstW, dstH
                 );
+                
+                // Now draw the masked art onto main canvas
+                ctx.drawImage(maskedArt, 0, 0);
                 
                 // Draw positioned cat outline on TOP of everything
                 ctx.drawImage(catOutline, 0, 0, 1000, 1000);
