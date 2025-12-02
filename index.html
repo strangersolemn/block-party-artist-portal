@@ -1141,26 +1141,36 @@
                     userCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Load mask-positioned.png to use as the mask shape
+                // Load mask-positioned.png to use as the mask shape  
                 const maskPositioned = await loadImage('mask-positioned.png');
                 
-                // Create masked version of user art
-                const maskedArt = document.createElement('canvas');
-                maskedArt.width = 1000;
-                maskedArt.height = 1000;
-                const maskedCtx = maskedArt.getContext('2d');
+                // The user draws on a 2000x2000 canvas where mask-centered.png shows them the shape
+                // mask-centered is at: left=519, right=1480, top=296, bottom=1639 (in 2000x2000)
+                // mask-positioned is at: left=0, right=284, top=706, bottom=1000 (in 1000x1000)
                 
-                // First draw the user's art scaled to 1000x1000
-                maskedCtx.drawImage(userCanvas, 0, 0, 2000, 2000, 0, 0, 1000, 1000);
+                // Step 1: Extract just the mask region from user's 2000x2000 drawing
+                const extractedArt = document.createElement('canvas');
+                extractedArt.width = 284;  // Width of mask-positioned
+                extractedArt.height = 294; // Height of mask-positioned
+                const extractedCtx = extractedArt.getContext('2d');
                 
-                // Use destination-in: keep only pixels where mask exists
-                maskedCtx.globalCompositeOperation = 'destination-in';
+                // Copy from centered mask area to extracted canvas
+                extractedCtx.drawImage(userCanvas,
+                    519, 296, 961, 1343,    // Source: centered mask region in 2000x2000
+                    0, 0, 284, 294          // Dest: full extracted canvas
+                );
                 
-                // Draw mask - this clips the user art to mask shape
-                maskedCtx.drawImage(maskPositioned, 0, 0);
+                // Step 2: Apply mask to extracted art
+                extractedCtx.globalCompositeOperation = 'destination-in';
                 
-                // Draw masked art on main canvas
-                ctx.drawImage(maskedArt, 0, 0);
+                // Draw just the mask shape part of mask-positioned (crop it)
+                extractedCtx.drawImage(maskPositioned,
+                    0, 706, 284, 294,       // Source: mask area in mask-positioned
+                    0, 0, 284, 294          // Dest: full extracted canvas
+                );
+                
+                // Step 3: Draw the masked art at the correct position in preview
+                ctx.drawImage(extractedArt, 0, 706);
                 
                 // Draw positioned cat outline on TOP of everything
                 ctx.drawImage(catOutline, 0, 0, 1000, 1000);
