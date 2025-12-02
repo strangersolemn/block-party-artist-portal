@@ -1183,13 +1183,22 @@
                 // Rotate clockwise by ~12.5 degrees (0.218 radians)
                 const rotationAngle = 12.5 * Math.PI / 180;
                 
+                // Scale up by 5%
+                const scale = 1.05;
+                
                 // Calculate center of destination area for rotation
                 const centerX = dstX + dstW / 2;
                 const centerY = dstY + dstH / 2;
                 
+                // Shift down 5% along the rotated axis (perpendicular to rotation)
+                const shiftAmount = dstH * 0.05;
+                const shiftX = Math.sin(rotationAngle) * shiftAmount;
+                const shiftY = Math.cos(rotationAngle) * shiftAmount;
+                
                 ctx.save();
-                ctx.translate(centerX, centerY);
+                ctx.translate(centerX + shiftX, centerY + shiftY);
                 ctx.rotate(rotationAngle);
+                ctx.scale(scale, scale);
                 ctx.drawImage(extractedArt, -dstW / 2, -dstH / 2);
                 ctx.restore();
                 
