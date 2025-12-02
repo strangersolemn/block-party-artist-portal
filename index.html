@@ -1141,24 +1141,27 @@
                     userCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Create masked version of user art (only show inside cat shape)
+                // Load mask-positioned.png to use as the actual mask shape
+                const maskPositioned = await loadImage('mask-positioned.png');
+                
+                // Create masked version of user art (only show inside MASK shape, not cat)
                 const maskedArt = document.createElement('canvas');
                 maskedArt.width = 1000;
                 maskedArt.height = 1000;
                 const maskedCtx = maskedArt.getContext('2d');
                 
-                // Draw cat-full as the mask shape
-                maskedCtx.drawImage(catFull, 0, 0);
+                // Draw mask-positioned as the mask shape (black oval in bottom-left)
+                maskedCtx.drawImage(maskPositioned, 0, 0);
                 
-                // Use source-in: only keep parts of next draw where current pixels exist
+                // Use source-in: only keep parts of next draw where mask pixels exist
                 maskedCtx.globalCompositeOperation = 'source-in';
                 
                 // Draw user art scaled and positioned
-                // Source: mask area in 2000x2000 (centered)
-                // Dest: cat area in 1000x1000 (bottom-left)
+                // Source: mask area in 2000x2000 (centered at 519,296 size 961x1343)
+                // Dest: mask position in 1000x1000 (at 0,706 size 284x294)
                 maskedCtx.drawImage(userCanvas, 
                     519, 296, 961, 1343,    // Source: centered mask region
-                    0, 622, 377, 378        // Dest: cat position
+                    0, 706, 284, 294        // Dest: mask-positioned location
                 );
                 
                 // Draw masked art on main canvas
