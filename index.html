@@ -1146,16 +1146,13 @@
                 
                 // COORDINATES:
                 // mask-centered in 2000x2000: left=520, top=297, right=1480, bottom=1640 (size 960x1343)
-                // mask-positioned in 1000x1000: left=0, top=706, right=284, bottom=1000 (size 284x294)
                 // cat-outline in 1000x1000: left=0, top=697, right=314, bottom=1000 (size 314x303)
                 
-                // We need to map from centered to positioned, aligning with cat outline
                 const srcX = 520;
                 const srcY = 297;
                 const srcW = 960;
                 const srcH = 1343;
                 
-                // Destination should match cat-outline position for proper alignment
                 const dstX = 0;
                 const dstY = 697;
                 const dstW = 314;
@@ -1176,15 +1173,25 @@
                 // Step 2: Apply mask to extracted art
                 extractedCtx.globalCompositeOperation = 'destination-in';
                 
-                // Draw the mask (need to align mask-positioned with cat-outline)
-                // mask-positioned starts at y=706, cat-outline at y=697, so offset by 9px
+                // Draw the mask (aligned with cat-outline)
                 extractedCtx.drawImage(maskPositioned,
-                    0, 706, 284, 294,       // Source: mask area in mask-positioned
-                    0, 9, 284, 294          // Dest: offset down by 9px to align with cat outline
+                    0, 706, 284, 294,
+                    0, 9, 284, 294
                 );
                 
-                // Step 3: Draw the masked art at the correct position in preview
-                ctx.drawImage(extractedArt, dstX, dstY);
+                // Step 3: Draw the masked art with ROTATION
+                // Rotate clockwise by ~12.5 degrees (0.218 radians)
+                const rotationAngle = 12.5 * Math.PI / 180;
+                
+                // Calculate center of destination area for rotation
+                const centerX = dstX + dstW / 2;
+                const centerY = dstY + dstH / 2;
+                
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(rotationAngle);
+                ctx.drawImage(extractedArt, -dstW / 2, -dstH / 2);
+                ctx.restore();
                 
                 // Draw positioned cat outline on TOP of everything
                 ctx.drawImage(catOutline, 0, 0, 1000, 1000);
