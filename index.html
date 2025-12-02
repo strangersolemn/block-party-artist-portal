@@ -1141,28 +1141,23 @@
                     userCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Load mask-positioned.png to use as the actual mask shape
+                // Load mask-positioned.png to use as the mask shape
                 const maskPositioned = await loadImage('mask-positioned.png');
                 
-                // Create masked version of user art (only show inside MASK shape, not cat)
+                // Create masked version of user art
                 const maskedArt = document.createElement('canvas');
                 maskedArt.width = 1000;
                 maskedArt.height = 1000;
                 const maskedCtx = maskedArt.getContext('2d');
                 
-                // Draw mask-positioned as the mask shape (black oval in bottom-left)
+                // First draw the user's art scaled to 1000x1000
+                maskedCtx.drawImage(userCanvas, 0, 0, 2000, 2000, 0, 0, 1000, 1000);
+                
+                // Use destination-in: keep only pixels where mask exists
+                maskedCtx.globalCompositeOperation = 'destination-in';
+                
+                // Draw mask - this clips the user art to mask shape
                 maskedCtx.drawImage(maskPositioned, 0, 0);
-                
-                // Use source-in: only keep parts of next draw where mask pixels exist
-                maskedCtx.globalCompositeOperation = 'source-in';
-                
-                // Draw user art scaled and positioned
-                // Source: mask area in 2000x2000 (centered at 519,296 size 961x1343)
-                // Dest: mask position in 1000x1000 (at 0,706 size 284x294)
-                maskedCtx.drawImage(userCanvas, 
-                    519, 296, 961, 1343,    // Source: centered mask region
-                    0, 706, 284, 294        // Dest: mask-positioned location
-                );
                 
                 // Draw masked art on main canvas
                 ctx.drawImage(maskedArt, 0, 0);
