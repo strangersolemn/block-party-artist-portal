@@ -103,14 +103,14 @@
             position: relative;
             background: #1a1a2e;
             border-radius: 10px;
+            overflow: hidden;
         }
 
         .canvas-container {
             position: relative;
-            width: 100%;
-            height: 100%;
-            max-width: 100%;
-            max-height: 100%;
+            /* Fixed aspect ratio - always square */
+            width: min(100%, calc(100vh - 250px));
+            height: min(100%, calc(100vh - 250px));
             aspect-ratio: 1 / 1;
             margin: auto;
         }
@@ -134,6 +134,16 @@
             width: 100%;
             height: 100%;
             cursor: crosshair;
+        }
+        
+        .canvas-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            object-fit: contain;
         }
 
         .svg-overlay {
@@ -592,11 +602,13 @@
         }
 
         // Layer management
+        let maskImage = null; // For clipping
+        
         function addLayer() {
             const container = document.getElementById('canvasContainer');
             const newCanvas = document.createElement('canvas');
-            newCanvas.width = 2000; // Match centered mask PNG size
-            newCanvas.height = 2000;
+            newCanvas.width = 1000; // Match new 1000x1000 mask size
+            newCanvas.height = 1000;
             newCanvas.style.position = 'absolute';
             newCanvas.style.top = '0';
             newCanvas.style.left = '0';
@@ -618,6 +630,35 @@
             setupCanvasEvents(newCanvas);
             updateLayersList();
             selectLayer(layers.length - 1);
+        }
+        
+        // Load mask for clipping during draw
+        async function loadMaskForClipping() {
+            return new Promise((resolve) => {
+                maskImage = new Image();
+                maskImage.onload = () => {
+                    // Create mask data for pixel checking
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = 1000;
+                    tempCanvas.height = 1000;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(maskImage, 0, 0);
+                    maskImageData = tempCtx.getImageData(0, 0, 1000, 1000);
+                    console.log('Mask loaded for clipping');
+                    resolve();
+                };
+                maskImage.src = 'mask-centered-new.png';
+            });
+        }
+        
+        // Check if point is inside mask
+        function isInsideMask(x, y) {
+            if (!maskImageData) return true;
+            const ix = Math.floor(x);
+            const iy = Math.floor(y);
+            if (ix < 0 || ix >= 1000 || iy < 0 || iy >= 1000) return false;
+            const index = (iy * 1000 + ix) * 4 + 3; // Alpha channel
+            return maskImageData.data[index] > 128;
         }
 
         function selectLayer(index) {
@@ -684,10 +725,10 @@
                     addLayer();
                     const targetCtx = layers[currentLayerIndex].ctx;
                     
-                    // Scale image to fit 2000x2000 canvas
-                    const scale = Math.min(2000 / img.width, 2000 / img.height);
-                    const x = (2000 - img.width * scale) / 2;
-                    const y = (2000 - img.height * scale) / 2;
+                    // Scale image to fit 1000x1000 canvas
+                    const scale = Math.min(1000 / img.width, 1000 / img.height);
+                    const x = (1000 - img.width * scale) / 2;
+                    const y = (1000 - img.height * scale) / 2;
                     
                     targetCtx.drawImage(img, x, y, img.width * scale, img.height * scale);
                     
@@ -769,6 +810,8 @@
         }
 
         async function initCanvas() {
+            // Load mask for clipping first
+            await loadMaskForClipping();
             // Create first layer
             addLayer();
         }
@@ -776,8 +819,8 @@
         function startDrawing(e) {
             isDrawing = true;
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 2000 / rect.width;
-            const scaleY = 2000 / rect.height;
+            const scaleX = 1000 / rect.width;
+            const scaleY = 1000 / rect.height;
             lastX = (e.clientX - rect.left) * scaleX;
             lastY = (e.clientY - rect.top) * scaleY;
         }
@@ -786,10 +829,17 @@
             if (!isDrawing || !canvas) return;
             
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 2000 / rect.width; // Changed from 800 to 2000
-            const scaleY = 2000 / rect.height;
+            const scaleX = 1000 / rect.width;
+            const scaleY = 1000 / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
+            
+            // Only draw if inside the mask
+            if (!isInsideMask(x, y) && !isInsideMask(lastX, lastY)) {
+                lastX = x;
+                lastY = y;
+                return;
+            }
             
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
@@ -817,8 +867,8 @@
             e.preventDefault();
             const touch = e.touches[0];
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 2000 / rect.width;
-            const scaleY = 2000 / rect.height;
+            const scaleX = 1000 / rect.width;
+            const scaleY = 1000 / rect.height;
             isDrawing = true;
             lastX = (touch.clientX - rect.left) * scaleX;
             lastY = (touch.clientY - rect.top) * scaleY;
@@ -846,15 +896,15 @@
         
         function clearCanvas() {
             if (canvas && ctx) {
-                ctx.clearRect(0, 0, 2000, 2000);
+                ctx.clearRect(0, 0, 1000, 1000);
             }
         }
 
         function downloadMaskPNG() {
             // Merge all layers
             const mergeCanvas = document.createElement('canvas');
-            mergeCanvas.width = 2000;
-            mergeCanvas.height = 2000;
+            mergeCanvas.width = 1000;
+            mergeCanvas.height = 1000;
             const mergeCtx = mergeCanvas.getContext('2d');
             
             layers.forEach(layer => {
@@ -1131,10 +1181,10 @@
                 // Draw full cat image (the cat body in bottom-left)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // Merge user's drawn layers (still 2000x2000)
+                // Merge user's drawn layers (NOW 1000x1000)
                 const userCanvas = document.createElement('canvas');
-                userCanvas.width = 2000;
-                userCanvas.height = 2000;
+                userCanvas.width = 1000;
+                userCanvas.height = 1000;
                 const userCtx = userCanvas.getContext('2d');
                 
                 layers.forEach(layer => {
@@ -1144,16 +1194,15 @@
                 // Load NEW mask-positioned (1000x1000, mask at bottom-left)
                 const maskPositionedNew = await loadImage('mask-positioned-new.png');
                 
-                // NEW COORDINATES (all 1000x1000 now):
+                // COORDINATES (all 1000x1000 now):
                 // Centre_mask_mask: left=244, top=140, right=715, bottom=798 (size 471x658)
                 // Position_mask_: left=0, top=706, right=284, bottom=1000 (size 284x294)
                 
-                // User draws on 2000x2000 canvas showing centered mask
-                // Centered mask in 2000x2000 = (244*2, 140*2) to (715*2, 798*2) = (488, 280) to (1430, 1596)
-                const srcX = 488;
-                const srcY = 280;
-                const srcW = 942;  // (715-244)*2
-                const srcH = 1316; // (798-140)*2
+                // Source: where user drew (centered mask location)
+                const srcX = 244;
+                const srcY = 140;
+                const srcW = 471;  // 715-244
+                const srcH = 658;  // 798-140
                 
                 // Destination: positioned mask location
                 const dstX = 0;
@@ -1169,7 +1218,7 @@
                 
                 // Extract from user's drawing and place at positioned location
                 maskedCtx.drawImage(userCanvas,
-                    srcX, srcY, srcW, srcH,  // Source: centered mask area in 2000x2000
+                    srcX, srcY, srcW, srcH,  // Source: centered mask area in 1000x1000
                     dstX, dstY, dstW, dstH   // Dest: positioned mask area in 1000x1000
                 );
                 
