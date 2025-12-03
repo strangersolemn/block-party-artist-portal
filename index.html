@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Simple Mask Test</title>
+    <title>Position Mask on Frog</title>
     <style>
         body { background: #1a1a2e; color: white; font-family: Arial; padding: 20px; }
         .container { display: flex; gap: 20px; }
@@ -14,34 +14,34 @@
     </style>
 </head>
 <body>
-    <h2>Adjust until it fits perfectly, then copy values</h2>
+    <h2>Position the mask on the frog - adjust until it fits the cat face</h2>
     
     <div class="container">
         <div>
-            <h3>Result (500x500)</h3>
+            <h3>Frog with Mask Overlay</h3>
             <canvas id="result" width="500" height="500" class="box"></canvas>
             <div class="controls">
                 <div>
                     <label>X:</label>
-                    <input type="number" id="maskX" value="-63" onchange="compose()">
+                    <input type="number" id="maskX" value="-63">
                     <button onclick="adjust('maskX', -5)">←</button>
                     <button onclick="adjust('maskX', 5)">→</button>
                 </div>
                 <div>
                     <label>Y:</label>
-                    <input type="number" id="maskY" value="318" onchange="compose()">
+                    <input type="number" id="maskY" value="318">
                     <button onclick="adjust('maskY', -5)">↑</button>
                     <button onclick="adjust('maskY', 5)">↓</button>
                 </div>
                 <div>
                     <label>Scale:</label>
-                    <input type="number" id="maskScale" value="0.26" step="0.01" onchange="compose()">
+                    <input type="number" id="maskScale" value="0.26" step="0.01">
                     <button onclick="adjust('maskScale', -0.01)">-</button>
                     <button onclick="adjust('maskScale', 0.01)">+</button>
                 </div>
                 <div>
                     <label>Rotation:</label>
-                    <input type="number" id="maskRotation" value="30" onchange="compose()">
+                    <input type="number" id="maskRotation" value="30">
                     <button onclick="adjust('maskRotation', -2)">↶</button>
                     <button onclick="adjust('maskRotation', 2)">↷</button>
                 </div>
@@ -50,24 +50,11 @@
                 <div id="output" style="margin-top:10px; font-family:monospace; background:#000; padding:10px;"></div>
             </div>
         </div>
-        
-        <div>
-            <h3>Draw here (500x500)</h3>
-            <canvas id="drawing" width="500" height="500" class="box" style="cursor:crosshair"></canvas>
-            <br>
-            <button onclick="clearDrawing()">CLEAR</button>
-            <button onclick="fillRed()">FILL RED (test)</button>
-        </div>
     </div>
     
     <script>
         const resultCanvas = document.getElementById('result');
         const resultCtx = resultCanvas.getContext('2d');
-        const drawingCanvas = document.getElementById('drawing');
-        const drawingCtx = drawingCanvas.getContext('2d');
-        
-        // Drawing state
-        let isDrawing = false;
         
         // Load images
         const frogBody = new Image();
@@ -76,16 +63,27 @@
         const maskImg = new Image();
         const maskOutline = new Image();
         
+        let imagesLoaded = 0;
+        const totalImages = 5;
+        
+        function onImageLoad() {
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+                compose();
+            }
+        }
+        
+        frogBody.onload = onImageLoad;
+        catFull.onload = onImageLoad;
+        catOutline.onload = onImageLoad;
+        maskImg.onload = onImageLoad;
+        maskOutline.onload = onImageLoad;
+        
         frogBody.src = 'Body_sprites/1body-sprite.avif';
         catFull.src = 'cat-full.png';
         catOutline.src = 'cat-outline-positioned.png';
         maskImg.src = 'Centre_mask_mask.png';
         maskOutline.src = 'Centre_mask_outline.png';
-        
-        // Show mask outline on drawing canvas
-        maskOutline.onload = function() {
-            drawingCtx.drawImage(maskOutline, 0, 0, 500, 500);
-        };
         
         function getValues() {
             return {
@@ -119,58 +117,34 @@
             // Draw frog body
             resultCtx.drawImage(frogBody, 0, 0, 500, 500, 0, 0, 500, 500);
             
-            // Draw cat (behind mask)
+            // Draw cat body (behind mask)
             resultCtx.drawImage(catFull, 0, 0, 500, 500);
             
-            // Place the user's drawing
+            // Draw the MASK and OUTLINE at the specified position/scale/rotation
             const size = 500 * v.scale;
             
             resultCtx.save();
             resultCtx.translate(v.x + size/2, v.y + size/2);
             resultCtx.rotate(v.rotation * Math.PI / 180);
-            resultCtx.drawImage(drawingCanvas, -size/2, -size/2, size, size);
+            
+            // Draw mask (black fill)
+            resultCtx.drawImage(maskImg, -size/2, -size/2, size, size);
+            // Draw outline on top
+            resultCtx.drawImage(maskOutline, -size/2, -size/2, size, size);
+            
             resultCtx.restore();
             
-            // Draw cat outline on top
+            // Draw cat outline on top of everything
             resultCtx.drawImage(catOutline, 0, 0, 500, 500);
             
             // Update output
             document.getElementById('output').textContent = `X=${v.x}, Y=${v.y}, Scale=${v.scale}, Rotation=${v.rotation}`;
         }
         
-        function clearDrawing() {
-            drawingCtx.clearRect(0, 0, 500, 500);
-            drawingCtx.drawImage(maskOutline, 0, 0, 500, 500);
-        }
-        
-        function fillRed() {
-            drawingCtx.fillStyle = 'red';
-            drawingCtx.fillRect(0, 0, 500, 500);
-            compose();
-        }
-        
-        // Simple drawing
-        drawingCanvas.addEventListener('mousedown', (e) => {
-            isDrawing = true;
+        // Listen for input changes
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('change', compose);
         });
-        
-        drawingCanvas.addEventListener('mousemove', (e) => {
-            if (!isDrawing) return;
-            const rect = drawingCanvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            drawingCtx.fillStyle = 'red';
-            drawingCtx.beginPath();
-            drawingCtx.arc(x, y, 10, 0, Math.PI * 2);
-            drawingCtx.fill();
-        });
-        
-        drawingCanvas.addEventListener('mouseup', () => { isDrawing = false; compose(); });
-        drawingCanvas.addEventListener('mouseleave', () => { isDrawing = false; });
-        
-        // Auto-compose when images load
-        catOutline.onload = compose;
     </script>
 </body>
 </html>
