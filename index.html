@@ -1134,12 +1134,12 @@
                 // Draw full cat image (behind the mask area)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // === MASK POSITIONING VALUES (final tuned) ===
-                // The mask content is 471x658 (aspect ratio 0.716)
+                // === MASK POSITIONING VALUES v2 ===
                 const maskX = -20;   // moved right from -70
                 const maskY = 660;   // moved down from 610
                 const maskScale = 0.53;
                 const maskRotation = 34;
+                console.log('MASK VALUES v2: X=-20, Y=660, Scale=0.53, Rot=34');
                 
                 // Get user's drawing from layers
                 const userDrawing = document.createElement('canvas');
