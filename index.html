@@ -373,8 +373,8 @@
 
             <div class="canvas-wrapper">
                 <div class="canvas-container" id="canvasContainer">
-                    <img src="mask-centered.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; object-fit: contain;">
-                    <img src="cat-outline-centered.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; object-fit: contain;">
+                    <img src="mask-centered-new.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; object-fit: contain;">
+                    <img src="cat-outline-centered-new.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; object-fit: contain;">
                 </div>
             </div>
         </div>
@@ -1131,7 +1131,7 @@
                 // Draw full cat image (the cat body in bottom-left)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // Merge user's drawn layers
+                // Merge user's drawn layers (still 2000x2000)
                 const userCanvas = document.createElement('canvas');
                 userCanvas.width = 2000;
                 userCanvas.height = 2000;
@@ -1141,24 +1141,41 @@
                     userCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Load mask-positioned.png to use as the mask shape  
-                const maskPositioned = await loadImage('mask-positioned.png');
+                // Load NEW mask-positioned (1000x1000, mask at bottom-left)
+                const maskPositionedNew = await loadImage('mask-positioned-new.png');
                 
-                // Simple approach: 
-                // 1. Scale user's 2000x2000 drawing to 1000x1000
-                // 2. Clip it with mask-positioned.png
+                // NEW COORDINATES (all 1000x1000 now):
+                // Centre_mask_mask: left=244, top=140, right=715, bottom=798 (size 471x658)
+                // Position_mask_: left=0, top=706, right=284, bottom=1000 (size 284x294)
                 
+                // User draws on 2000x2000 canvas showing centered mask
+                // Centered mask in 2000x2000 = (244*2, 140*2) to (715*2, 798*2) = (488, 280) to (1430, 1596)
+                const srcX = 488;
+                const srcY = 280;
+                const srcW = 942;  // (715-244)*2
+                const srcH = 1316; // (798-140)*2
+                
+                // Destination: positioned mask location
+                const dstX = 0;
+                const dstY = 706;
+                const dstW = 284;
+                const dstH = 294;
+                
+                // Create canvas for masked art
                 const maskedArt = document.createElement('canvas');
                 maskedArt.width = 1000;
                 maskedArt.height = 1000;
                 const maskedCtx = maskedArt.getContext('2d');
                 
-                // Draw user art scaled down
-                maskedCtx.drawImage(userCanvas, 0, 0, 2000, 2000, 0, 0, 1000, 1000);
+                // Extract from user's drawing and place at positioned location
+                maskedCtx.drawImage(userCanvas,
+                    srcX, srcY, srcW, srcH,  // Source: centered mask area in 2000x2000
+                    dstX, dstY, dstW, dstH   // Dest: positioned mask area in 1000x1000
+                );
                 
                 // Clip to mask shape
                 maskedCtx.globalCompositeOperation = 'destination-in';
-                maskedCtx.drawImage(maskPositioned, 0, 0);
+                maskedCtx.drawImage(maskPositionedNew, 0, 0);
                 
                 // Draw the masked result
                 ctx.drawImage(maskedArt, 0, 0);
