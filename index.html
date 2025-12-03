@@ -103,27 +103,24 @@
             position: relative;
             background: #1a1a2e;
             border-radius: 10px;
-            overflow: hidden;
+            overflow: auto;
         }
 
         .canvas-container {
             position: relative;
-            /* Fixed aspect ratio - always square */
-            width: min(100%, calc(100vh - 250px));
-            height: min(100%, calc(100vh - 250px));
-            aspect-ratio: 1 / 1;
-            margin: auto;
+            /* FIXED SIZE - no stretching */
+            width: 500px;
+            height: 500px;
+            flex-shrink: 0;
         }
 
         #maskCanvas {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 500px;
+            height: 500px;
             cursor: crosshair;
-            object-fit: contain;
-            object-position: top left;
         }
 
         /* Style for all layer canvases */
@@ -131,8 +128,8 @@
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 500px;
+            height: 500px;
             cursor: crosshair;
         }
         
@@ -140,10 +137,9 @@
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 500px;
+            height: 500px;
             pointer-events: none;
-            object-fit: contain;
         }
 
         .svg-overlay {
@@ -683,13 +679,13 @@
         function addLayer() {
             const container = document.getElementById('canvasContainer');
             const newCanvas = document.createElement('canvas');
-            newCanvas.width = 1000; // Match new 1000x1000 mask size
+            newCanvas.width = 1000; // Internal resolution
             newCanvas.height = 1000;
             newCanvas.style.position = 'absolute';
             newCanvas.style.top = '0';
             newCanvas.style.left = '0';
-            newCanvas.style.width = '100%';
-            newCanvas.style.height = '100%';
+            newCanvas.style.width = '500px';  // Fixed display size
+            newCanvas.style.height = '500px';
             newCanvas.style.cursor = 'crosshair';
             newCanvas.style.zIndex = layers.length + 1;
             
@@ -718,7 +714,7 @@
                     tempCanvas.width = 1000;
                     tempCanvas.height = 1000;
                     const tempCtx = tempCanvas.getContext('2d');
-                    tempCtx.drawImage(maskImage, 0, 0);
+                    tempCtx.drawImage(maskImage, 0, 0, 1000, 1000);
                     maskImageData = tempCtx.getImageData(0, 0, 1000, 1000);
                     console.log('Mask loaded for clipping');
                     resolve();
@@ -892,23 +888,22 @@
             addLayer();
         }
 
+        // Fixed scale: 1000 internal pixels / 500 display pixels = 2
+        const CANVAS_SCALE = 2;
+
         function startDrawing(e) {
             isDrawing = true;
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 1000 / rect.width;
-            const scaleY = 1000 / rect.height;
-            lastX = (e.clientX - rect.left) * scaleX;
-            lastY = (e.clientY - rect.top) * scaleY;
+            lastX = (e.clientX - rect.left) * CANVAS_SCALE;
+            lastY = (e.clientY - rect.top) * CANVAS_SCALE;
         }
 
         function draw(e) {
             if (!isDrawing || !canvas) return;
             
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 1000 / rect.width;
-            const scaleY = 1000 / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
+            const x = (e.clientX - rect.left) * CANVAS_SCALE;
+            const y = (e.clientY - rect.top) * CANVAS_SCALE;
             
             // Only draw if inside the mask
             if (!isInsideMask(x, y) && !isInsideMask(lastX, lastY)) {
@@ -917,7 +912,7 @@
                 return;
             }
             
-            ctx.lineWidth = brushSize;
+            ctx.lineWidth = brushSize * CANVAS_SCALE;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             
@@ -943,11 +938,9 @@
             e.preventDefault();
             const touch = e.touches[0];
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 1000 / rect.width;
-            const scaleY = 1000 / rect.height;
             isDrawing = true;
-            lastX = (touch.clientX - rect.left) * scaleX;
-            lastY = (touch.clientY - rect.top) * scaleY;
+            lastX = (touch.clientX - rect.left) * CANVAS_SCALE;
+            lastY = (touch.clientY - rect.top) * CANVAS_SCALE;
         }
 
         function handleTouchMove(e) {
