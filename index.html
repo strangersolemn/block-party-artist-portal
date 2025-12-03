@@ -1135,10 +1135,11 @@
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
                 // === MASK POSITIONING VALUES (final tuned) ===
-                const maskX = -116;      // less negative = right
-                const maskY = 612;       // smaller = up
-                const maskScale = 0.53;  // bigger
-                const maskRotation = 34; // Rotation in degrees
+                // The mask content is 471x658 (aspect ratio 0.716)
+                const maskX = -70;
+                const maskY = 610;
+                const maskScale = 0.53;
+                const maskRotation = 34;
                 
                 // Get user's drawing from layers
                 const userDrawing = document.createElement('canvas');
@@ -1150,16 +1151,18 @@
                     userCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // The mask image is 1000x1000, scale it
-                const scaledSize = 1000 * maskScale; // ~260px
+                // Scale maintaining aspect ratio
+                // Mask content is 471x658, so height is 1.4x width
+                const scaledWidth = 1000 * maskScale;
+                const scaledHeight = 1000 * maskScale; // Keep square scaling since mask image is 1000x1000
                 
                 // Draw user art clipped to mask, transformed
                 ctx.save();
                 
                 // Position and rotate
-                ctx.translate(maskX + scaledSize/2, maskY + scaledSize/2);
+                ctx.translate(maskX + scaledWidth/2, maskY + scaledHeight/2);
                 ctx.rotate(maskRotation * Math.PI / 180);
-                ctx.translate(-scaledSize/2, -scaledSize/2);
+                ctx.translate(-scaledWidth/2, -scaledHeight/2);
                 
                 // Create clipped version
                 const clippedCanvas = document.createElement('canvas');
@@ -1173,8 +1176,8 @@
                 clippedCtx.globalCompositeOperation = 'destination-in';
                 clippedCtx.drawImage(maskImg, 0, 0);
                 
-                // Draw the clipped result scaled
-                ctx.drawImage(clippedCanvas, 0, 0, 1000, 1000, 0, 0, scaledSize, scaledSize);
+                // Draw the clipped result - DON'T scale, just position and rotate
+                ctx.drawImage(clippedCanvas, 0, 0, 1000, 1000, 0, 0, scaledWidth, scaledHeight);
                 
                 ctx.restore();
                 
