@@ -1275,19 +1275,6 @@
                 ctx.drawImage(catOutline, 0, 0, 1000, 1000);
                 
                 console.log('Composition complete!');
-                maskedCtx.drawImage(userCanvas,
-                    srcX, srcY, srcW, srcH,  // Source: centered mask area in 1000x1000
-                    dstX, dstY, dstW, dstH   // Dest: positioned mask area in 1000x1000
-                );
-                
-                // Clip to mask shape
-                maskedCtx.globalCompositeOperation = 'destination-in';
-                maskedCtx.drawImage(maskPositionedNew, 0, 0);
-                
-                // Draw the masked result
-                ctx.drawImage(maskedArt, 0, 0);
-                
-                // Draw positioned cat outline on TOP of everything
                 ctx.drawImage(catOutline, 0, 0, 1000, 1000);
                 
                 console.log('Composition complete!');
