@@ -157,9 +157,16 @@
             
             <div class="control-row">
                 <label>Scale:</label>
-                <input type="number" id="scale" value="0.5" step="0.01" onchange="updateFromInputs()">
-                <button onclick="changeScale(-0.02)">smaller</button>
-                <button onclick="changeScale(0.02)">bigger</button>
+                <input type="number" id="scale" value="0.05" step="0.01" onchange="updateFromInputs()">
+                <button onclick="changeScale(-0.01)">smaller</button>
+                <button onclick="changeScale(0.01)">bigger</button>
+            </div>
+            
+            <div class="control-row">
+                <label>Rotate:</label>
+                <input type="number" id="rotation" value="0" step="1" onchange="updateFromInputs()">
+                <button onclick="changeRotation(-2)">↶ 2°</button>
+                <button onclick="changeRotation(2)">2° ↷</button>
             </div>
             
             <hr style="margin: 20px 0; border-color: #444;">
@@ -195,9 +202,10 @@
         const previewBox = document.getElementById('previewBox');
         
         // Position values (in display pixels for 500x500 preview)
-        let posX = -100;
-        let posY = 280;
-        let scale = 0.5;
+        let posX = 0;
+        let posY = 300;
+        let scale = 0.05;
+        let rotation = 0;
         
         function loadImage(src) {
             return new Promise((resolve, reject) => {
@@ -259,6 +267,8 @@
             maskDraggable.style.top = posY + 'px';
             maskDraggable.style.width = w + 'px';
             maskDraggable.style.height = h + 'px';
+            maskDraggable.style.transform = `rotate(${rotation}deg)`;
+            maskDraggable.style.transformOrigin = 'center center';
             
             maskImg.style.width = w + 'px';
             maskImg.style.height = h + 'px';
@@ -268,6 +278,7 @@
             document.getElementById('posX').value = Math.round(posX);
             document.getElementById('posY').value = Math.round(posY);
             document.getElementById('scale').value = scale.toFixed(2);
+            document.getElementById('rotation').value = Math.round(rotation);
             
             updateOutput();
         }
@@ -275,7 +286,8 @@
         function updateFromInputs() {
             posX = parseFloat(document.getElementById('posX').value) || 0;
             posY = parseFloat(document.getElementById('posY').value) || 0;
-            scale = parseFloat(document.getElementById('scale').value) || 0.5;
+            scale = parseFloat(document.getElementById('scale').value) || 0.05;
+            rotation = parseFloat(document.getElementById('rotation').value) || 0;
             updatePosition();
         }
         
@@ -286,7 +298,12 @@
         }
         
         function changeScale(delta) {
-            scale = Math.max(0.1, Math.min(2, scale + delta));
+            scale = Math.max(0.01, Math.min(2, scale + delta));
+            updatePosition();
+        }
+        
+        function changeRotation(delta) {
+            rotation = rotation + delta;
             updatePosition();
         }
         
@@ -299,14 +316,15 @@
                 <strong>Values for app:</strong><br>
                 x = ${x1000}<br>
                 y = ${y1000}<br>
-                scale = ${scale.toFixed(2)}
+                scale = ${scale.toFixed(2)}<br>
+                rotation = ${Math.round(rotation)}°
             `;
         }
         
         function copyValues() {
             const x1000 = Math.round(posX * 2);
             const y1000 = Math.round(posY * 2);
-            const text = `x=${x1000}, y=${y1000}, scale=${scale.toFixed(2)}`;
+            const text = `x=${x1000}, y=${y1000}, scale=${scale.toFixed(2)}, rotation=${Math.round(rotation)}`;
             navigator.clipboard.writeText(text);
             document.getElementById('output').innerHTML = `<span style="color:#0f0">✓ COPIED!</span><br><br>${text}`;
         }
