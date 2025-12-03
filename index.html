@@ -391,7 +391,45 @@
 
         <div class="footer-controls">
             <button class="action-btn" onclick="previewCombination()">👁️ Preview Together</button>
+            <button class="action-btn" onclick="showPositioningPanel()" style="background:#ef4d99;">🎯 Adjust Position</button>
             <button class="action-btn primary" onclick="submitArtwork()">🚀 Submit Creation</button>
+        </div>
+        
+        <!-- POSITIONING CONTROLS -->
+        <div id="positioningPanel" style="display:none; position:fixed; top:10px; left:10px; background:#1a1a2e; padding:15px; border-radius:10px; border:2px solid #ef4d99; z-index:9999; font-family:monospace; color:white; max-height:90vh; overflow-y:auto;">
+            <h3 style="margin:0 0 10px 0; color:#ef4d99;">🎯 Position Controls</h3>
+            
+            <div style="margin-bottom:15px; padding:10px; background:#2a2a4e; border-radius:5px;">
+                <strong>Source (where to grab from drawing):</strong><br>
+                <label>srcX: <input type="number" id="ctrl_srcX" value="244" style="width:60px" onchange="updateMaskPosition()"></label><br>
+                <label>srcY: <input type="number" id="ctrl_srcY" value="140" style="width:60px" onchange="updateMaskPosition()"></label><br>
+                <label>srcW: <input type="number" id="ctrl_srcW" value="471" style="width:60px" onchange="updateMaskPosition()"></label><br>
+                <label>srcH: <input type="number" id="ctrl_srcH" value="658" style="width:60px" onchange="updateMaskPosition()"></label>
+            </div>
+            
+            <div style="margin-bottom:15px; padding:10px; background:#2a2a4e; border-radius:5px;">
+                <strong>Destination (where to place in preview):</strong><br>
+                <label>dstX: <input type="number" id="ctrl_dstX" value="0" style="width:60px" onchange="updateMaskPosition()"></label><br>
+                <label>dstY: <input type="number" id="ctrl_dstY" value="706" style="width:60px" onchange="updateMaskPosition()"></label><br>
+                <label>dstW: <input type="number" id="ctrl_dstW" value="284" style="width:60px" onchange="updateMaskPosition()"></label><br>
+                <label>dstH: <input type="number" id="ctrl_dstH" value="294" style="width:60px" onchange="updateMaskPosition()"></label>
+            </div>
+            
+            <div style="margin-bottom:15px; padding:10px; background:#2a2a4e; border-radius:5px;">
+                <strong>Transform:</strong><br>
+                <label>Rotation: <input type="number" id="ctrl_rotation" value="0" step="0.5" style="width:60px" onchange="updateMaskPosition()">°</label><br>
+                <label>Scale: <input type="number" id="ctrl_scale" value="1.0" step="0.05" style="width:60px" onchange="updateMaskPosition()"></label>
+            </div>
+            
+            <button onclick="copyPositionValues()" style="background:#ef4d99; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; width:100%; margin-bottom:10px;">
+                📋 Copy Values
+            </button>
+            
+            <div id="copyOutput" style="background:#000; padding:10px; border-radius:5px; font-size:11px; word-break:break-all;"></div>
+            
+            <button onclick="document.getElementById('positioningPanel').style.display='none'" style="background:#666; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; width:100%; margin-top:10px;">
+                ✕ Close
+            </button>
         </div>
     </div>
 
@@ -407,6 +445,44 @@
         let lastX = 0;
         let lastY = 0;
         let maskImageData = null;
+        
+        // Initialize mask position values
+        window.maskSrcX = 244;
+        window.maskSrcY = 140;
+        window.maskSrcW = 471;
+        window.maskSrcH = 658;
+        window.maskDstX = 0;
+        window.maskDstY = 706;
+        window.maskDstW = 284;
+        window.maskDstH = 294;
+        window.maskRotation = 0;
+        window.maskScale = 1.0;
+        
+        function updateMaskPosition() {
+            window.maskSrcX = parseInt(document.getElementById('ctrl_srcX').value) || 244;
+            window.maskSrcY = parseInt(document.getElementById('ctrl_srcY').value) || 140;
+            window.maskSrcW = parseInt(document.getElementById('ctrl_srcW').value) || 471;
+            window.maskSrcH = parseInt(document.getElementById('ctrl_srcH').value) || 658;
+            window.maskDstX = parseInt(document.getElementById('ctrl_dstX').value) || 0;
+            window.maskDstY = parseInt(document.getElementById('ctrl_dstY').value) || 706;
+            window.maskDstW = parseInt(document.getElementById('ctrl_dstW').value) || 284;
+            window.maskDstH = parseInt(document.getElementById('ctrl_dstH').value) || 294;
+            window.maskRotation = parseFloat(document.getElementById('ctrl_rotation').value) || 0;
+            window.maskScale = parseFloat(document.getElementById('ctrl_scale').value) || 1.0;
+            
+            // Auto-refresh preview
+            previewCombination();
+        }
+        
+        function copyPositionValues() {
+            const values = `srcX=${window.maskSrcX}, srcY=${window.maskSrcY}, srcW=${window.maskSrcW}, srcH=${window.maskSrcH}, dstX=${window.maskDstX}, dstY=${window.maskDstY}, dstW=${window.maskDstW}, dstH=${window.maskDstH}, rotation=${window.maskRotation}, scale=${window.maskScale}`;
+            navigator.clipboard.writeText(values);
+            document.getElementById('copyOutput').textContent = '✓ Copied: ' + values;
+        }
+        
+        function showPositioningPanel() {
+            document.getElementById('positioningPanel').style.display = 'block';
+        }
 
         // Trait system for frog generation
         const traitFolders = {
@@ -1194,21 +1270,20 @@
                 // Load NEW mask-positioned (1000x1000, mask at bottom-left)
                 const maskPositionedNew = await loadImage('mask-positioned-new.png');
                 
-                // COORDINATES (all 1000x1000 now):
-                // Centre_mask_mask: left=244, top=140, right=715, bottom=798 (size 471x658)
-                // Position_mask_: left=0, top=706, right=284, bottom=1000 (size 284x294)
+                // MANUAL POSITIONING CONTROLS
+                // These values can be adjusted with on-screen controls
+                const srcX = window.maskSrcX || 244;
+                const srcY = window.maskSrcY || 140;
+                const srcW = window.maskSrcW || 471;
+                const srcH = window.maskSrcH || 658;
                 
-                // Source: where user drew (centered mask location)
-                const srcX = 244;
-                const srcY = 140;
-                const srcW = 471;  // 715-244
-                const srcH = 658;  // 798-140
+                const dstX = window.maskDstX || 0;
+                const dstY = window.maskDstY || 706;
+                const dstW = window.maskDstW || 284;
+                const dstH = window.maskDstH || 294;
                 
-                // Destination: positioned mask location
-                const dstX = 0;
-                const dstY = 706;
-                const dstW = 284;
-                const dstH = 294;
+                const rotation = window.maskRotation || 0;
+                const scale = window.maskScale || 1.0;
                 
                 // Create canvas for masked art
                 const maskedArt = document.createElement('canvas');
@@ -1217,6 +1292,35 @@
                 const maskedCtx = maskedArt.getContext('2d');
                 
                 // Extract from user's drawing and place at positioned location
+                // Apply rotation and scale
+                maskedCtx.save();
+                const centerX = dstX + dstW / 2;
+                const centerY = dstY + dstH / 2;
+                maskedCtx.translate(centerX, centerY);
+                maskedCtx.rotate(rotation * Math.PI / 180);
+                maskedCtx.scale(scale, scale);
+                maskedCtx.drawImage(userCanvas,
+                    srcX, srcY, srcW, srcH,
+                    -dstW / 2, -dstH / 2, dstW, dstH
+                );
+                maskedCtx.restore();
+                
+                // Clip to mask shape
+                maskedCtx.globalCompositeOperation = 'destination-in';
+                maskedCtx.drawImage(maskPositionedNew, 0, 0);
+                
+                // Draw the masked result
+                ctx.drawImage(maskedArt, 0, 0);
+                
+                // Draw positioned cat outline on TOP of everything
+                ctx.drawImage(catOutline, 0, 0, 1000, 1000);
+                
+                // Show current values
+                console.log(`Position: srcX=${srcX}, srcY=${srcY}, srcW=${srcW}, srcH=${srcH}`);
+                console.log(`Dest: dstX=${dstX}, dstY=${dstY}, dstW=${dstW}, dstH=${dstH}`);
+                console.log(`Transform: rotation=${rotation}, scale=${scale}`);
+                
+                console.log('Composition complete!');
                 maskedCtx.drawImage(userCanvas,
                     srcX, srcY, srcW, srcH,  // Source: centered mask area in 1000x1000
                     dstX, dstY, dstW, dstH   // Dest: positioned mask area in 1000x1000
