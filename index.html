@@ -1134,11 +1134,10 @@
                 // Draw full cat image (behind the mask area)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // === MASK POSITIONING VALUES (from simple-test.html) ===
-                // Values tested at 500x500, multiply X/Y by 2 for 1000x1000 canvas
-                const maskX = -63 * 2;   // -126
-                const maskY = 318 * 2;   // 636
-                const maskScale = 0.51;  // Scale (0.51 at 500 = 0.51 at 1000)
+                // === MASK POSITIONING VALUES (final tuned) ===
+                const maskX = -116;      // moved right
+                const maskY = 620;       // moved up
+                const maskScale = 0.52;  // 2% bigger
                 const maskRotation = 34; // Rotation in degrees
                 
                 // Get user's drawing from layers
