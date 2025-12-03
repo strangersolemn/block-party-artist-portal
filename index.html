@@ -1134,37 +1134,50 @@
                 // Draw full cat image (behind the mask area)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // === MASK POSITIONING VALUES (from position-tool) ===
-                // These are for 1000x1000 canvas (500x500 values * 2)
-                const maskX = -126;      // X position
-                const maskY = 636;       // Y position  
-                const maskScale = 0.26;  // Scale
+                // === MASK POSITIONING VALUES (from position-tool 500x500) ===
+                // The position tool used 500x500 display, our canvas is 1000x1000
+                // So multiply position by 2, but scale stays same (it's relative)
+                const maskX = -63 * 2;   // -126
+                const maskY = 318 * 2;   // 636
+                const maskScale = 0.26;  // Scale (relative to 1000px mask)
                 const maskRotation = 30; // Rotation in degrees
                 
-                // Merge user's drawn layers (from drawing canvas)
+                // Get user's drawing from layers
                 const userDrawing = document.createElement('canvas');
                 userDrawing.width = 1000;
                 userDrawing.height = 1000;
                 const userCtx = userDrawing.getContext('2d');
                 
-                // Get user's drawing from layers
                 layers.forEach(layer => {
-                    userCtx.drawImage(layer.canvas, 0, 0, layer.canvas.width, layer.canvas.height, 0, 0, 1000, 1000);
+                    userCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Clip user drawing to mask shape
-                userCtx.globalCompositeOperation = 'destination-in';
-                userCtx.drawImage(maskImg, 0, 0, 1000, 1000);
+                // The mask image is 1000x1000, scale it
+                const scaledSize = 1000 * maskScale; // ~260px
                 
-                // Now draw the clipped user art with transform
-                const scaledW = 1000 * maskScale;
-                const scaledH = 1000 * maskScale;
-                
+                // Draw user art clipped to mask, transformed
                 ctx.save();
-                // Move to position, then rotate around center
-                ctx.translate(maskX + scaledW/2, maskY + scaledH/2);
+                
+                // Position and rotate
+                ctx.translate(maskX + scaledSize/2, maskY + scaledSize/2);
                 ctx.rotate(maskRotation * Math.PI / 180);
-                ctx.drawImage(userDrawing, -scaledW/2, -scaledH/2, scaledW, scaledH);
+                ctx.translate(-scaledSize/2, -scaledSize/2);
+                
+                // Create clipped version
+                const clippedCanvas = document.createElement('canvas');
+                clippedCanvas.width = 1000;
+                clippedCanvas.height = 1000;
+                const clippedCtx = clippedCanvas.getContext('2d');
+                
+                // Draw user art
+                clippedCtx.drawImage(userDrawing, 0, 0);
+                // Clip to mask
+                clippedCtx.globalCompositeOperation = 'destination-in';
+                clippedCtx.drawImage(maskImg, 0, 0);
+                
+                // Draw the clipped result scaled
+                ctx.drawImage(clippedCanvas, 0, 0, 1000, 1000, 0, 0, scaledSize, scaledSize);
+                
                 ctx.restore();
                 
                 // Draw positioned cat outline on TOP of everything
