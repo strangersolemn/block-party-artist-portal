@@ -397,10 +397,10 @@
             
             <div style="margin-bottom:15px; padding:10px; background:#2a2a4e; border-radius:5px;">
                 <strong>Destination (where to place in preview):</strong><br>
-                <label>X: <input type="number" id="ctrl_dstX" value="10" style="width:60px" onchange="updateMaskPosition()"></label><br>
-                <label>Y: <input type="number" id="ctrl_dstY" value="680" style="width:60px" onchange="updateMaskPosition()"></label><br>
-                <label>W: <input type="number" id="ctrl_dstW" value="280" style="width:60px" onchange="updateMaskPosition()"></label><br>
-                <label>H: <input type="number" id="ctrl_dstH" value="310" style="width:60px" onchange="updateMaskPosition()"></label>
+                <label>X: <input type="number" id="ctrl_dstX" value="0" style="width:60px" onchange="updateMaskPosition()"></label><br>
+                <label>Y: <input type="number" id="ctrl_dstY" value="697" style="width:60px" onchange="updateMaskPosition()"></label><br>
+                <label>W: <input type="number" id="ctrl_dstW" value="314" style="width:60px" onchange="updateMaskPosition()"></label><br>
+                <label>H: <input type="number" id="ctrl_dstH" value="303" style="width:60px" onchange="updateMaskPosition()"></label>
             </div>
             
             <button onclick="copyPositionValues()" style="background:#ef4d99; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; width:100%; margin-bottom:10px;">
@@ -428,17 +428,17 @@
         let lastY = 0;
         let maskImageData = null;
         
-        // Initialize mask position values
-        window.maskDstX = 10;
-        window.maskDstY = 680;
-        window.maskDstW = 280;
-        window.maskDstH = 310;
+        // Initialize mask position values - exact cat outline position
+        window.maskDstX = 0;
+        window.maskDstY = 697;
+        window.maskDstW = 314;
+        window.maskDstH = 303;
         
         function updateMaskPosition() {
-            window.maskDstX = parseInt(document.getElementById('ctrl_dstX').value) || 10;
-            window.maskDstY = parseInt(document.getElementById('ctrl_dstY').value) || 680;
-            window.maskDstW = parseInt(document.getElementById('ctrl_dstW').value) || 280;
-            window.maskDstH = parseInt(document.getElementById('ctrl_dstH').value) || 310;
+            window.maskDstX = parseInt(document.getElementById('ctrl_dstX').value) || 0;
+            window.maskDstY = parseInt(document.getElementById('ctrl_dstY').value) || 697;
+            window.maskDstW = parseInt(document.getElementById('ctrl_dstW').value) || 314;
+            window.maskDstH = parseInt(document.getElementById('ctrl_dstH').value) || 303;
             
             // Auto-refresh preview
             previewCombination();
@@ -1252,18 +1252,18 @@
                 
                 // Now transform and place the clipped art into the cat position
                 // Centered mask is at: 244,140 to 715,798 (size 471x658)
-                // We need to scale and position it to fit in bottom-left where cat is
+                // Cat outline is at: 0,697 to 314,1000 (size 314x303)
                 
                 const srcX = 244;
                 const srcY = 140;
                 const srcW = 471;
                 const srcH = 658;
                 
-                // Destination: use controls or defaults
-                const dstX = window.maskDstX || 10;
-                const dstY = window.maskDstY || 680;
-                const dstW = window.maskDstW || 280;
-                const dstH = window.maskDstH || 310;
+                // Destination: exact cat outline position
+                const dstX = window.maskDstX || 0;
+                const dstY = window.maskDstY || 697;
+                const dstW = window.maskDstW || 314;
+                const dstH = window.maskDstH || 303;
                 
                 // Draw the clipped art, extracting just the mask area and placing it
                 ctx.drawImage(clippedArt, 
