@@ -103,14 +103,13 @@
             position: relative;
             background: #1a1a2e;
             border-radius: 10px;
+            overflow: hidden;
         }
 
         .canvas-container {
             position: relative;
             width: 100%;
-            height: 100%;
             max-width: 100%;
-            max-height: 100%;
             aspect-ratio: 1 / 1;
             margin: auto;
         }
@@ -126,7 +125,7 @@
             object-position: top left;
         }
 
-        /* Style for all layer canvases */
+        /* Style for all layer canvases - CLIPPED TO MASK */
         .canvas-container canvas {
             position: absolute;
             top: 0;
@@ -134,6 +133,14 @@
             width: 100%;
             height: 100%;
             cursor: crosshair;
+            -webkit-mask-image: url('Centre_mask_mask.png');
+            -webkit-mask-size: contain;
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            mask-image: url('Centre_mask_mask.png');
+            mask-size: contain;
+            mask-repeat: no-repeat;
+            mask-position: center;
         }
 
         .svg-overlay {
@@ -373,8 +380,8 @@
 
             <div class="canvas-wrapper">
                 <div class="canvas-container" id="canvasContainer">
-                    <img src="Centre_mask_mask.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;">
-                    <img src="Centre_mask_outline.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000;">
+                    <img src="Centre_mask_mask.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; object-fit: contain;">
+                    <img src="Centre_mask_outline.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; object-fit: contain;">
                 </div>
             </div>
         </div>
@@ -812,18 +819,12 @@
         }
 
         function startDrawing(e) {
+            isDrawing = true;
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             lastX = (e.clientX - rect.left) * scaleX;
             lastY = (e.clientY - rect.top) * scaleY;
-            
-            // Only start drawing if inside the mask
-            if (isInsideMask(lastX, lastY)) {
-                isDrawing = true;
-            } else {
-                isDrawing = false;
-            }
         }
 
         function draw(e) {
@@ -834,20 +835,6 @@
             const scaleY = canvas.height / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
-            
-            // Stop drawing if we go outside the mask
-            if (!isInsideMask(x, y)) {
-                lastX = x;
-                lastY = y;
-                return;
-            }
-            
-            // Also check if lastX/lastY was outside
-            if (!isInsideMask(lastX, lastY)) {
-                lastX = x;
-                lastY = y;
-                return;
-            }
             
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
@@ -873,43 +860,24 @@
 
         function handleTouchStart(e) {
             e.preventDefault();
+            isDrawing = true;
             const touch = e.touches[0];
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             lastX = (touch.clientX - rect.left) * scaleX;
             lastY = (touch.clientY - rect.top) * scaleY;
-            
-            // Only start drawing if inside the mask
-            if (isInsideMask(lastX, lastY)) {
-                isDrawing = true;
-            } else {
-                isDrawing = false;
-            }
         }
 
         function handleTouchMove(e) {
             e.preventDefault();
-            if (!isDrawing) return;
+            if (!isDrawing || !canvas) return;
             const touch = e.touches[0];
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             const x = (touch.clientX - rect.left) * scaleX;
             const y = (touch.clientY - rect.top) * scaleY;
-            
-            // Stop drawing if outside mask
-            if (!isInsideMask(x, y)) {
-                lastX = x;
-                lastY = y;
-                return;
-            }
-            
-            if (!isInsideMask(lastX, lastY)) {
-                lastX = x;
-                lastY = y;
-                return;
-            }
             
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
