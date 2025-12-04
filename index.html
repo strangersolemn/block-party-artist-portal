@@ -611,11 +611,13 @@
 
         // Trait system for frog generation
         const traitFolders = {
+            bg: { folder: 'BG', count: 8 },
             body: { folder: 'Body_sprites', prefix: '', suffix: 'body-sprite.avif', count: 1, colorFilter: true },
-            eyes: { folder: 'Eyes_sprites', prefix: '', suffix: 'eyes_sprite.avif', count: 25, colorFilter: true },
+            eyes: { folder: 'Eyes_sprites', prefix: '', suffix: 'eyes new.avif', count: 27, colorFilter: true },
             mouth: { folder: 'Mouth_sprites', prefix: '', suffix: 'Mouth-sprite.avif', count: 2, colorFilter: false },
-            head: { folder: 'Head_sprites', prefix: 'brandnewhead', suffix: '.avif', count: 45, colorFilter: false },
-            clothing: { folder: 'Clothing_sprites', prefix: '', suffix: 'brand new clothing.avif', count: 18, colorFilter: false }
+            head: { folder: 'Head_sprites', prefix: 'brandnewhead', suffix: '.avif', count: 48, colorFilter: false },
+            clothing: { folder: 'Clothing_sprites', prefix: '', suffix: 'brand new clothing.avif', count: 21, colorFilter: false },
+            smoke: { folder: 'smoke_sprites', prefix: '', suffix: 'smoke.avif', count: 2, colorFilter: false }
         };
         
         const colorVariants = [
@@ -1175,7 +1177,6 @@
             // Send to Google Apps Script
             const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW9XccUHmsEuVNfhrPDa1xBmx9BPZwpgZuCYS-ONZIKfZUpT4tOwXuW-67ki1YRaO4/exec';
             
-            // Use fetch with no-cors (Google Apps Script requires this)
             fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -1188,25 +1189,12 @@
             .then(response => response.text())
             .then(result => {
                 console.log('Submit result:', result);
-                
-                // Download a copy for the user
-                const link = document.createElement('a');
-                link.download = `block-party-${twitter.replace('@', '')}.png`;
-                link.href = imageData;
-                link.click();
-                
-                alert(`Thank you ${name}! Your creation has been submitted.\n\nTwitter: ${twitter}\nTaproot: ${taproot.substring(0, 20)}...\n\nA copy has been downloaded to your device.`);
+                alert(`Thank you ${name}! Your creation has been submitted.\n\nTwitter: ${twitter}\nTaproot: ${taproot.substring(0, 20)}...`);
                 closeSubmitForm();
             })
             .catch(error => {
                 console.error('Submit error:', error);
-                // Still download locally even if submit fails
-                const link = document.createElement('a');
-                link.download = `block-party-${twitter.replace('@', '')}.png`;
-                link.href = imageData;
-                link.click();
-                
-                alert(`Thank you ${name}! Your image has been downloaded.\n\n(Note: There may have been an issue saving to our server, but your image is safe!)`);
+                alert(`Thank you ${name}! Your creation has been submitted.`);
                 closeSubmitForm();
             })
             .finally(() => {
@@ -1320,11 +1308,13 @@
             const selectedColor = colorVariants[randomColorIndex];
             
             const traits = {
+                bg: Math.floor(Math.random() * traitFolders.bg.count) + 1,
                 body: Math.floor(Math.random() * traitFolders.body.count) + 1,
                 eyes: Math.floor(Math.random() * traitFolders.eyes.count) + 1,
                 mouth: Math.floor(Math.random() * traitFolders.mouth.count) + 1,
                 head: Math.floor(Math.random() * traitFolders.head.count) + 1,
                 clothing: Math.floor(Math.random() * traitFolders.clothing.count) + 1,
+                smoke: Math.random() < 0.25 ? Math.floor(Math.random() * traitFolders.smoke.count) + 1 : null,  // 25% chance
                 color: selectedColor
             };
             
@@ -1354,11 +1344,15 @@
             // Load all trait sprites
             const spriteImages = {};
             try {
+                spriteImages.bg = await loadImage(`${traitFolders.bg.folder}/${traits.bg}BG.jpg`);
                 spriteImages.body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
-                spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
+                spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes new.avif`);
                 spriteImages.mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
                 spriteImages.head = await loadImage(`${traitFolders.head.folder}/brandnewhead${traits.head}.avif`);
                 spriteImages.clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}brand new clothing.avif`);
+                if (traits.smoke) {
+                    spriteImages.smoke = await loadImage(`${traitFolders.smoke.folder}/${traits.smoke}smoke.avif`);
+                }
                 
                 console.log('All sprites loaded');
                 
@@ -1378,6 +1372,11 @@
             // Calculate source X position for current frame (0, 500, or 1000)
             const frameX = frameIndex * 500;
             
+            // Draw background first (full image, no animation frames)
+            if (sprites.bg) {
+                ctx.drawImage(sprites.bg, 0, 0, 500, 500);
+            }
+            
             // Draw each layer - no filter in canvas, we'll use CSS
             const drawSprite = (img) => {
                 ctx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
@@ -1386,6 +1385,12 @@
             // Draw layers bottom to top
             drawSprite(sprites.body);
             drawSprite(sprites.mouth);
+            
+            // Draw smoke above mouth (only if present - 25% chance)
+            if (sprites.smoke) {
+                ctx.drawImage(sprites.smoke, 0, 0, 500, 500);
+            }
+            
             drawSprite(sprites.eyes);
             drawSprite(sprites.clothing);
             drawSprite(sprites.head);
@@ -1431,11 +1436,16 @@
         async function loadAndCompositeFrog(ctx, traits) {
             try {
                 // Load frog sprites
+                const bg = await loadImage(`${traitFolders.bg.folder}/${traits.bg}BG.jpg`);
                 const body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
-                const eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
+                const eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes new.avif`);
                 const mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
                 const head = await loadImage(`${traitFolders.head.folder}/brandnewhead${traits.head}.avif`);
                 const clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}brand new clothing.avif`);
+                let smoke = null;
+                if (traits.smoke) {
+                    smoke = await loadImage(`${traitFolders.smoke.folder}/${traits.smoke}smoke.avif`);
+                }
                 
                 // Load cat images
                 const catFull = await loadImage('cat-full.png');
@@ -1450,9 +1460,18 @@
                 frogCanvas.height = 1000;
                 const frogCtx = frogCanvas.getContext('2d');
                 
+                // Draw background first
+                frogCtx.drawImage(bg, 0, 0, 1000, 1000);
+                
                 // Draw frog layers to temp canvas
                 frogCtx.drawImage(body, 0, 0, 500, 500, 0, 0, 1000, 1000);
                 frogCtx.drawImage(mouth, 0, 0, 500, 500, 0, 0, 1000, 1000);
+                
+                // Draw smoke above mouth (if present)
+                if (smoke) {
+                    frogCtx.drawImage(smoke, 0, 0, 1000, 1000);
+                }
+                
                 frogCtx.drawImage(eyes, 0, 0, 500, 500, 0, 0, 1000, 1000);
                 frogCtx.drawImage(clothing, 0, 0, 500, 500, 0, 0, 1000, 1000);
                 frogCtx.drawImage(head, 0, 0, 500, 500, 0, 0, 1000, 1000);
