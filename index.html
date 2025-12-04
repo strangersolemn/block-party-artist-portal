@@ -780,7 +780,12 @@
                 const tempCtx = tempCanvas.getContext('2d');
                 tempCtx.drawImage(maskImg, 0, 0, 1000, 1000);
                 maskPixelData = tempCtx.getImageData(0, 0, 1000, 1000).data;
-                console.log('Mask loaded for drawing constraint');
+                console.log('Mask loaded! Length:', maskPixelData.length);
+                console.log('Center pixel alpha (should be 255):', maskPixelData[(500 * 1000 + 500) * 4 + 3]);
+                console.log('Corner pixel alpha (should be 0):', maskPixelData[(0 * 1000 + 0) * 4 + 3]);
+            };
+            maskImg.onerror = function() {
+                console.error('FAILED to load mask image!');
             };
             maskImg.src = 'Centre_mask_mask.png';
             
@@ -790,7 +795,10 @@
         
         // Check if a point is inside the mask
         function isInsideMask(x, y) {
-            if (!maskPixelData) return true; // Allow drawing if mask not loaded yet
+            if (!maskPixelData) {
+                console.log('Mask not loaded yet');
+                return true; // Allow drawing if mask not loaded yet
+            }
             
             const px = Math.floor(x);
             const py = Math.floor(y);
@@ -799,7 +807,8 @@
             
             // Get alpha value at this pixel (every 4th value starting at index 3)
             const index = (py * 1000 + px) * 4 + 3;
-            return maskPixelData[index] > 128; // If alpha > 128, it's inside the mask
+            const alpha = maskPixelData[index];
+            return alpha > 128; // If alpha > 128, it's inside the mask
         }
 
         function startDrawing(e) {
