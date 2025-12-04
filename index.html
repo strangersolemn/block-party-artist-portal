@@ -851,6 +851,8 @@
 
         function updateLayersList() {
             const list = document.getElementById('layersList');
+            if (!list) return; // Skip if layers UI is not present
+            
             list.innerHTML = '';
             
             layers.forEach((layer, index) => {
