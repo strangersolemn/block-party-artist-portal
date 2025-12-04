@@ -1344,7 +1344,18 @@
             // Load all trait sprites
             const spriteImages = {};
             try {
-                spriteImages.bg = await loadImage(`${traitFolders.bg.folder}/${traits.bg}BG.jpg`);
+                // Try to load BG (might fail if not uploaded yet)
+                try {
+                    spriteImages.bg = await loadImage(`${traitFolders.bg.folder}/${traits.bg}BG.jpg`);
+                } catch (e) {
+                    console.log('BG not found, trying JPG...');
+                    try {
+                        spriteImages.bg = await loadImage(`${traitFolders.bg.folder}/${traits.bg}BG.JPG`);
+                    } catch (e2) {
+                        console.log('No BG loaded');
+                    }
+                }
+                
                 spriteImages.body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
                 spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes new.avif`);
                 spriteImages.mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
@@ -1436,7 +1447,17 @@
         async function loadAndCompositeFrog(ctx, traits) {
             try {
                 // Load frog sprites
-                const bg = await loadImage(`${traitFolders.bg.folder}/${traits.bg}BG.jpg`);
+                let bg = null;
+                try {
+                    bg = await loadImage(`${traitFolders.bg.folder}/${traits.bg}BG.jpg`);
+                } catch (e) {
+                    try {
+                        bg = await loadImage(`${traitFolders.bg.folder}/${traits.bg}BG.JPG`);
+                    } catch (e2) {
+                        console.log('No BG loaded');
+                    }
+                }
+                
                 const body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
                 const eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes new.avif`);
                 const mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
@@ -1460,8 +1481,10 @@
                 frogCanvas.height = 1000;
                 const frogCtx = frogCanvas.getContext('2d');
                 
-                // Draw background first
-                frogCtx.drawImage(bg, 0, 0, 1000, 1000);
+                // Draw background first (if loaded)
+                if (bg) {
+                    frogCtx.drawImage(bg, 0, 0, 1000, 1000);
+                }
                 
                 // Draw frog layers to temp canvas
                 frogCtx.drawImage(body, 0, 0, 500, 500, 0, 0, 1000, 1000);
