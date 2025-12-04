@@ -314,6 +314,80 @@
             padding: 16px 45px;
             font-size: 1.1rem;
         }
+        
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .modal-content {
+            background: #1a1a2e;
+            border: 2px solid #ef4d99;
+            border-radius: 15px;
+            padding: 30px;
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+        }
+        
+        .modal-content h2 {
+            color: #ef4d99;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: #ef4d99;
+            font-size: 28px;
+            cursor: pointer;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #f9bad1;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #2e5130;
+            border-radius: 8px;
+            background: #0a0a1b;
+            color: white;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #ef4d99;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
 
         @media (max-width: 1024px) {
             body {
@@ -473,7 +547,7 @@
                     <button class="tool-btn" onclick="setTool('brush')">🖌️ Brush</button>
                     <button class="tool-btn" onclick="setTool('eraser')">🧹 Eraser</button>
                     <button class="tool-btn" onclick="clearCanvas()">🗑️ Clear</button>
-                    <button class="tool-btn" onclick="downloadMaskPNG()">💾 Download PNG</button>
+                    <button class="tool-btn" onclick="downloadTemplate()">📥 Download Template</button>
                 </div>
             </div>
 
@@ -487,7 +561,37 @@
 
         <div class="footer-controls">
             <button class="action-btn" onclick="previewCombination()">👁️ Preview Together</button>
-            <button class="action-btn primary" onclick="submitArtwork()">🚀 Submit Creation</button>
+            <button class="action-btn primary" onclick="showSubmitForm()">🚀 Submit Creation</button>
+        </div>
+        
+        <!-- Submit Modal -->
+        <div id="submitModal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <h2>Submit Your Creation</h2>
+                <button class="modal-close" onclick="closeSubmitForm()">×</button>
+                
+                <form id="submitForm" onsubmit="handleSubmit(event)">
+                    <div class="form-group">
+                        <label for="artistName">Name *</label>
+                        <input type="text" id="artistName" name="name" required placeholder="Your name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="twitterHandle">Twitter Handle *</label>
+                        <input type="text" id="twitterHandle" name="twitter" required placeholder="@yourhandle">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="taprootAddress">Taproot Address *</label>
+                        <input type="text" id="taprootAddress" name="taproot" required placeholder="bc1p...">
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="action-btn" onclick="closeSubmitForm()">Cancel</button>
+                        <button type="submit" class="action-btn primary">Submit</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -791,12 +895,14 @@
                     addLayer();
                     const targetCtx = layers[currentLayerIndex].ctx;
                     
-                    // Scale image to fit 2000x2000 canvas
+                    // Scale image to fit 1000x1000 canvas, centered
                     const scale = Math.min(1000 / img.width, 1000 / img.height);
-                    const x = (2000 - img.width * scale) / 2;
-                    const y = (2000 - img.height * scale) / 2;
+                    const w = img.width * scale;
+                    const h = img.height * scale;
+                    const x = (1000 - w) / 2;
+                    const y = (1000 - h) / 2;
                     
-                    targetCtx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                    targetCtx.drawImage(img, x, y, w, h);
                     
                     layers[currentLayerIndex].name = `Image ${layers.length}`;
                     updateLayersList();
@@ -1017,21 +1123,62 @@
             }
         }
 
-        function downloadMaskPNG() {
-            // Merge all layers
-            const mergeCanvas = document.createElement('canvas');
-            mergeCanvas.width = 1000;
-            mergeCanvas.height = 1000;
-            const mergeCtx = mergeCanvas.getContext('2d');
-            
-            layers.forEach(layer => {
-                mergeCtx.drawImage(layer.canvas, 0, 0);
-            });
-            
+        function downloadTemplate() {
+            // Download the empty mask template
             const link = document.createElement('a');
-            link.download = 'block-party-mask.png';
-            link.href = mergeCanvas.toDataURL('image/png');
+            link.download = 'block-party-mask-template.png';
+            link.href = 'Centre_mask_outline.png';
             link.click();
+        }
+        
+        function showSubmitForm() {
+            if (!currentFrogTraits) {
+                alert('Please generate a frog first!');
+                return;
+            }
+            document.getElementById('submitModal').style.display = 'flex';
+        }
+        
+        function closeSubmitForm() {
+            document.getElementById('submitModal').style.display = 'none';
+        }
+        
+        function handleSubmit(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('artistName').value;
+            const twitter = document.getElementById('twitterHandle').value;
+            const taproot = document.getElementById('taprootAddress').value;
+            
+            // Validate taproot address starts with bc1p
+            if (!taproot.startsWith('bc1p')) {
+                alert('Please enter a valid Taproot address starting with bc1p');
+                return;
+            }
+            
+            // For now, log the submission (you can add backend integration later)
+            console.log('Submission:', { name, twitter, taproot });
+            
+            // Create the final artwork
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = 1000;
+            finalCanvas.height = 1000;
+            const finalCtx = finalCanvas.getContext('2d');
+            
+            // Get the preview canvas content
+            const previewCanvas = document.querySelector('.frog-display canvas');
+            if (previewCanvas) {
+                finalCtx.drawImage(previewCanvas, 0, 0);
+            }
+            
+            // Download the final artwork
+            const link = document.createElement('a');
+            link.download = `block-party-${twitter.replace('@', '')}.png`;
+            link.href = finalCanvas.toDataURL('image/png');
+            link.click();
+            
+            alert(`Thank you ${name}! Your submission has been recorded.\n\nTwitter: ${twitter}\nTaproot: ${taproot.substring(0, 20)}...`);
+            closeSubmitForm();
         }
 
         // Music functions (keeping them short)
@@ -1326,7 +1473,7 @@
                 alert('Error: ' + error.message);
             }
         }
-        function submitArtwork() { downloadMaskPNG(); }
+
 
         window.addEventListener('load', async function() {
             await loadMaskPath();
