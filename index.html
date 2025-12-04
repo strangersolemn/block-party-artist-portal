@@ -1,4 +1,4 @@
-          <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1134,12 +1134,12 @@
                 // Draw full cat image (behind the mask area)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // === MASK POSITIONING VALUES v3 ===
-                const maskX = -150;   // LEFT
-                const maskY = 620;    // UP
-                const maskScale = 0.54;
-                const maskRotation = 34;
-                alert('V3 loaded: X=' + maskX + ' Y=' + maskY);
+                // === MASK POSITIONING VALUES v4 ===
+                // CHANGE THESE VALUES TO ADJUST POSITION:
+                const maskX = -150;   // negative = left, positive = right
+                const maskY = 620;    // smaller = up, bigger = down
+                const maskScale = 0.54;  // bigger = larger
+                const maskRotation = 34; // degrees
                 
                 // Get user's drawing from layers
                 const userDrawing = document.createElement('canvas');
@@ -1151,34 +1151,17 @@
                     userCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Scale maintaining aspect ratio
-                // Mask content is 471x658, so height is 1.4x width
-                const scaledWidth = 1000 * maskScale;
-                const scaledHeight = 1000 * maskScale; // Keep square scaling since mask image is 1000x1000
+                // Clip user drawing to mask shape FIRST
+                userCtx.globalCompositeOperation = 'destination-in';
+                userCtx.drawImage(maskImg, 0, 0, 1000, 1000);
                 
-                // Draw user art clipped to mask, transformed
+                // Now position and draw the clipped result
+                const scaledSize = 1000 * maskScale;
+                
                 ctx.save();
-                
-                // Position and rotate
-                ctx.translate(maskX + scaledWidth/2, maskY + scaledHeight/2);
+                ctx.translate(maskX + scaledSize/2, maskY + scaledSize/2);
                 ctx.rotate(maskRotation * Math.PI / 180);
-                ctx.translate(-scaledWidth/2, -scaledHeight/2);
-                
-                // Create clipped version
-                const clippedCanvas = document.createElement('canvas');
-                clippedCanvas.width = 1000;
-                clippedCanvas.height = 1000;
-                const clippedCtx = clippedCanvas.getContext('2d');
-                
-                // Draw user art
-                clippedCtx.drawImage(userDrawing, 0, 0);
-                // Clip to mask
-                clippedCtx.globalCompositeOperation = 'destination-in';
-                clippedCtx.drawImage(maskImg, 0, 0);
-                
-                // Draw the clipped result - DON'T scale, just position and rotate
-                ctx.drawImage(clippedCanvas, 0, 0, 1000, 1000, 0, 0, scaledWidth, scaledHeight);
-                
+                ctx.drawImage(userDrawing, -scaledSize/2, -scaledSize/2, scaledSize, scaledSize);
                 ctx.restore();
                 
                 // Draw positioned cat outline on TOP of everything
@@ -1244,4 +1227,4 @@
     </script>
 </body>
 </html>
-<!-- FILE COMPLETE - LINE 1170 -->
+                        <!-- FILE COMPLETE - LINE 1170 -->
