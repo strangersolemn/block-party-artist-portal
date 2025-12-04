@@ -178,6 +178,9 @@
             height: 50px;
             overflow: hidden;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .floating-tools.collapsed * {
@@ -189,7 +192,6 @@
             display: block;
             font-size: 24px;
             text-align: center;
-            line-height: 20px;
         }
 
         .floating-tools h3 {
@@ -314,36 +316,85 @@
         }
 
         @media (max-width: 1024px) {
-            .app-container {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto auto 80px;
+            body {
                 overflow-y: auto;
                 height: auto;
+            }
+            
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+                overflow-y: visible;
+                height: auto;
                 min-height: 100vh;
+                padding-bottom: 20px;
             }
             
             .panel {
-                min-height: 50vh;
+                min-height: 400px;
+                height: auto;
             }
             
             .frog-display {
-                max-height: 50vh;
+                height: 300px;
+                min-height: 300px;
             }
             
             .canvas-wrapper {
-                max-height: 50vh;
+                height: 350px;
+                min-height: 350px;
+            }
+            
+            .footer-controls {
+                padding: 15px 0;
+                flex-wrap: wrap;
             }
         }
         
         @media (max-width: 600px) {
-            .floating-tools {
-                width: 150px;
+            .app-container {
                 padding: 10px;
+                gap: 10px;
+            }
+            
+            .panel {
+                padding: 10px;
+                min-height: 350px;
+            }
+            
+            .frog-display {
+                height: 250px;
+                min-height: 250px;
+            }
+            
+            .canvas-wrapper {
+                height: 300px;
+                min-height: 300px;
+            }
+            
+            .floating-tools {
+                width: 140px;
+                padding: 8px;
+                font-size: 0.8rem;
+            }
+            
+            .floating-tools h3 {
+                font-size: 0.9rem;
             }
             
             .color-palette {
                 grid-template-columns: repeat(4, 1fr);
-                gap: 4px;
+                gap: 3px;
+            }
+            
+            .tool-btn {
+                padding: 8px;
+                font-size: 0.75rem;
+            }
+            
+            .action-btn {
+                padding: 10px 15px;
+                font-size: 0.85rem;
             }
         }
     </style>
@@ -384,8 +435,8 @@
             <h2>Your Mask</h2>
             <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
             
-            <div class="floating-tools" id="floatingTools">
-                <h3>Tools <button onclick="toggleTools()" style="float:right; background:none; border:none; cursor:pointer; font-size:16px;">−</button></h3>
+            <div class="floating-tools" id="floatingTools" onclick="if(this.classList.contains('collapsed')) toggleTools();">
+                <h3>Tools <button onclick="event.stopPropagation(); toggleTools();" style="float:right; background:none; border:none; cursor:pointer; font-size:16px;">−</button></h3>
                 
                 <div class="tool-group">
                     <label>Layers</label>
