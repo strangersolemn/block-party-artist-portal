@@ -1156,29 +1156,70 @@
                 return;
             }
             
-            // For now, log the submission (you can add backend integration later)
-            console.log('Submission:', { name, twitter, taproot });
-            
-            // Create the final artwork
-            const finalCanvas = document.createElement('canvas');
-            finalCanvas.width = 1000;
-            finalCanvas.height = 1000;
-            const finalCtx = finalCanvas.getContext('2d');
-            
             // Get the preview canvas content
             const previewCanvas = document.querySelector('.frog-display canvas');
-            if (previewCanvas) {
-                finalCtx.drawImage(previewCanvas, 0, 0);
+            if (!previewCanvas) {
+                alert('Please click "Preview Together" first!');
+                return;
             }
             
-            // Download the final artwork
-            const link = document.createElement('a');
-            link.download = `block-party-${twitter.replace('@', '')}.png`;
-            link.href = finalCanvas.toDataURL('image/png');
-            link.click();
+            // Show loading state
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Submitting...';
+            submitBtn.disabled = true;
             
-            alert(`Thank you ${name}! Your submission has been recorded.\n\nTwitter: ${twitter}\nTaproot: ${taproot.substring(0, 20)}...`);
-            closeSubmitForm();
+            // Convert canvas to base64
+            const imageData = previewCanvas.toDataURL('image/png');
+            
+            // Send to Google Apps Script
+            const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW9XccUHmsEuVNfhrPDa1xBmx9BPZwpgZuCYS-ONZIKfZUpT4tOwXuW-67ki1YRaO4/exec';
+            
+            if (GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
+                // If not configured, just download locally
+                const link = document.createElement('a');
+                link.download = `block-party-${twitter.replace('@', '')}.png`;
+                link.href = imageData;
+                link.click();
+                
+                alert(`Form submitted!\n\nName: ${name}\nTwitter: ${twitter}\nTaproot: ${taproot.substring(0, 20)}...\n\nNote: Google Sheets not configured yet - image downloaded locally.`);
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+                closeSubmitForm();
+                return;
+            }
+            
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    twitter: twitter,
+                    taproot: taproot,
+                    image: imageData
+                })
+            })
+            .then(() => {
+                // Also download a copy for the user
+                const link = document.createElement('a');
+                link.download = `block-party-${twitter.replace('@', '')}.png`;
+                link.href = imageData;
+                link.click();
+                
+                alert(`Thank you ${name}! Your creation has been submitted.\n\nTwitter: ${twitter}\nTaproot: ${taproot.substring(0, 20)}...\n\nA copy has been downloaded to your device.`);
+                closeSubmitForm();
+            })
+            .catch(error => {
+                console.error('Submit error:', error);
+                alert('Error submitting. Please try again.');
+            })
+            .finally(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            });
         }
 
         // Music functions (keeping them short)
