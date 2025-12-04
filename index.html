@@ -418,297 +418,184 @@
         let currentFrogTraits = null;
         let frogAnimationRunning = false;
         let frogAnimationId = null;
-        
-        // Manual positioning controls - Adjusted default values to help fit
-        let maskOffsetX = -20;
-        let maskOffsetY = 660;
-        let maskScale = 0.53;
-        let maskRotation = 34;
+        let frogFrameIndex = 0;
+        let frogFrameTime = 0;
+        const frogFrameDuration = 1000 / 19; // 19 fps = 52.63ms per frame
 
-        // Preview rendering state
-        let isPreviewing = false;
-        let previewAssets = {}; 
+        // Cat animation
+        let catAnimationRunning = false;
+        let catOutlineFrames = [];
+        let frogImage = null;
+        let animationFrameId = null;
+        let currentFrameIndex = 0;
+        let frameStartTime = 0;
+        const frameDurations = [53, 105]; // ms per frame at 19fps
+        
+        // Manual positioning controls
+        let maskOffsetX = 0;
+        let maskOffsetY = 0;
+        let maskScale = 1.0;
 
-        // Generate Frog function
-        function generateFrog() {
-            // Stop preview if active
-            isPreviewing = false;
-            
-            // Weighted random color selection
-            const colorPool = [
-                ...Array(70).fill(0), ...Array(10).fill(1), 
-                ...Array(8).fill(2), ...Array(7).fill(3), ...Array(5).fill(4)
-            ];
-            const randomColorIndex = colorPool[Math.floor(Math.random() * colorPool.length)];
-            const selectedColor = colorVariants[randomColorIndex];
-            
-            const traits = {
-                body: Math.floor(Math.random() * traitFolders.body.count) + 1,
-                eyes: Math.floor(Math.random() * traitFolders.eyes.count) + 1,
-                mouth: Math.floor(Math.random() * traitFolders.mouth.count) + 1,
-                head: Math.floor(Math.random() * traitFolders.head.count) + 1,
-                clothing: Math.floor(Math.random() * traitFolders.clothing.count) + 1,
-                color: selectedColor
-            };
-            
-            currentFrogTraits = traits;
-            console.log('Generated frog:', traits);
-            
-            // Load and display frog
-            loadAndAnimateFrog(traits);
-        }
-        
-        async function loadAndAnimateFrog(traits) {
-            const frogDisplay = document.querySelector('.frog-display');
-            frogDisplay.innerHTML = ''; 
-            frogDisplay.style.position = 'relative';
-            frogDisplay.style.display = 'flex';
-            frogDisplay.style.alignItems = 'center';
-            frogDisplay.style.justifyContent = 'center';
-            
-            const frogCanvas = document.createElement('canvas');
-            frogCanvas.width = 500;
-            frogCanvas.height = 500;
-            frogDisplay.appendChild(frogCanvas);
-            
-            const ctx = frogCanvas.getContext('2d');
-            
-            // Load all trait sprites
-            const spriteImages = {};
-            try {
-                spriteImages.body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
-                spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
-                spriteImages.mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
-                spriteImages.head = await loadImage(`${traitFolders.head.folder}/${traits.head}head_sprite.avif`);
-                spriteImages.clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
-                
-                // Draw STATIC frog
-                drawFrogFrame(ctx, spriteImages, traits, 0);
-                
-            } catch (error) {
-                console.error('Error loading sprites:', error);
-                frogDisplay.innerHTML = '<p style="color:red; padding:20px;">Error loading frog sprites!<br>' + error.message + '</p>';
-            }
-        }
-        
-        function drawFrogFrame(ctx, sprites, traits, frameIndex) {
-            ctx.clearRect(0, 0, 500, 500);
-            const frameX = frameIndex * 500;
-            
-            const drawSprite = (img, applyFilter) => {
-                if (applyFilter && traits.color.filter !== 'none') {
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = 500;
-                    tempCanvas.height = 500;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCtx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
-                    tempCtx.filter = traits.color.filter;
-                    tempCtx.globalCompositeOperation = 'source-atop';
-                    tempCtx.drawImage(tempCanvas, 0, 0);
-                    ctx.drawImage(tempCanvas, 0, 0);
-                } else {
-                    ctx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
-                }
-            };
-            
-            drawSprite(sprites.body, true);
-            drawSprite(sprites.mouth, false);
-            drawSprite(sprites.eyes, true);
-            drawSprite(sprites.clothing, false);
-            drawSprite(sprites.head, false);
-        }
-        
-        function loadImage(url) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = () => reject(new Error(`Failed to load: ${url}`));
-                img.src = url;
-            });
-        }
-        
-        // --- PREVIEW COMBINATION LOGIC ---
-        
-        async function previewCombination() {
-            if (!currentFrogTraits) {
-                alert('Generate a frog first!');
+        // Music variables (now initialized in setupAudio function)
+        let acidSynth, bassFilter, isPlaying = false, currentStep = 0;
+
+        // Cat animation functions
+        function startCatAnimation() {
+            if (catAnimationRunning) {
+                console.log('Animation already running');
                 return;
             }
             
-            // Setup DOM for Preview
-            const frogDisplay = document.querySelector('.frog-display');
-            frogDisplay.innerHTML = '';
+            catAnimationRunning = true;
             
-            const compCanvas = document.createElement('canvas');
-            compCanvas.id = 'compositeCanvas'; // ID for re-selecting
-            compCanvas.width = 1000; 
-            compCanvas.height = 1000;
-            frogDisplay.appendChild(compCanvas);
-            
-            // Add positioning controls text overlay
-            const helpText = document.createElement('div');
-            helpText.style.position = 'absolute';
-            helpText.style.bottom = '10px';
-            helpText.style.left = '10px';
-            helpText.style.color = 'yellow';
-            helpText.style.background = 'rgba(0,0,0,0.7)';
-            helpText.style.padding = '5px 10px';
-            helpText.style.borderRadius = '5px';
-            helpText.style.fontSize = '12px';
-            helpText.innerHTML = 'Arrow Keys: Move | +/-: Scale | Shift: Faster';
-            frogDisplay.appendChild(helpText);
-
-            // Load all assets ONCE
-            try {
-                previewAssets.body = await loadImage(`${traitFolders.body.folder}/${currentFrogTraits.body}body-sprite.avif`);
-                previewAssets.eyes = await loadImage(`${traitFolders.eyes.folder}/${currentFrogTraits.eyes}eyes_sprite.avif`);
-                previewAssets.mouth = await loadImage(`${traitFolders.mouth.folder}/${currentFrogTraits.mouth}Mouth-sprite.avif`);
-                previewAssets.head = await loadImage(`${traitFolders.head.folder}/${currentFrogTraits.head}head_sprite.avif`);
-                previewAssets.clothing = await loadImage(`${traitFolders.clothing.folder}/${currentFrogTraits.clothing}clothing.avif`);
-                previewAssets.catFull = await loadImage('cat-full.png');
-                previewAssets.maskImg = await loadImage('Centre_mask_mask.png');
-                previewAssets.outlineImg = await loadImage('Centre_mask_outline.png');
-                
-                isPreviewing = true;
-                drawComposition(); // Initial draw
-                
-            } catch (error) {
-                console.error("Error loading preview assets", error);
-                alert("Could not load assets for preview.");
+            // Load assets if not loaded
+            if (catOutlineFrames.length === 0) {
+                console.log('Loading cat outline frames...');
+                loadCompositionAssets().then(() => {
+                    console.log('Assets loaded, starting animation');
+                    beginAnimation();
+                });
+            } else {
+                beginAnimation();
             }
         }
         
-        // The main drawing loop for the preview
-        function drawComposition() {
-            if(!isPreviewing) return;
+        async function loadCompositionAssets() {
+            try {
+                const frame1 = new Image();
+                const frame2 = new Image();
+                
+                await Promise.all([
+                    new Promise(resolve => {
+                        frame1.onload = resolve;
+                        frame1.src = 'cat-outline-1.svg';
+                    }),
+                    new Promise(resolve => {
+                        frame2.onload = resolve;
+                        frame2.src = 'cat-outline-2.svg';
+                    })
+                ]);
+                
+                catOutlineFrames = [frame1, frame2];
+                console.log('Cat outline frames loaded');
+            } catch (error) {
+                console.error('Error loading assets:', error);
+                alert('Failed to load animation assets!');
+            }
+        }
+        
+        function beginAnimation() {
+            const frogDisplay = document.querySelector('.frog-display');
+            frogDisplay.style.position = 'relative';
             
-            const canvas = document.getElementById('compositeCanvas');
-            if(!canvas) return;
+            // Create or get composition canvas
+            let compositionCanvas = document.getElementById('compositionCanvas');
+            if (!compositionCanvas) {
+                compositionCanvas = document.createElement('canvas');
+                compositionCanvas.id = 'compositionCanvas';
+                compositionCanvas.width = 1000;
+                compositionCanvas.height = 1000;
+                compositionCanvas.style.position = 'absolute';
+                compositionCanvas.style.top = '0';
+                compositionCanvas.style.left = '0';
+                compositionCanvas.style.width = '100%';
+                compositionCanvas.style.height = '100%';
+                compositionCanvas.style.objectFit = 'contain';
+                compositionCanvas.style.objectPosition = 'top left';
+                compositionCanvas.style.pointerEvents = 'none';
+                frogDisplay.appendChild(compositionCanvas);
+            }
+            
+            // Add positioning controls UI
+            let controlsDiv = document.getElementById('positionControls');
+            if (!controlsDiv) {
+                controlsDiv = document.createElement('div');
+                controlsDiv.id = 'positionControls';
+                controlsDiv.style.position = 'absolute';
+                controlsDiv.style.bottom = '10px';
+                controlsDiv.style.left = '10px';
+                controlsDiv.style.background = 'rgba(0,0,0,0.8)';
+                controlsDiv.style.color = 'yellow';
+                controlsDiv.style.padding = '15px';
+                controlsDiv.style.borderRadius = '10px';
+                controlsDiv.style.fontFamily = 'monospace';
+                controlsDiv.style.fontSize = '14px';
+                controlsDiv.style.zIndex = '1000';
+                controlsDiv.innerHTML = `
+                    <div style="margin-bottom: 10px;"><strong>POSITIONING CONTROLS:</strong></div>
+                    <div>Arrow Keys = Move (Shift = 10px)</div>
+                    <div>+/- = Scale</div>
+                    <div>C = Copy Coords</div>
+                    <div style="margin-top: 10px; color: lime;">
+                        X: <span id="coordX">0</span> 
+                        Y: <span id="coordY">0</span> 
+                        Scale: <span id="coordScale">1.00</span>
+                    </div>
+                `;
+                frogDisplay.appendChild(controlsDiv);
+            }
+            
+            currentFrameIndex = 0;
+            frameStartTime = performance.now();
+            renderFrame(compositionCanvas);
+        }
+        
+        function renderFrame(canvas) {
+            if (!catAnimationRunning) return;
+            
             const ctx = canvas.getContext('2d');
+            const now = performance.now();
+            const elapsed = now - frameStartTime;
             
-            ctx.clearRect(0,0,1000,1000);
+            // Advance frame if duration passed
+            if (elapsed >= frameDurations[currentFrameIndex]) {
+                currentFrameIndex = (currentFrameIndex + 1) % 2;
+                frameStartTime = now;
+            }
             
-            // 1. Draw Cat Background
-            ctx.drawImage(previewAssets.catFull, 0, 0, 1000, 1000);
+            // Clear
+            // Clear
+            ctx.clearRect(0, 0, 1000, 1000);
             
-            // 2. Prepare the "Sticker" (Frog + User Drawings) masked
-            const stickerCanvas = document.createElement('canvas');
-            stickerCanvas.width = 1000;
-            stickerCanvas.height = 1000;
-            const stickerCtx = stickerCanvas.getContext('2d');
+            // Layer 2: User's art with MANUAL positioning
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 800;
+            tempCanvas.height = 800;
+            const tempCtx = tempCanvas.getContext('2d');
             
-            // Draw Frog on Sticker
-            const drawSprite = (img, applyFilter) => {
-                if (applyFilter && currentFrogTraits.color.filter !== 'none') {
-                    const temp = document.createElement('canvas');
-                    temp.width = 1000; temp.height = 1000;
-                    const tempCtx = temp.getContext('2d');
-                    tempCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000); // Scale up
-                    tempCtx.filter = currentFrogTraits.color.filter;
-                    tempCtx.globalCompositeOperation = 'source-atop';
-                    tempCtx.drawImage(temp, 0, 0);
-                    stickerCtx.drawImage(temp, 0, 0);
-                } else {
-                    stickerCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                }
-            };
-            drawSprite(previewAssets.body, true);
-            drawSprite(previewAssets.mouth, false);
-            drawSprite(previewAssets.eyes, true);
-            drawSprite(previewAssets.clothing, false);
-            drawSprite(previewAssets.head, false);
-            
-            // Draw User Layers on Sticker
             layers.forEach(layer => {
-                stickerCtx.drawImage(layer.canvas, 0, 0);
+                tempCtx.drawImage(layer.canvas, 0, 0);
             });
             
-            // Clip Sticker using Mask Image
-            stickerCtx.globalCompositeOperation = 'destination-in';
-            stickerCtx.drawImage(previewAssets.maskImg, 0, 0, 1000, 1000);
+            // Draw with manual offset and scale
+            const drawWidth = 1000 * maskScale;
+            const drawHeight = 1000 * maskScale;
+            ctx.globalAlpha = 0.5;
+            ctx.drawImage(tempCanvas, 0, 0, 800, 800, maskOffsetX, maskOffsetY, drawWidth, drawHeight);
+            ctx.globalAlpha = 1.0;
             
-            // 3. Draw the Sticker and Outline onto the Main Canvas (Cat) using Transforms
-            ctx.save();
+            // Display coordinates on screen
+            const coordXEl = document.getElementById('coordX');
+            const coordYEl = document.getElementById('coordY');
+            const coordScaleEl = document.getElementById('coordScale');
+            if (coordXEl) coordXEl.textContent = maskOffsetX;
+            if (coordYEl) coordYEl.textContent = maskOffsetY;
+            if (coordScaleEl) coordScaleEl.textContent = maskScale.toFixed(2);
             
-            // Translate to position (manual offset)
-            ctx.translate(maskOffsetX, maskOffsetY);
-            // Apply scale
-            const targetWidth = 1000 * maskScale;
-            const targetHeight = 1000 * maskScale;
-            
-            // (Optional: Rotation logic if needed, currently using 0 for simplicity or fixed var)
-            // To rotate around center of the mask object:
-            // ctx.translate(targetWidth/2, targetHeight/2);
-            // ctx.rotate(34 * Math.PI / 180); // Fixed rotation from previous code
-            // ctx.translate(-targetWidth/2, -targetHeight/2);
-
-            // Draw masked content
-            ctx.drawImage(stickerCanvas, 0, 0, 1000, 1000, 0, 0, targetWidth, targetHeight);
-            
-            // Draw Outline on top of the masked content
-            ctx.drawImage(previewAssets.outlineImg, 0, 0, 1000, 1000, 0, 0, targetWidth, targetHeight);
-            
-            ctx.restore();
-        }
-
-        function submitArtwork() { downloadMaskPNG(); }
-
-        window.addEventListener('load', async function() {
-            // await loadMaskPath(); // Not needed for compositing, but might be used by internal logic
-            await initCanvas(); // Sets up drawing layers
-        });
-        
-        // Keyboard controls for manual positioning
-        window.addEventListener('keydown', function(e) {
-            // Only adjust if we are in preview mode
-            if (!isPreviewing) return;
-            
-            const step = e.shiftKey ? 10 : 1; 
-            
-            switch(e.key) {
-                case 'ArrowLeft':
-                    maskOffsetX -= step;
-                    e.preventDefault();
-                    break;
-                case 'ArrowRight':
-                    maskOffsetX += step;
-                    e.preventDefault();
-                    break;
-                case 'ArrowUp':
-                    maskOffsetY -= step;
-                    e.preventDefault();
-                    break;
-                case 'ArrowDown':
-                    maskOffsetY += step;
-                    e.preventDefault();
-                    break;
-                case '+':
-                case '=':
-                    maskScale += 0.01;
-                    e.preventDefault();
-                    break;
-                case '-':
-                case '_':
-                    maskScale = Math.max(0.1, maskScale - 0.01);
-                    e.preventDefault();
-                    break;
-                case 'c':
-                case 'C':
-                    const coords = `X: ${maskOffsetX}, Y: ${maskOffsetY}, Scale: ${maskScale}`;
-                    navigator.clipboard.writeText(coords);
-                    alert('Coordinates copied: ' + coords);
-                    break;
+            // Layer 3: Cat outline on top
+            if (catOutlineFrames[currentFrameIndex]) {
+                ctx.drawImage(catOutlineFrames[currentFrameIndex], 0, 0, 1000, 1000);
             }
             
-            // Re-draw with new coordinates
-            drawComposition();
-        });
+            // Next frame
+            animationFrameId = requestAnimationFrame(() => renderFrame(canvas));
+        }
 
         // Layer management
         function addLayer() {
             const container = document.getElementById('canvasContainer');
             const newCanvas = document.createElement('canvas');
-            newCanvas.width = 1000;
+            newCanvas.width = 1000; // Match the 1000x1000 mask size
             newCanvas.height = 1000;
             newCanvas.style.position = 'absolute';
             newCanvas.style.top = '0';
@@ -745,19 +632,24 @@
                 alert('Cannot delete the last layer');
                 return;
             }
+            
             layers[index].canvas.remove();
             layers.splice(index, 1);
+            
             if (currentLayerIndex >= layers.length) {
                 currentLayerIndex = layers.length - 1;
             }
+            
             canvas = layers[currentLayerIndex].canvas;
             ctx = layers[currentLayerIndex].ctx;
+            
             updateLayersList();
         }
 
         function updateLayersList() {
             const list = document.getElementById('layersList');
             list.innerHTML = '';
+            
             layers.forEach((layer, index) => {
                 const item = document.createElement('div');
                 item.className = 'layer-item' + (index === currentLayerIndex ? ' active' : '');
@@ -784,16 +676,21 @@
         function uploadImage(event) {
             const file = event.target.files[0];
             if (!file) return;
+            
             const reader = new FileReader();
             reader.onload = function(e) {
                 const img = new Image();
                 img.onload = function() {
                     addLayer();
                     const targetCtx = layers[currentLayerIndex].ctx;
+                    
+                    // Scale image to fit 2000x2000 canvas
                     const scale = Math.min(1000 / img.width, 1000 / img.height);
                     const x = (2000 - img.width * scale) / 2;
                     const y = (2000 - img.height * scale) / 2;
+                    
                     targetCtx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                    
                     layers[currentLayerIndex].name = `Image ${layers.length}`;
                     updateLayersList();
                 };
@@ -802,7 +699,77 @@
             reader.readAsDataURL(file);
         }
 
+        function applyMaskToLayer(layerIndex) {
+            if (!maskImageData) return;
+            
+            const layerCtx = layers[layerIndex].ctx;
+            const imageData = layerCtx.getImageData(0, 0, 800, 800);
+            const pixels = imageData.data;
+            const maskPixels = maskImageData.data;
+            
+            for (let i = 0; i < pixels.length; i += 4) {
+                if (maskPixels[i] === 0) {
+                    pixels[i + 3] = 0;
+                }
+            }
+            
+            layerCtx.putImageData(imageData, 0, 0);
+        }
+
+        // Load mask and create clipping region
+        async function loadMaskPath() {
+            try {
+                const response = await fetch('mask-simple.svg');
+                const svgText = await response.text();
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+                const pathElement = svgDoc.querySelector('path');
+                
+                if (pathElement) {
+                    const pathData = pathElement.getAttribute('d');
+                    
+                    // Create offscreen canvas to render mask
+                    const maskCanvas = document.createElement('canvas');
+                    maskCanvas.width = 800;
+                    maskCanvas.height = 800;
+                    const maskCtx = maskCanvas.getContext('2d');
+                    
+                    // Create path and scale it
+                    const path = new Path2D(pathData);
+                    maskCtx.scale(0.1, 0.1); // Scale from 8000 to 800
+                    maskCtx.fillStyle = 'white';
+                    maskCtx.fill(path);
+                    
+                    // Get mask image data
+                    maskImageData = maskCtx.getImageData(0, 0, 800, 800);
+                    
+                    console.log('Mask loaded successfully');
+                }
+            } catch (error) {
+                console.error('Error loading mask:', error);
+            }
+        }
+
+        // Apply mask to canvas
+        function applyMask() {
+            if (!maskImageData) return;
+            
+            const imageData = ctx.getImageData(0, 0, 800, 800);
+            const pixels = imageData.data;
+            const maskPixels = maskImageData.data;
+            
+            // Apply mask: if mask pixel is black (0), make drawing pixel transparent
+            for (let i = 0; i < pixels.length; i += 4) {
+                if (maskPixels[i] === 0) {
+                    pixels[i + 3] = 0; // Set alpha to 0 (transparent)
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+        }
+
         async function initCanvas() {
+            // Create first layer
             addLayer();
         }
 
@@ -817,8 +784,9 @@
 
         function draw(e) {
             if (!isDrawing || !canvas) return;
+            
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 1000 / rect.width;
+            const scaleX = 1000 / rect.width; // Changed from 800 to 2000
             const scaleY = 1000 / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
@@ -838,6 +806,7 @@
             ctx.moveTo(lastX, lastY);
             ctx.lineTo(x, y);
             ctx.stroke();
+            
             lastX = x;
             lastY = y;
         }
@@ -882,17 +851,92 @@
         }
 
         function downloadMaskPNG() {
+            // Merge all layers
             const mergeCanvas = document.createElement('canvas');
             mergeCanvas.width = 1000;
             mergeCanvas.height = 1000;
             const mergeCtx = mergeCanvas.getContext('2d');
+            
             layers.forEach(layer => {
                 mergeCtx.drawImage(layer.canvas, 0, 0);
             });
+            
             const link = document.createElement('a');
             link.download = 'block-party-mask.png';
             link.href = mergeCanvas.toDataURL('image/png');
             link.click();
+        }
+
+        // Music functions (keeping them short)
+        async function loadSamples() {
+            try {
+                kickPlayer = new Tone.Player(sampleUrls.kick).toDestination();
+                kickPlayer.volume.value = -5;
+                clapPlayer = new Tone.Player(sampleUrls.clap).toDestination();
+                clapPlayer.volume.value = -8;
+                hatPlayer = new Tone.Player(sampleUrls.hat).toDestination();
+                hatPlayer.volume.value = -12;
+                finalPlayer = new Tone.Player(sampleUrls.final).toDestination();
+                finalPlayer.volume.value = 10;
+                finalPlayer.playbackRate = 0.95;
+                await Tone.loaded();
+                samplesLoaded = true;
+            } catch (error) {}
+        }
+
+        function setupAudio() {
+            try {
+                acidSynth = new Tone.MonoSynth({
+                    oscillator: { type: "sawtooth" },
+                    envelope: { attack: 0.01, decay: 0.4, sustain: 0.3, release: 0.4 }
+                });
+                bassFilter = new Tone.Filter({ type: "lowpass", frequency: 250, Q: 22 });
+                const distortion = new Tone.Distortion(0.3);
+                acidSynth.chain(bassFilter, distortion, Tone.Destination);
+                acidSynth.volume.value = -10;
+            } catch (error) {}
+        }
+
+        async function startFullTrack() {
+            await Tone.start();
+            if (!samplesLoaded) return;
+            isPlaying = true;
+            currentStep = 0;
+            Tone.Transport.bpm.value = 123;
+            
+            Tone.Transport.scheduleRepeat((time) => {
+                let step = strudelPattern[currentStep % strudelPattern.length];
+                let stepIn16 = currentStep % 16;
+                let barCount = Math.floor(currentStep / 16) % 16;
+                
+                if (step.play && step.note && !(barCount === 15 && stepIn16 >= 9)) {
+                    acidSynth.triggerAttackRelease(step.note, "16n", time, 0.8);
+                    let progress = barCount / 15;
+                    let cutoffFreq = 200 + (progress * 400);
+                    let resonanceValue = 2 + (progress * 2.25);
+                    let baseMovement = Math.sin(time * 0.5) * 50;
+                    bassFilter.frequency.setValueAtTime(cutoffFreq + baseMovement, time);
+                    bassFilter.Q.setValueAtTime(resonanceValue, time);
+                }
+                
+                let isFirstHalf = barCount < 8;
+                if (isFirstHalf && stepIn16 % 4 === 0) kickPlayer.start(time);
+                if (!isFirstHalf && barCount === 8 && stepIn16 === 0) kickPlayer.start(time);
+                if (barCount === 0 && stepIn16 === 2) kickPlayer.start(time);
+                if (barCount === 15 && stepIn16 >= 12) clapPlayer.start(time);
+                if (stepIn16 % 8 === 4 && !(barCount === 15 && stepIn16 >= 12)) clapPlayer.start(time);
+                if (stepIn16 % 4 === 2) hatPlayer.start(time);
+                if (barCount === 15 && stepIn16 === 12) finalPlayer.start(time);
+                currentStep++;
+            }, "16n");
+            
+            Tone.Transport.start();
+        }
+
+        function stopFullTrack() {
+            isPlaying = false;
+            Tone.Transport.stop();
+            Tone.Transport.cancel();
         }
 
         function toggleFullscreen() {}
@@ -901,6 +945,342 @@
             const tools = document.getElementById('floatingTools');
             tools.classList.toggle('collapsed');
         }
+        
+        function generateFrog() {
+            // Stop any existing animation
+            if (frogAnimationRunning) {
+                cancelAnimationFrame(frogAnimationId);
+                frogAnimationRunning = false;
+            }
+            
+            // Stop cat animation too if running
+            if (catAnimationRunning) {
+                cancelAnimationFrame(animationFrameId);
+                catAnimationRunning = false;
+            }
+            
+            // Weighted random color selection (rarity system)
+            // Green: 70%, Blue: 10%, Red: 8%, Pink: 7%, Purple: 5%
+            const colorPool = [
+                ...Array(70).fill(0), // Green (70 entries)
+                ...Array(10).fill(1), // Blue (10 entries)
+                ...Array(8).fill(2),  // Red (8 entries)
+                ...Array(7).fill(3),  // Pink (7 entries)
+                ...Array(5).fill(4)   // Purple (5 entries)
+            ];
+            const randomColorIndex = colorPool[Math.floor(Math.random() * colorPool.length)];
+            const selectedColor = colorVariants[randomColorIndex];
+            
+            const traits = {
+                body: Math.floor(Math.random() * traitFolders.body.count) + 1,
+                eyes: Math.floor(Math.random() * traitFolders.eyes.count) + 1,
+                mouth: Math.floor(Math.random() * traitFolders.mouth.count) + 1,
+                head: Math.floor(Math.random() * traitFolders.head.count) + 1,
+                clothing: Math.floor(Math.random() * traitFolders.clothing.count) + 1,
+                color: selectedColor
+            };
+            
+            currentFrogTraits = traits;
+            console.log('Generated frog:', traits);
+            
+            // Load and display frog
+            loadAndAnimateFrog(traits);
+        }
+        
+        async function loadAndAnimateFrog(traits) {
+            const frogDisplay = document.querySelector('.frog-display');
+            frogDisplay.innerHTML = ''; // Clear existing
+            frogDisplay.style.position = 'relative';
+            frogDisplay.style.display = 'flex';
+            frogDisplay.style.alignItems = 'center';
+            frogDisplay.style.justifyContent = 'center';
+            
+            // Create canvas for sprite display
+            const frogCanvas = document.createElement('canvas');
+            frogCanvas.width = 500;
+            frogCanvas.height = 500;
+            frogDisplay.appendChild(frogCanvas);
+            
+            const ctx = frogCanvas.getContext('2d');
+            
+            // Load all trait sprites
+            const spriteImages = {};
+            try {
+                spriteImages.body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
+                spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
+                spriteImages.mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
+                spriteImages.head = await loadImage(`${traitFolders.head.folder}/${traits.head}head_sprite.avif`);
+                spriteImages.clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
+                
+                console.log('All sprites loaded');
+                
+                // Draw STATIC frog (first frame only)
+                drawFrogFrame(ctx, spriteImages, traits, 0);
+                
+            } catch (error) {
+                console.error('Error loading sprites:', error);
+                frogDisplay.innerHTML = '<p style="color:red; padding:20px;">Error loading frog sprites!<br>' + error.message + '</p>';
+            }
+        }
+        
+        function drawFrogFrame(ctx, sprites, traits, frameIndex) {
+            // Clear canvas
+            ctx.clearRect(0, 0, 500, 500);
+            
+            // Calculate source X position for current frame (0, 500, or 1000)
+            const frameX = frameIndex * 500;
+            
+            // Draw each layer
+            const drawSprite = (img, applyFilter) => {
+                if (applyFilter && traits.color.filter !== 'none') {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = 500;
+                    tempCanvas.height = 500;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // Draw current frame
+                    tempCtx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
+                    
+                    // Apply filter
+                    tempCtx.filter = traits.color.filter;
+                    tempCtx.globalCompositeOperation = 'source-atop';
+                    tempCtx.drawImage(tempCanvas, 0, 0);
+                    
+                    ctx.drawImage(tempCanvas, 0, 0);
+                } else {
+                    ctx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
+                }
+            };
+            
+            // Draw layers bottom to top
+            drawSprite(sprites.body, true);
+            drawSprite(sprites.mouth, false);
+            drawSprite(sprites.eyes, true);
+            drawSprite(sprites.clothing, false);
+            drawSprite(sprites.head, false);
+        }
+        
+        function loadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error(`Failed to load: ${url}`));
+                img.src = url;
+            });
+        }
+        
+        function previewCombination() {
+            if (!currentFrogTraits) {
+                alert('Generate a frog first!');
+                return;
+            }
+            
+            // Start the combined preview flow
+            // 1. We keep the frog as is in window 1 (we don't clear it or touch it)
+            // 2. We use window 1 to show the FINAL composition (Cat + Masked Art on top)
+            // Wait, the user said: "the mask appears in the bottom corner of the Frog window on top of a cat"
+            // So we hijack the frog-display div to show the composite canvas.
+            
+            const frogDisplay = document.querySelector('.frog-display');
+            frogDisplay.innerHTML = '';
+            
+            // Create single canvas for composition
+            const compCanvas = document.createElement('canvas');
+            compCanvas.id = 'compositionCanvas';
+            compCanvas.width = 1000; 
+            compCanvas.height = 1000;
+            frogDisplay.appendChild(compCanvas);
+            
+            // Re-add positioning controls UI so user can still move the mask
+            let controlsDiv = document.createElement('div');
+            controlsDiv.id = 'positionControls';
+            controlsDiv.style.position = 'absolute';
+            controlsDiv.style.bottom = '10px';
+            controlsDiv.style.left = '10px';
+            controlsDiv.style.background = 'rgba(0,0,0,0.8)';
+            controlsDiv.style.color = 'yellow';
+            controlsDiv.style.padding = '15px';
+            controlsDiv.style.borderRadius = '10px';
+            controlsDiv.style.fontFamily = 'monospace';
+            controlsDiv.style.fontSize = '14px';
+            controlsDiv.style.zIndex = '1000';
+            controlsDiv.innerHTML = `
+                <div style="margin-bottom: 10px;"><strong>POSITIONING CONTROLS:</strong></div>
+                <div>Arrow Keys = Move (Shift = 10px)</div>
+                <div>+/- = Scale</div>
+                <div>C = Copy Coords</div>
+                <div style="margin-top: 10px; color: lime;">
+                    X: <span id="coordX">${maskOffsetX}</span> 
+                    Y: <span id="coordY">${maskOffsetY}</span> 
+                    Scale: <span id="coordScale">${maskScale.toFixed(2)}</span>
+                </div>
+            `;
+            frogDisplay.appendChild(controlsDiv);
+            
+            const ctx = compCanvas.getContext('2d');
+            
+            // Set flag to allow keyboard movement
+            catAnimationRunning = true; 
+            
+            // Load assets and start rendering loop
+            // We need to load cat and mask assets first
+            loadCompositionAssets().then(() => {
+                 // Start the render loop which handles drawing the composite repeatedly
+                 // enabling live movement of the mask
+                 currentFrameIndex = 0;
+                 frameStartTime = performance.now();
+                 renderFrame(compCanvas);
+            });
+        }
+        
+        async function loadAndCompositeFrog(ctx, traits) {
+             // This function is now effectively replaced by the renderFrame loop for the preview
+             // We keep it if needed for static generation but for live preview we use renderFrame
+        }
+        
+        // Modified renderFrame to handle the full composition logic
+        function renderFrame(canvas) {
+            if (!catAnimationRunning) return;
+            
+            const ctx = canvas.getContext('2d');
+            const now = performance.now();
+            const elapsed = now - frameStartTime;
+            
+            // Animation frame logic for cat outline if it has frames
+            if (elapsed >= frameDurations[currentFrameIndex]) {
+                currentFrameIndex = (currentFrameIndex + 1) % 2;
+                frameStartTime = now;
+            }
+            
+            // 1. Clear Canvas
+            ctx.clearRect(0, 0, 1000, 1000);
+            
+            // 2. Draw Cat Background (Full image)
+            // We need to load this image. For now assuming 'cat-full.png' is available
+            // If not loaded in global scope, we need to load it. 
+            // Ideally we preload this. Let's assume it's loaded or load it on fly.
+            // For stability, let's create a global cat image object if not exists
+            if (!window.catFullImg) {
+                window.catFullImg = new Image();
+                window.catFullImg.src = 'cat-full.png';
+            }
+            if (window.catFullImg.complete) {
+                ctx.drawImage(window.catFullImg, 0, 0, 1000, 1000);
+            }
+            
+            // 3. Prepare the "Mask Content" (User Drawing ONLY)
+            // The user requested: "I don't want a frog inside the Mask the Frog stays where it is."
+            // So the mask only contains the user's drawing from the right window.
+            
+            const maskContentCanvas = document.createElement('canvas');
+            maskContentCanvas.width = 1000;
+            maskContentCanvas.height = 1000;
+            const maskContentCtx = maskContentCanvas.getContext('2d');
+            
+            // Draw all user layers onto the temp canvas
+            layers.forEach(layer => {
+                maskContentCtx.drawImage(layer.canvas, 0, 0);
+            });
+            
+            // 4. Clip the content to the Mask Shape
+            // We need the mask image ('Centre_mask_mask.png')
+            if (!window.maskImgObj) {
+                window.maskImgObj = new Image();
+                window.maskImgObj.src = 'Centre_mask_mask.png';
+            }
+            
+            if (window.maskImgObj.complete) {
+                maskContentCtx.globalCompositeOperation = 'destination-in';
+                maskContentCtx.drawImage(window.maskImgObj, 0, 0, 1000, 1000);
+                maskContentCtx.globalCompositeOperation = 'source-over';
+            }
+            
+            // 5. Draw the masked content onto the Cat (Main Canvas) with positioning
+            ctx.save();
+            // Apply transformations
+            // We translate to the offset position
+            ctx.translate(maskOffsetX, maskOffsetY);
+            
+            // We scale relative to the top-left of the placed object (simplest)
+            // or relative to center if preferred. The previous code used simple scaling.
+            // Let's stick to the previous working logic: draw scaled image at offset.
+            const drawWidth = 1000 * maskScale;
+            const drawHeight = 1000 * maskScale;
+            
+            // Draw the clipped user drawing
+            ctx.drawImage(maskContentCanvas, 0, 0, 1000, 1000, 0, 0, drawWidth, drawHeight);
+            
+            // 6. Draw the Outline on top
+            // This is the animated cat outline or static outline
+            // It needs to move WITH the mask
+            if (catOutlineFrames[currentFrameIndex] && catOutlineFrames[currentFrameIndex].complete) {
+                 ctx.drawImage(catOutlineFrames[currentFrameIndex], 0, 0, 1000, 1000, 0, 0, drawWidth, drawHeight);
+            }
+            
+            ctx.restore();
+            
+            // Update UI coordinates
+            const coordXEl = document.getElementById('coordX');
+            const coordYEl = document.getElementById('coordY');
+            const coordScaleEl = document.getElementById('coordScale');
+            if (coordXEl) coordXEl.textContent = maskOffsetX;
+            if (coordYEl) coordYEl.textContent = maskOffsetY;
+            if (coordScaleEl) coordScaleEl.textContent = maskScale.toFixed(2);
+            
+            // Loop
+            animationFrameId = requestAnimationFrame(() => renderFrame(canvas));
+        }
+
+        function submitArtwork() { downloadMaskPNG(); }
+
+        window.addEventListener('load', async function() {
+            await loadMaskPath();
+            await initCanvas();
+            setupAudio();
+        });
+        
+        // Keyboard controls for manual positioning
+        window.addEventListener('keydown', function(e) {
+            if (!catAnimationRunning) return;
+            
+            const step = e.shiftKey ? 10 : 1; // Hold Shift for bigger steps
+            
+            switch(e.key) {
+                case 'ArrowLeft':
+                    maskOffsetX -= step;
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    maskOffsetX += step;
+                    e.preventDefault();
+                    break;
+                case 'ArrowUp':
+                    maskOffsetY -= step;
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown':
+                    maskOffsetY += step;
+                    e.preventDefault();
+                    break;
+                case '+':
+                case '=':
+                    maskScale += 0.01;
+                    e.preventDefault();
+                    break;
+                case '-':
+                case '_':
+                    maskScale = Math.max(0.1, maskScale - 0.01);
+                    e.preventDefault();
+                    break;
+                case 'c':
+                case 'C':
+                    // Copy coordinates to clipboard
+                    const coords = `X: ${maskOffsetX}, Y: ${maskOffsetY}, Scale: ${maskScale}`;
+                    navigator.clipboard.writeText(coords);
+                    alert('Coordinates copied: ' + coords);
+                    break;
+            }
+        });
     </script>
 </body>
 </html>
