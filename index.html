@@ -373,8 +373,8 @@
 
             <div class="canvas-wrapper">
                 <div class="canvas-container" id="canvasContainer">
-                    <img src="Centre_mask_mask.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; object-fit: contain;">
-                    <img src="Centre_mask_outline.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; object-fit: contain;">
+                    <img src="Centre_mask_mask.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;">
+                    <img src="Centre_mask_outline.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000;">
                 </div>
             </div>
         </div>
@@ -812,36 +812,37 @@
         }
 
         function startDrawing(e) {
-            const rect = e.target.getBoundingClientRect();
-            const scaleX = 1000 / rect.width;
-            const scaleY = 1000 / rect.height;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
             lastX = (e.clientX - rect.left) * scaleX;
             lastY = (e.clientY - rect.top) * scaleY;
             
             // Only start drawing if inside the mask
             if (isInsideMask(lastX, lastY)) {
                 isDrawing = true;
+            } else {
+                isDrawing = false;
             }
         }
 
         function draw(e) {
             if (!isDrawing || !canvas) return;
             
-            const rect = e.target.getBoundingClientRect();
-            const scaleX = 1000 / rect.width;
-            const scaleY = 1000 / rect.height;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
             
             // Stop drawing if we go outside the mask
             if (!isInsideMask(x, y)) {
-                // Don't draw, but update lastX/lastY so we can resume if we come back in
                 lastX = x;
                 lastY = y;
                 return;
             }
             
-            // Also check if lastX/lastY was outside - if so, just move there without drawing
+            // Also check if lastX/lastY was outside
             if (!isInsideMask(lastX, lastY)) {
                 lastX = x;
                 lastY = y;
@@ -873,15 +874,17 @@
         function handleTouchStart(e) {
             e.preventDefault();
             const touch = e.touches[0];
-            const rect = e.target.getBoundingClientRect();
-            const scaleX = 1000 / rect.width;
-            const scaleY = 1000 / rect.height;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
             lastX = (touch.clientX - rect.left) * scaleX;
             lastY = (touch.clientY - rect.top) * scaleY;
             
             // Only start drawing if inside the mask
             if (isInsideMask(lastX, lastY)) {
                 isDrawing = true;
+            } else {
+                isDrawing = false;
             }
         }
 
@@ -889,7 +892,43 @@
             e.preventDefault();
             if (!isDrawing) return;
             const touch = e.touches[0];
-            draw({ target: e.target, clientX: touch.clientX, clientY: touch.clientY });
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (touch.clientX - rect.left) * scaleX;
+            const y = (touch.clientY - rect.top) * scaleY;
+            
+            // Stop drawing if outside mask
+            if (!isInsideMask(x, y)) {
+                lastX = x;
+                lastY = y;
+                return;
+            }
+            
+            if (!isInsideMask(lastX, lastY)) {
+                lastX = x;
+                lastY = y;
+                return;
+            }
+            
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            if (currentTool === 'brush') {
+                ctx.strokeStyle = currentColor;
+                ctx.globalCompositeOperation = 'source-over';
+            } else if (currentTool === 'eraser') {
+                ctx.globalCompositeOperation = 'destination-out';
+            }
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            lastX = x;
+            lastY = y;
         }
 
         function selectColor(color, element) {
