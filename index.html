@@ -513,14 +513,6 @@
                 <h3>Tools <button onclick="event.stopPropagation(); toggleTools();" style="float:right; background:none; border:none; cursor:pointer; font-size:16px;">−</button></h3>
                 
                 <div class="tool-group">
-                    <label>Layers</label>
-                    <div id="layersList"></div>
-                    <button class="tool-btn" onclick="addLayer()">+ Add Layer</button>
-                    <button class="tool-btn" onclick="document.getElementById('imageUpload').click()">📁 Upload Image</button>
-                    <input type="file" id="imageUpload" accept="image/*" onchange="uploadImage(event)" style="display:none">
-                </div>
-                
-                <div class="tool-group">
                     <label>Colors</label>
                     <div class="color-palette">
                         <div class="color-btn active" style="background: #000000" onclick="selectColor('#000000', this)"></div>
@@ -536,6 +528,7 @@
                         <div class="color-btn" style="background: #00ffff" onclick="selectColor('#00ffff', this)"></div>
                         <div class="color-btn" style="background: #ff00ff" onclick="selectColor('#ff00ff', this)"></div>
                     </div>
+                    <input type="color" id="colorPicker" value="#000000" onchange="selectColorFromPicker(this.value)" style="width: 100%; height: 30px; margin-top: 8px; cursor: pointer; border: none; border-radius: 5px;">
                 </div>
 
                 <div class="tool-group">
@@ -547,7 +540,6 @@
                     <button class="tool-btn" onclick="setTool('brush')">🖌️ Brush</button>
                     <button class="tool-btn" onclick="setTool('eraser')">🧹 Eraser</button>
                     <button class="tool-btn" onclick="clearCanvas()">🗑️ Clear</button>
-                    <button class="tool-btn" onclick="downloadTemplate()">📥 Download Template</button>
                 </div>
             </div>
 
@@ -1108,6 +1100,12 @@
             currentColor = color;
             document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
             element.classList.add('active');
+            document.getElementById('colorPicker').value = color;
+        }
+        
+        function selectColorFromPicker(color) {
+            currentColor = color;
+            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
         }
 
         function updateBrushSize(size) {
