@@ -397,6 +397,7 @@
         let lastX = 0;
         let lastY = 0;
         let maskImageData = null;
+        let maskPixelData = null; // For checking if point is inside mask
 
         // Trait system for frog generation
         const traitFolders = {
@@ -769,8 +770,36 @@
         }
 
         async function initCanvas() {
+            // Load mask image for constraining drawing
+            const maskImg = new Image();
+            maskImg.onload = function() {
+                // Create canvas to read mask pixels
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 1000;
+                tempCanvas.height = 1000;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(maskImg, 0, 0, 1000, 1000);
+                maskPixelData = tempCtx.getImageData(0, 0, 1000, 1000).data;
+                console.log('Mask loaded for drawing constraint');
+            };
+            maskImg.src = 'Centre_mask_mask.png';
+            
             // Create first layer
             addLayer();
+        }
+        
+        // Check if a point is inside the mask
+        function isInsideMask(x, y) {
+            if (!maskPixelData) return true; // Allow drawing if mask not loaded yet
+            
+            const px = Math.floor(x);
+            const py = Math.floor(y);
+            
+            if (px < 0 || px >= 1000 || py < 0 || py >= 1000) return false;
+            
+            // Get alpha value at this pixel (every 4th value starting at index 3)
+            const index = (py * 1000 + px) * 4 + 3;
+            return maskPixelData[index] > 128; // If alpha > 128, it's inside the mask
         }
 
         function startDrawing(e) {
@@ -786,10 +815,17 @@
             if (!isDrawing || !canvas) return;
             
             const rect = e.target.getBoundingClientRect();
-            const scaleX = 1000 / rect.width; // Changed from 800 to 2000
+            const scaleX = 1000 / rect.width;
             const scaleY = 1000 / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
+            
+            // Only draw if inside the mask
+            if (!isInsideMask(x, y)) {
+                lastX = x;
+                lastY = y;
+                return;
+            }
             
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
@@ -1134,11 +1170,11 @@
                 // Draw full cat image (behind the mask area)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // === MASK POSITIONING VALUES v4 ===
+                // === MASK POSITIONING VALUES v5 ===
                 // CHANGE THESE VALUES TO ADJUST POSITION:
-                const maskX = -150;   // negative = left, positive = right
+                const maskX = -140;   // moved right 10px (was -150)
                 const maskY = 620;    // smaller = up, bigger = down
-                const maskScale = 0.54;  // bigger = larger
+                const maskScale = 0.56;  // 4% bigger (was 0.54)
                 const maskRotation = 34; // degrees
                 
                 // Get user's drawing from layers
