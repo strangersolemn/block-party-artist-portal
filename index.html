@@ -1175,26 +1175,9 @@
             // Send to Google Apps Script
             const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW9XccUHmsEuVNfhrPDa1xBmx9BPZwpgZuCYS-ONZIKfZUpT4tOwXuW-67ki1YRaO4/exec';
             
-            if (GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
-                // If not configured, just download locally
-                const link = document.createElement('a');
-                link.download = `block-party-${twitter.replace('@', '')}.png`;
-                link.href = imageData;
-                link.click();
-                
-                alert(`Form submitted!\n\nName: ${name}\nTwitter: ${twitter}\nTaproot: ${taproot.substring(0, 20)}...\n\nNote: Google Sheets not configured yet - image downloaded locally.`);
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
-                closeSubmitForm();
-                return;
-            }
-            
+            // Use fetch with no-cors (Google Apps Script requires this)
             fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({
                     name: name,
                     twitter: twitter,
@@ -1202,8 +1185,11 @@
                     image: imageData
                 })
             })
-            .then(() => {
-                // Also download a copy for the user
+            .then(response => response.text())
+            .then(result => {
+                console.log('Submit result:', result);
+                
+                // Download a copy for the user
                 const link = document.createElement('a');
                 link.download = `block-party-${twitter.replace('@', '')}.png`;
                 link.href = imageData;
@@ -1214,7 +1200,14 @@
             })
             .catch(error => {
                 console.error('Submit error:', error);
-                alert('Error submitting. Please try again.');
+                // Still download locally even if submit fails
+                const link = document.createElement('a');
+                link.download = `block-party-${twitter.replace('@', '')}.png`;
+                link.href = imageData;
+                link.click();
+                
+                alert(`Thank you ${name}! Your image has been downloaded.\n\n(Note: There may have been an issue saving to our server, but your image is safe!)`);
+                closeSubmitForm();
             })
             .finally(() => {
                 submitBtn.textContent = originalText;
