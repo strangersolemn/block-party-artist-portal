@@ -318,11 +318,59 @@
                 grid-template-columns: 1fr;
                 grid-template-rows: auto auto 80px;
                 overflow-y: auto;
+                height: auto;
+                min-height: 100vh;
+            }
+            
+            .panel {
+                min-height: 50vh;
+            }
+            
+            .frog-display {
+                max-height: 50vh;
+            }
+            
+            .canvas-wrapper {
+                max-height: 50vh;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .floating-tools {
+                width: 150px;
+                padding: 10px;
+            }
+            
+            .color-palette {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 4px;
             }
         }
     </style>
 </head>
 <body>
+    <!-- SVG Filters for iOS compatibility -->
+    <svg style="display:none">
+        <defs>
+            <filter id="blue-filter">
+                <feColorMatrix type="hueRotate" values="92"/>
+                <feColorMatrix type="saturate" values="1.66"/>
+            </filter>
+            <filter id="red-filter">
+                <feColorMatrix type="hueRotate" values="239"/>
+                <feColorMatrix type="saturate" values="2"/>
+            </filter>
+            <filter id="pink-filter">
+                <feColorMatrix type="hueRotate" values="197"/>
+                <feColorMatrix type="saturate" values="2"/>
+            </filter>
+            <filter id="purple-filter">
+                <feColorMatrix type="hueRotate" values="158"/>
+                <feColorMatrix type="saturate" values="1.98"/>
+            </filter>
+        </defs>
+    </svg>
+    
     <div class="app-container">
         <div class="panel">
             <h2>Your Frog</h2>
@@ -416,11 +464,11 @@
         };
         
         const colorVariants = [
-            { name: 'Green', filter: 'none' },
-            { name: 'Blue', filter: 'hue-rotate(92deg) saturate(166%)' },
-            { name: 'Red', filter: 'hue-rotate(239deg) saturate(200%)' },
-            { name: 'Pink', filter: 'hue-rotate(197deg) saturate(200%)' },
-            { name: 'Purple', filter: 'hue-rotate(158deg) saturate(198%)' }
+            { name: 'Green', filter: 'none', svgFilter: '' },
+            { name: 'Blue', filter: 'hue-rotate(92deg) saturate(166%)', svgFilter: 'url(#blue-filter)' },
+            { name: 'Red', filter: 'hue-rotate(239deg) saturate(200%)', svgFilter: 'url(#red-filter)' },
+            { name: 'Pink', filter: 'hue-rotate(197deg) saturate(200%)', svgFilter: 'url(#pink-filter)' },
+            { name: 'Purple', filter: 'hue-rotate(158deg) saturate(198%)', svgFilter: 'url(#purple-filter)' }
         ];
         
         let currentFrogTraits = null;
@@ -1098,30 +1146,24 @@
             // Calculate source X position for current frame (0, 500, or 1000)
             const frameX = frameIndex * 500;
             
-            // Draw each layer
-            const drawSprite = (img, applyFilter) => {
-                if (applyFilter && traits.color.filter !== 'none') {
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = 500;
-                    tempCanvas.height = 500;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    
-                    // Apply filter FIRST then draw
-                    tempCtx.filter = traits.color.filter;
-                    tempCtx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
-                    
-                    ctx.drawImage(tempCanvas, 0, 0);
-                } else {
-                    ctx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
-                }
+            // Draw each layer - no filter in canvas, we'll use CSS
+            const drawSprite = (img) => {
+                ctx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
             };
             
             // Draw layers bottom to top
-            drawSprite(sprites.body, true);
-            drawSprite(sprites.mouth, false);
-            drawSprite(sprites.eyes, true);
-            drawSprite(sprites.clothing, false);
-            drawSprite(sprites.head, false);
+            drawSprite(sprites.body);
+            drawSprite(sprites.mouth);
+            drawSprite(sprites.eyes);
+            drawSprite(sprites.clothing);
+            drawSprite(sprites.head);
+            
+            // Apply color filter via CSS on the canvas element (works on iOS)
+            if (traits.color.filter !== 'none') {
+                ctx.canvas.style.filter = traits.color.filter;
+            } else {
+                ctx.canvas.style.filter = 'none';
+            }
         }
         
         function loadImage(url) {
@@ -1170,37 +1212,34 @@
                 // Load the mask for clipping
                 const maskImg = await loadImage('Centre_mask_mask.png');
                 
-                // Scale frog from 500x500 to 1000x1000 and draw
-                const drawSprite = (img, applyFilter) => {
-                    if (applyFilter && traits.color.filter !== 'none') {
-                        const temp = document.createElement('canvas');
-                        temp.width = 1000;
-                        temp.height = 1000;
-                        const tempCtx = temp.getContext('2d');
-                        // Apply filter FIRST then draw (iOS compatible)
-                        tempCtx.filter = traits.color.filter;
-                        tempCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                        ctx.drawImage(temp, 0, 0);
-                    } else {
-                        ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                    }
-                };
+                // Create temp canvas for frog with filter
+                const frogCanvas = document.createElement('canvas');
+                frogCanvas.width = 1000;
+                frogCanvas.height = 1000;
+                const frogCtx = frogCanvas.getContext('2d');
                 
-                // Draw frog layers
-                drawSprite(body, true);
-                drawSprite(mouth, false);
-                drawSprite(eyes, true);
-                drawSprite(clothing, false);
-                drawSprite(head, false);
+                // Draw frog layers to temp canvas
+                frogCtx.drawImage(body, 0, 0, 500, 500, 0, 0, 1000, 1000);
+                frogCtx.drawImage(mouth, 0, 0, 500, 500, 0, 0, 1000, 1000);
+                frogCtx.drawImage(eyes, 0, 0, 500, 500, 0, 0, 1000, 1000);
+                frogCtx.drawImage(clothing, 0, 0, 500, 500, 0, 0, 1000, 1000);
+                frogCtx.drawImage(head, 0, 0, 500, 500, 0, 0, 1000, 1000);
+                
+                // Apply filter to frog canvas and draw to main canvas
+                if (traits.color.filter !== 'none') {
+                    ctx.filter = traits.color.filter;
+                }
+                ctx.drawImage(frogCanvas, 0, 0);
+                ctx.filter = 'none';
                 
                 // Draw full cat image (behind the mask area)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // === MASK POSITIONING VALUES v5 ===
+                // === MASK POSITIONING VALUES v6 ===
                 // CHANGE THESE VALUES TO ADJUST POSITION:
-                const maskX = -137;   // moved right 10px (was -150)
+                const maskX = -137;   // moved right
                 const maskY = 620;    // smaller = up, bigger = down
-                const maskScale = 0.54;  // 4% bigger (was 0.54)
+                const maskScale = 0.54;  // size
                 const maskRotation = 34; // degrees
                 
                 // Get user's drawing from layers
