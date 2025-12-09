@@ -103,13 +103,14 @@
             position: relative;
             background: #1a1a2e;
             border-radius: 10px;
-            overflow: hidden;
         }
 
         .canvas-container {
             position: relative;
             width: 100%;
+            height: 100%;
             max-width: 100%;
+            max-height: 100%;
             aspect-ratio: 1 / 1;
             margin: auto;
         }
@@ -125,7 +126,7 @@
             object-position: top left;
         }
 
-        /* Style for all layer canvases - CLIPPED TO MASK */
+        /* Style for all layer canvases */
         .canvas-container canvas {
             position: absolute;
             top: 0;
@@ -133,14 +134,6 @@
             width: 100%;
             height: 100%;
             cursor: crosshair;
-            -webkit-mask-image: url('Centre_mask_mask.png');
-            -webkit-mask-size: contain;
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-position: center;
-            mask-image: url('Centre_mask_mask.png');
-            mask-size: contain;
-            mask-repeat: no-repeat;
-            mask-position: center;
         }
 
         .svg-overlay {
@@ -178,9 +171,6 @@
             height: 50px;
             overflow: hidden;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
         
         .floating-tools.collapsed * {
@@ -192,6 +182,7 @@
             display: block;
             font-size: 24px;
             text-align: center;
+            line-height: 20px;
         }
 
         .floating-tools h3 {
@@ -314,188 +305,17 @@
             padding: 16px 45px;
             font-size: 1.1rem;
         }
-        
-        /* Modal styles */
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-        }
-        
-        .modal-content {
-            background: #1a1a2e;
-            border: 2px solid #ef4d99;
-            border-radius: 15px;
-            padding: 30px;
-            width: 90%;
-            max-width: 400px;
-            position: relative;
-        }
-        
-        .modal-content h2 {
-            color: #ef4d99;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        
-        .modal-close {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            background: none;
-            border: none;
-            color: #ef4d99;
-            font-size: 28px;
-            cursor: pointer;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        .form-group label {
-            display: block;
-            color: #f9bad1;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-        }
-        
-        .form-group input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #2e5130;
-            border-radius: 8px;
-            background: #0a0a1b;
-            color: white;
-            font-size: 1rem;
-        }
-        
-        .form-group input:focus {
-            outline: none;
-            border-color: #ef4d99;
-        }
-        
-        .form-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 20px;
-        }
 
         @media (max-width: 1024px) {
-            body {
-                overflow-y: auto;
-                height: auto;
-            }
-            
             .app-container {
                 grid-template-columns: 1fr;
-                grid-template-rows: auto auto auto;
-                overflow-y: visible;
-                height: auto;
-                min-height: 100vh;
-                padding-bottom: 20px;
-            }
-            
-            .panel {
-                min-height: 400px;
-                height: auto;
-            }
-            
-            .frog-display {
-                height: 300px;
-                min-height: 300px;
-            }
-            
-            .canvas-wrapper {
-                height: 350px;
-                min-height: 350px;
-            }
-            
-            .footer-controls {
-                padding: 15px 0;
-                flex-wrap: wrap;
-            }
-        }
-        
-        @media (max-width: 600px) {
-            .app-container {
-                padding: 10px;
-                gap: 10px;
-            }
-            
-            .panel {
-                padding: 10px;
-                min-height: 350px;
-            }
-            
-            .frog-display {
-                height: 250px;
-                min-height: 250px;
-            }
-            
-            .canvas-wrapper {
-                height: 300px;
-                min-height: 300px;
-            }
-            
-            .floating-tools {
-                width: 140px;
-                padding: 8px;
-                font-size: 0.8rem;
-            }
-            
-            .floating-tools h3 {
-                font-size: 0.9rem;
-            }
-            
-            .color-palette {
-                grid-template-columns: repeat(4, 1fr);
-                gap: 3px;
-            }
-            
-            .tool-btn {
-                padding: 8px;
-                font-size: 0.75rem;
-            }
-            
-            .action-btn {
-                padding: 10px 15px;
-                font-size: 0.85rem;
+                grid-template-rows: auto auto 80px;
+                overflow-y: auto;
             }
         }
     </style>
 </head>
 <body>
-    <!-- SVG Filters for iOS compatibility -->
-    <svg style="display:none">
-        <defs>
-            <filter id="blue-filter">
-                <feColorMatrix type="hueRotate" values="92"/>
-                <feColorMatrix type="saturate" values="1.66"/>
-            </filter>
-            <filter id="red-filter">
-                <feColorMatrix type="hueRotate" values="239"/>
-                <feColorMatrix type="saturate" values="2"/>
-            </filter>
-            <filter id="pink-filter">
-                <feColorMatrix type="hueRotate" values="197"/>
-                <feColorMatrix type="saturate" values="2"/>
-            </filter>
-            <filter id="purple-filter">
-                <feColorMatrix type="hueRotate" values="158"/>
-                <feColorMatrix type="saturate" values="1.98"/>
-            </filter>
-        </defs>
-    </svg>
-    
     <div class="app-container">
         <div class="panel">
             <h2>Your Frog</h2>
@@ -509,8 +329,16 @@
             <h2>Your Mask</h2>
             <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
             
-            <div class="floating-tools" id="floatingTools" onclick="if(this.classList.contains('collapsed')) toggleTools();">
-                <h3>Tools <button onclick="event.stopPropagation(); toggleTools();" style="float:right; background:none; border:none; cursor:pointer; font-size:16px;">−</button></h3>
+            <div class="floating-tools" id="floatingTools">
+                <h3>Tools <button onclick="toggleTools()" style="float:right; background:none; border:none; cursor:pointer; font-size:16px;">−</button></h3>
+                
+                <div class="tool-group">
+                    <label>Layers</label>
+                    <div id="layersList"></div>
+                    <button class="tool-btn" onclick="addLayer()">+ Add Layer</button>
+                    <button class="tool-btn" onclick="document.getElementById('imageUpload').click()">📁 Upload Image</button>
+                    <input type="file" id="imageUpload" accept="image/*" onchange="uploadImage(event)" style="display:none">
+                </div>
                 
                 <div class="tool-group">
                     <label>Colors</label>
@@ -528,7 +356,6 @@
                         <div class="color-btn" style="background: #00ffff" onclick="selectColor('#00ffff', this)"></div>
                         <div class="color-btn" style="background: #ff00ff" onclick="selectColor('#ff00ff', this)"></div>
                     </div>
-                    <input type="color" id="colorPicker" value="#000000" onchange="selectColorFromPicker(this.value)" style="width: 100%; height: 30px; margin-top: 8px; cursor: pointer; border: none; border-radius: 5px;">
                 </div>
 
                 <div class="tool-group">
@@ -540,50 +367,21 @@
                     <button class="tool-btn" onclick="setTool('brush')">🖌️ Brush</button>
                     <button class="tool-btn" onclick="setTool('eraser')">🧹 Eraser</button>
                     <button class="tool-btn" onclick="clearCanvas()">🗑️ Clear</button>
+                    <button class="tool-btn" onclick="downloadMaskPNG()">💾 Download PNG</button>
                 </div>
             </div>
 
             <div class="canvas-wrapper">
                 <div class="canvas-container" id="canvasContainer">
-                    <img src="Centre_mask_mask.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; object-fit: contain;">
-                    <img src="Centre_mask_outline.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; object-fit: contain;">
+                    <img src="mask-centered.png" class="mask-background" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; object-fit: contain;">
+                    <img src="cat-outline-centered.png" class="cat-outline" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; object-fit: contain;">
                 </div>
             </div>
         </div>
 
         <div class="footer-controls">
             <button class="action-btn" onclick="previewCombination()">👁️ Preview Together</button>
-            <button class="action-btn primary" onclick="showSubmitForm()">🚀 Submit Creation</button>
-        </div>
-        
-        <!-- Submit Modal -->
-        <div id="submitModal" class="modal" style="display:none;">
-            <div class="modal-content">
-                <h2>Submit Your Creation</h2>
-                <button class="modal-close" onclick="closeSubmitForm()">×</button>
-                
-                <form id="submitForm" onsubmit="handleSubmit(event)">
-                    <div class="form-group">
-                        <label for="artistName">Name *</label>
-                        <input type="text" id="artistName" name="name" required placeholder="Your name">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="twitterHandle">Twitter Handle *</label>
-                        <input type="text" id="twitterHandle" name="twitter" required placeholder="@yourhandle">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="taprootAddress">Taproot Address *</label>
-                        <input type="text" id="taprootAddress" name="taproot" required placeholder="bc1p...">
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="action-btn" onclick="closeSubmitForm()">Cancel</button>
-                        <button type="submit" class="action-btn primary">Submit</button>
-                    </div>
-                </form>
-            </div>
+            <button class="action-btn primary" onclick="submitArtwork()">🚀 Submit Creation</button>
         </div>
     </div>
 
@@ -599,23 +397,22 @@
         let lastX = 0;
         let lastY = 0;
         let maskImageData = null;
-        let maskPixelData = null; // For checking if point is inside mask
 
         // Trait system for frog generation
         const traitFolders = {
-            body: { folder: 'Body_sprites', prefix: '', suffix: 'body-sprite.avif', count: 1, colorFilter: true },
-            eyes: { folder: 'Eyes_sprites', prefix: '', suffix: 'eyes new.avif', count: 27, colorFilter: true },
-            mouth: { folder: 'Mouth_sprites', prefix: '', suffix: 'Mouth-sprite.avif', count: 2, colorFilter: false },
-            head: { folder: 'Head_sprites', prefix: 'brandnewhead', suffix: '.avif', count: 48, colorFilter: false },
-            clothing: { folder: 'Clothing_sprites', prefix: '', suffix: 'brand new clothing.avif', count: 21, colorFilter: false }
+            body: { folder: 'Body_sprites', count: 1, colorFilter: true },
+            eyes: { folder: 'Eyes_sprites', count: 25, colorFilter: true },
+            mouth: { folder: 'Mouth_sprites', count: 2, colorFilter: false },
+            head: { folder: 'Head_sprites', count: 44, colorFilter: false },
+            clothing: { folder: 'Clothing_sprites', count: 12, colorFilter: false }
         };
         
         const colorVariants = [
-            { name: 'Green', filter: 'none', svgFilter: '' },
-            { name: 'Blue', filter: 'hue-rotate(92deg) saturate(166%)', svgFilter: 'url(#blue-filter)' },
-            { name: 'Red', filter: 'hue-rotate(239deg) saturate(200%)', svgFilter: 'url(#red-filter)' },
-            { name: 'Pink', filter: 'hue-rotate(197deg) saturate(200%)', svgFilter: 'url(#pink-filter)' },
-            { name: 'Purple', filter: 'hue-rotate(158deg) saturate(198%)', svgFilter: 'url(#purple-filter)' }
+            { name: 'Green', filter: 'none' },
+            { name: 'Blue', filter: 'hue-rotate(92deg) saturate(166%)' },
+            { name: 'Red', filter: 'hue-rotate(239deg) saturate(200%)' },
+            { name: 'Pink', filter: 'hue-rotate(197deg) saturate(200%)' },
+            { name: 'Purple', filter: 'hue-rotate(158deg) saturate(198%)' }
         ];
         
         let currentFrogTraits = null;
@@ -798,8 +595,8 @@
         function addLayer() {
             const container = document.getElementById('canvasContainer');
             const newCanvas = document.createElement('canvas');
-            newCanvas.width = 1000; // Match the 1000x1000 mask size
-            newCanvas.height = 1000;
+            newCanvas.width = 2000; // Match centered mask PNG size
+            newCanvas.height = 2000;
             newCanvas.style.position = 'absolute';
             newCanvas.style.top = '0';
             newCanvas.style.left = '0';
@@ -851,8 +648,6 @@
 
         function updateLayersList() {
             const list = document.getElementById('layersList');
-            if (!list) return; // Skip if layers UI is not present
-            
             list.innerHTML = '';
             
             layers.forEach((layer, index) => {
@@ -889,14 +684,12 @@
                     addLayer();
                     const targetCtx = layers[currentLayerIndex].ctx;
                     
-                    // Scale image to fit 1000x1000 canvas, centered
-                    const scale = Math.min(1000 / img.width, 1000 / img.height);
-                    const w = img.width * scale;
-                    const h = img.height * scale;
-                    const x = (1000 - w) / 2;
-                    const y = (1000 - h) / 2;
+                    // Scale image to fit 2000x2000 canvas
+                    const scale = Math.min(2000 / img.width, 2000 / img.height);
+                    const x = (2000 - img.width * scale) / 2;
+                    const y = (2000 - img.height * scale) / 2;
                     
-                    targetCtx.drawImage(img, x, y, w, h);
+                    targetCtx.drawImage(img, x, y, img.width * scale, img.height * scale);
                     
                     layers[currentLayerIndex].name = `Image ${layers.length}`;
                     updateLayersList();
@@ -976,52 +769,15 @@
         }
 
         async function initCanvas() {
-            // Load mask image for constraining drawing
-            const maskImg = new Image();
-            maskImg.onload = function() {
-                // Create canvas to read mask pixels
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = 1000;
-                tempCanvas.height = 1000;
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.drawImage(maskImg, 0, 0, 1000, 1000);
-                maskPixelData = tempCtx.getImageData(0, 0, 1000, 1000).data;
-                console.log('Mask loaded! Length:', maskPixelData.length);
-                console.log('Center pixel alpha (should be 255):', maskPixelData[(500 * 1000 + 500) * 4 + 3]);
-                console.log('Corner pixel alpha (should be 0):', maskPixelData[(0 * 1000 + 0) * 4 + 3]);
-            };
-            maskImg.onerror = function() {
-                console.error('FAILED to load mask image!');
-            };
-            maskImg.src = 'Centre_mask_mask.png';
-            
             // Create first layer
             addLayer();
-        }
-        
-        // Check if a point is inside the mask
-        function isInsideMask(x, y) {
-            if (!maskPixelData) {
-                console.log('Mask not loaded yet');
-                return true; // Allow drawing if mask not loaded yet
-            }
-            
-            const px = Math.floor(x);
-            const py = Math.floor(y);
-            
-            if (px < 0 || px >= 1000 || py < 0 || py >= 1000) return false;
-            
-            // Get alpha value at this pixel (every 4th value starting at index 3)
-            const index = (py * 1000 + px) * 4 + 3;
-            const alpha = maskPixelData[index];
-            return alpha > 128; // If alpha > 128, it's inside the mask
         }
 
         function startDrawing(e) {
             isDrawing = true;
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
+            const rect = e.target.getBoundingClientRect();
+            const scaleX = 2000 / rect.width;
+            const scaleY = 2000 / rect.height;
             lastX = (e.clientX - rect.left) * scaleX;
             lastY = (e.clientY - rect.top) * scaleY;
         }
@@ -1029,9 +785,9 @@
         function draw(e) {
             if (!isDrawing || !canvas) return;
             
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
+            const rect = e.target.getBoundingClientRect();
+            const scaleX = 2000 / rect.width; // Changed from 800 to 2000
+            const scaleY = 2000 / rect.height;
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
             
@@ -1059,55 +815,26 @@
 
         function handleTouchStart(e) {
             e.preventDefault();
-            isDrawing = true;
             const touch = e.touches[0];
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
+            const rect = e.target.getBoundingClientRect();
+            const scaleX = 2000 / rect.width;
+            const scaleY = 2000 / rect.height;
+            isDrawing = true;
             lastX = (touch.clientX - rect.left) * scaleX;
             lastY = (touch.clientY - rect.top) * scaleY;
         }
 
         function handleTouchMove(e) {
             e.preventDefault();
-            if (!isDrawing || !canvas) return;
+            if (!isDrawing) return;
             const touch = e.touches[0];
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const x = (touch.clientX - rect.left) * scaleX;
-            const y = (touch.clientY - rect.top) * scaleY;
-            
-            ctx.lineWidth = brushSize;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            if (currentTool === 'brush') {
-                ctx.strokeStyle = currentColor;
-                ctx.globalCompositeOperation = 'source-over';
-            } else if (currentTool === 'eraser') {
-                ctx.globalCompositeOperation = 'destination-out';
-            }
-            
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            
-            lastX = x;
-            lastY = y;
+            draw({ target: e.target, clientX: touch.clientX, clientY: touch.clientY });
         }
 
         function selectColor(color, element) {
             currentColor = color;
             document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
             element.classList.add('active');
-            document.getElementById('colorPicker').value = color;
-        }
-        
-        function selectColorFromPicker(color) {
-            currentColor = color;
-            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
         }
 
         function updateBrushSize(size) {
@@ -1119,86 +846,25 @@
         
         function clearCanvas() {
             if (canvas && ctx) {
-                ctx.clearRect(0, 0, 1000, 1000);
+                ctx.clearRect(0, 0, 2000, 2000);
             }
         }
 
-        function downloadTemplate() {
-            // Download the empty mask template
-            const link = document.createElement('a');
-            link.download = 'block-party-mask-template.png';
-            link.href = 'Centre_mask_outline.png';
-            link.click();
-        }
-        
-        function showSubmitForm() {
-            if (!currentFrogTraits) {
-                alert('Please generate a frog first!');
-                return;
-            }
-            document.getElementById('submitModal').style.display = 'flex';
-        }
-        
-        function closeSubmitForm() {
-            document.getElementById('submitModal').style.display = 'none';
-        }
-        
-        function handleSubmit(event) {
-            event.preventDefault();
+        function downloadMaskPNG() {
+            // Merge all layers
+            const mergeCanvas = document.createElement('canvas');
+            mergeCanvas.width = 2000;
+            mergeCanvas.height = 2000;
+            const mergeCtx = mergeCanvas.getContext('2d');
             
-            const name = document.getElementById('artistName').value;
-            const twitter = document.getElementById('twitterHandle').value;
-            const taproot = document.getElementById('taprootAddress').value;
-            
-            // Validate taproot address starts with bc1p
-            if (!taproot.startsWith('bc1p')) {
-                alert('Please enter a valid Taproot address starting with bc1p');
-                return;
-            }
-            
-            // Get the preview canvas content
-            const previewCanvas = document.querySelector('.frog-display canvas');
-            if (!previewCanvas) {
-                alert('Please click "Preview Together" first!');
-                return;
-            }
-            
-            // Show loading state
-            const submitBtn = event.target.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.textContent = 'Submitting...';
-            submitBtn.disabled = true;
-            
-            // Convert canvas to base64
-            const imageData = previewCanvas.toDataURL('image/png');
-            
-            // Send to Google Apps Script
-            const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW9XccUHmsEuVNfhrPDa1xBmx9BPZwpgZuCYS-ONZIKfZUpT4tOwXuW-67ki1YRaO4/exec';
-            
-            fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    name: name,
-                    twitter: twitter,
-                    taproot: taproot,
-                    image: imageData
-                })
-            })
-            .then(response => response.text())
-            .then(result => {
-                console.log('Submit result:', result);
-                alert(`Thank you ${name}! Your creation has been submitted.\n\nTwitter: ${twitter}\nTaproot: ${taproot.substring(0, 20)}...`);
-                closeSubmitForm();
-            })
-            .catch(error => {
-                console.error('Submit error:', error);
-                alert(`Thank you ${name}! Your creation has been submitted.`);
-                closeSubmitForm();
-            })
-            .finally(() => {
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
+            layers.forEach(layer => {
+                mergeCtx.drawImage(layer.canvas, 0, 0);
             });
+            
+            const link = document.createElement('a');
+            link.download = 'block-party-mask.png';
+            link.href = mergeCanvas.toDataURL('image/png');
+            link.click();
         }
 
         // Music functions (keeping them short)
@@ -1341,10 +1007,10 @@
             const spriteImages = {};
             try {
                 spriteImages.body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
-                spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes new.avif`);
+                spriteImages.eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
                 spriteImages.mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
-                spriteImages.head = await loadImage(`${traitFolders.head.folder}/brandnewhead${traits.head}.avif`);
-                spriteImages.clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}brand new clothing.avif`);
+                spriteImages.head = await loadImage(`${traitFolders.head.folder}/${traits.head}head_sprite.avif`);
+                spriteImages.clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
                 
                 console.log('All sprites loaded');
                 
@@ -1365,23 +1031,33 @@
             const frameX = frameIndex * 500;
             
             // Draw each layer
-            const drawSprite = (img) => {
-                ctx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
+            const drawSprite = (img, applyFilter) => {
+                if (applyFilter && traits.color.filter !== 'none') {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = 500;
+                    tempCanvas.height = 500;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // Draw current frame
+                    tempCtx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
+                    
+                    // Apply filter
+                    tempCtx.filter = traits.color.filter;
+                    tempCtx.globalCompositeOperation = 'source-atop';
+                    tempCtx.drawImage(tempCanvas, 0, 0);
+                    
+                    ctx.drawImage(tempCanvas, 0, 0);
+                } else {
+                    ctx.drawImage(img, frameX, 0, 500, 500, 0, 0, 500, 500);
+                }
             };
             
             // Draw layers bottom to top
-            drawSprite(sprites.body);
-            drawSprite(sprites.mouth);
-            drawSprite(sprites.eyes);
-            drawSprite(sprites.clothing);
-            drawSprite(sprites.head);
-            
-            // Apply color filter via CSS on the canvas element (works on iOS)
-            if (traits.color.filter !== 'none') {
-                ctx.canvas.style.filter = traits.color.filter;
-            } else {
-                ctx.canvas.style.filter = 'none';
-            }
+            drawSprite(sprites.body, true);
+            drawSprite(sprites.mouth, false);
+            drawSprite(sprites.eyes, true);
+            drawSprite(sprites.clothing, false);
+            drawSprite(sprites.head, false);
         }
         
         function loadImage(url) {
@@ -1418,70 +1094,55 @@
             try {
                 // Load frog sprites
                 const body = await loadImage(`${traitFolders.body.folder}/${traits.body}body-sprite.avif`);
-                const eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes new.avif`);
+                const eyes = await loadImage(`${traitFolders.eyes.folder}/${traits.eyes}eyes_sprite.avif`);
                 const mouth = await loadImage(`${traitFolders.mouth.folder}/${traits.mouth}Mouth-sprite.avif`);
-                const head = await loadImage(`${traitFolders.head.folder}/brandnewhead${traits.head}.avif`);
-                const clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}brand new clothing.avif`);
+                const head = await loadImage(`${traitFolders.head.folder}/${traits.head}head_sprite.avif`);
+                const clothing = await loadImage(`${traitFolders.clothing.folder}/${traits.clothing}clothing.avif`);
                 
                 // Load cat images
                 const catFull = await loadImage('cat-full.png');
                 const catOutline = await loadImage('cat-outline-positioned.png');
                 
-                // Load the mask for clipping
-                const maskImg = await loadImage('Centre_mask_mask.png');
+                // Scale frog from 500x500 to 1000x1000 and draw
+                const drawSprite = (img, applyFilter) => {
+                    if (applyFilter && traits.color.filter !== 'none') {
+                        const temp = document.createElement('canvas');
+                        temp.width = 1000;
+                        temp.height = 1000;
+                        const tempCtx = temp.getContext('2d');
+                        // Draw sprite scaled up from 500 to 1000
+                        tempCtx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
+                        tempCtx.filter = traits.color.filter;
+                        tempCtx.globalCompositeOperation = 'source-atop';
+                        tempCtx.drawImage(temp, 0, 0);
+                        ctx.drawImage(temp, 0, 0);
+                    } else {
+                        ctx.drawImage(img, 0, 0, 500, 500, 0, 0, 1000, 1000);
+                    }
+                };
                 
-                // Create temp canvas for frog with filter
-                const frogCanvas = document.createElement('canvas');
-                frogCanvas.width = 1000;
-                frogCanvas.height = 1000;
-                const frogCtx = frogCanvas.getContext('2d');
-                
-                // Draw frog layers to temp canvas
-                frogCtx.drawImage(body, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                frogCtx.drawImage(mouth, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                frogCtx.drawImage(eyes, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                frogCtx.drawImage(clothing, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                frogCtx.drawImage(head, 0, 0, 500, 500, 0, 0, 1000, 1000);
-                
-                // Apply filter to frog canvas and draw to main canvas
-                if (traits.color.filter !== 'none') {
-                    ctx.filter = traits.color.filter;
-                }
-                ctx.drawImage(frogCanvas, 0, 0);
-                ctx.filter = 'none';
+                // Draw frog layers
+                drawSprite(body, true);
+                drawSprite(mouth, false);
+                drawSprite(eyes, true);
+                drawSprite(clothing, false);
+                drawSprite(head, false);
                 
                 // Draw full cat image (behind the mask area)
                 ctx.drawImage(catFull, 0, 0, 1000, 1000);
                 
-                // === MASK POSITIONING VALUES v6 ===
-                // CHANGE THESE VALUES TO ADJUST POSITION:
-                const maskX = -137;   // moved right
-                const maskY = 620;    // smaller = up, bigger = down
-                const maskScale = 0.54;  // size
-                const maskRotation = 34; // degrees
-                
-                // Get user's drawing from layers
-                const userDrawing = document.createElement('canvas');
-                userDrawing.width = 1000;
-                userDrawing.height = 1000;
-                const userCtx = userDrawing.getContext('2d');
+                // Merge user's drawn layers
+                const maskCanvas = document.createElement('canvas');
+                maskCanvas.width = 2000;
+                maskCanvas.height = 2000;
+                const maskCtx = maskCanvas.getContext('2d');
                 
                 layers.forEach(layer => {
-                    userCtx.drawImage(layer.canvas, 0, 0);
+                    maskCtx.drawImage(layer.canvas, 0, 0);
                 });
                 
-                // Clip user drawing to mask shape FIRST
-                userCtx.globalCompositeOperation = 'destination-in';
-                userCtx.drawImage(maskImg, 0, 0, 1000, 1000);
-                
-                // Now position and draw the clipped result
-                const scaledSize = 1000 * maskScale;
-                
-                ctx.save();
-                ctx.translate(maskX + scaledSize/2, maskY + scaledSize/2);
-                ctx.rotate(maskRotation * Math.PI / 180);
-                ctx.drawImage(userDrawing, -scaledSize/2, -scaledSize/2, scaledSize, scaledSize);
-                ctx.restore();
+                // Scale user drawing from 2000x2000 to 1000x1000 and draw ON TOP of cat
+                ctx.drawImage(maskCanvas, 0, 0, 2000, 2000, 0, 0, 1000, 1000);
                 
                 // Draw positioned cat outline on TOP of everything
                 ctx.drawImage(catOutline, 0, 0, 1000, 1000);
@@ -1493,7 +1154,61 @@
                 alert('Error: ' + error.message);
             }
         }
+        function submitArtwork() {
+            if (!currentFrogTraits) {
+                alert('Please generate a frog first!');
+                return;
+            }
+            
+            // Merge all drawing layers into one mask
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = 2000;
+            maskCanvas.height = 2000;
+            const maskCtx = maskCanvas.getContext('2d');
+            
+            layers.forEach(layer => {
+                maskCtx.drawImage(layer.canvas, 0, 0);
+            });
+            
+            // Convert mask to PNG
+            maskCanvas.toBlob(function(blob) {
+                // Create download link for mask PNG
+                const maskUrl = URL.createObjectURL(blob);
+                const maskLink = document.createElement('a');
+                maskLink.download = 'block-party-mask.png';
+                maskLink.href = maskUrl;
+                maskLink.click();
+                
+                // Create trait data text file
+                const traitData = `Block Party Submission
+                
+Artist Name: [Enter your name]
+Twitter Handle: [Enter your handle]
+Taproot Address: [Enter your address]
 
+Frog Traits:
+Body: ${currentFrogTraits.body}
+Eyes: ${currentFrogTraits.eyes}
+Mouth: ${currentFrogTraits.mouth}
+Head: ${currentFrogTraits.head}
+Clothing: ${currentFrogTraits.clothing}
+Color: ${currentFrogTraits.color.name}
+
+Instructions:
+1. Save this text file with your info filled in
+2. Upload both the mask PNG and this text file to the Google Form
+`;
+                
+                const traitBlob = new Blob([traitData], { type: 'text/plain' });
+                const traitUrl = URL.createObjectURL(traitBlob);
+                const traitLink = document.createElement('a');
+                traitLink.download = 'block-party-traits.txt';
+                traitLink.href = traitUrl;
+                traitLink.click();
+                
+                alert('Downloaded!\n\n1. Mask PNG (your drawing)\n2. Traits TXT (frog info)\n\nPlease submit both files to the Google Form!');
+            }, 'image/png');
+        }
 
         window.addEventListener('load', async function() {
             await loadMaskPath();
