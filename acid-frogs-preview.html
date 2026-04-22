@@ -190,23 +190,27 @@ const traitFolders = {
   smoke:    { count: 2,  color: false },
 };
 
-// Real filename patterns discovered in the repo
+// Real filename patterns discovered in the repo — URL-encode to handle spaces.
 function spritePath(kind, slot) {
+  let path;
   switch (kind) {
-    case "body":  return "Body_sprites/1body-sprite.avif";
-    case "mouth": return `Mouth_sprites/${slot}Mouth-sprite.avif`;
-    case "eyes":  return `Eyes_sprites/${slot}eyes new.avif`;
+    case "body":  path = "Body_sprites/1body-sprite.avif"; break;
+    case "mouth": path = `Mouth_sprites/${slot}Mouth-sprite.avif`; break;
+    case "eyes":  path = `Eyes_sprites/${slot}eyes new.avif`; break;
     case "clothing": {
       const prefix = slot >= 19 ? "Brand" : "brand";
-      return `Clothing_sprites/${slot}${prefix} new clothing.avif`;
+      path = `Clothing_sprites/${slot}${prefix} new clothing.avif`;
+      break;
     }
-    case "head": {
-      return slot <= 45
+    case "head":
+      path = slot <= 45
         ? `Head_sprites/brandnewhead${slot}.avif`
         : `Head_sprites/${slot}Brandnewhead.avif`;
-    }
-    case "smoke": return `smoke_sprites/${slot}smoke.avif`;
+      break;
+    case "smoke": path = `smoke_sprites/${slot}smoke.avif`; break;
   }
+  // Encode each path segment (preserves slashes, escapes spaces etc)
+  return path.split("/").map(encodeURIComponent).join("/");
 }
 
 const colorVariants = [
@@ -297,7 +301,10 @@ function loadImg(url) {
   return new Promise((res) => {
     const img = new Image();
     img.onload = () => res(img);
-    img.onerror = () => res(null);
+    img.onerror = (e) => {
+      console.warn("[acid-frogs] failed to load image:", url);
+      res(null);
+    };
     img.src = url;
   });
 }
@@ -357,12 +364,21 @@ function drawFrame(ctx, sprites, traits, frameIndex) {
 
 async function loadFrogSprites(traits) {
   const out = {};
-  out.body     = await loadImg(spritePath("body",     traits.body.slot));
-  out.mouth    = await loadImg(spritePath("mouth",    traits.mouth.slot));
-  out.eyes     = await loadImg(spritePath("eyes",     traits.eyes.slot));
-  out.clothing = await loadImg(spritePath("clothing", traits.clothing.slot));
-  out.head     = await loadImg(spritePath("head",     traits.head.slot));
-  out.smoke    = traits.smoke.slot > 0 ? await loadImg(spritePath("smoke", traits.smoke.slot)) : null;
+  const paths = {
+    body:     spritePath("body",     traits.body.slot),
+    mouth:    spritePath("mouth",    traits.mouth.slot),
+    eyes:     spritePath("eyes",     traits.eyes.slot),
+    clothing: spritePath("clothing", traits.clothing.slot),
+    head:     spritePath("head",     traits.head.slot),
+  };
+  for (const [k, p] of Object.entries(paths)) {
+    out[k] = await loadImg(p);
+  }
+  out.smoke = traits.smoke.slot > 0 ? await loadImg(spritePath("smoke", traits.smoke.slot)) : null;
+  const loaded = Object.values(out).filter(Boolean).length;
+  const total = Object.keys(out).length - (traits.smoke.slot === 0 ? 1 : 0);
+  console.log(`[acid-frogs] loaded ${loaded}/${total} sprites`, paths);
+  out._debug = { loaded, total };
   return out;
 }
 
@@ -434,6 +450,7 @@ async function setFeatured(height) {
       <div>clothing ${traits.clothing.slot}/12 · mouth ${traits.mouth.slot}/2</div>
       <div>smoke: ${traits.smoke.slot === 0 ? "none" : traits.smoke.slot}</div>
       <div>background ${traits.bg.slot}/8</div>
+      <div style="opacity:.5;margin-top:6px">sprites loaded: ${sprites._debug.loaded}/${sprites._debug.total}${sprites._debug.loaded < sprites._debug.total ? ' ⚠ check console' : ''}</div>
     </div>
   `;
 
