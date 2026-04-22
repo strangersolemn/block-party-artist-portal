@@ -187,13 +187,32 @@ const EPOCH_START = 941472;
 const EPOCH_END = 943487;
 
 const traitFolders = {
-  body:     { folder: "Body_sprites",     count: 1,  suffix: "body-sprite.avif",   color: true  },
-  eyes:     { folder: "Eyes_sprites",     count: 25, suffix: "eyes_sprite.avif",   color: true  },
-  mouth:    { folder: "Mouth_sprites",    count: 2,  suffix: "Mouth-sprite.avif",  color: false },
-  head:     { folder: "Head_sprites",     count: 44, suffix: "head_sprite.avif",   color: false },
-  clothing: { folder: "Clothing_sprites", count: 12, suffix: "clothing.avif",      color: false },
-  smoke:    { folder: "smoke_sprites",    count: 2,  suffix: "smoke.avif",         color: false },
+  body:     { count: 1,  color: true  },
+  mouth:    { count: 2,  color: false },
+  eyes:     { count: 27, color: true  },
+  clothing: { count: 21, color: false },
+  head:     { count: 48, color: false },
+  smoke:    { count: 2,  color: false },
 };
+
+// Real filename patterns discovered in the repo
+function spritePath(kind, slot) {
+  switch (kind) {
+    case "body":  return "Body_sprites/1body-sprite.avif";
+    case "mouth": return `Mouth_sprites/${slot}Mouth-sprite.avif`;
+    case "eyes":  return `Eyes_sprites/${slot}eyes new.avif`;
+    case "clothing": {
+      const prefix = slot >= 19 ? "Brand" : "brand";
+      return `Clothing_sprites/${slot}${prefix} new clothing.avif`;
+    }
+    case "head": {
+      return slot <= 45
+        ? `Head_sprites/brandnewhead${slot}.avif`
+        : `Head_sprites/${slot}Brandnewhead.avif`;
+    }
+    case "smoke": return `smoke_sprites/${slot}smoke.avif`;
+  }
+}
 
 const colorVariants = [
   { name: "Green",  filter: "none",                                  weight: 70, tier: "common" },
@@ -215,10 +234,11 @@ const colorWeights256 = [
 
 const ACID_NOTES = ["c2","d2","eb2","e2","f2","g2","ab2","a2","bb2","b2","c3","d3","eb3","f3","g3","a3"];
 
-const TONE_URL = "https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0";
-const KICK_URL = "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0";
-const CLAP_URL = "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0";
-const HAT_URL  = "https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0";
+const TONE_URL  = "https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0";
+const KICK_URL  = "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0";
+const CLAP_URL  = "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0";
+const HAT_URL   = "https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0";
+const FINAL_URL = "https://ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0";
 
 // -------------------------- pure helpers --------------------------
 function pickWeighted(table, byteVal) {
@@ -271,10 +291,6 @@ function pickTraits(merkleHex) {
   };
 }
 
-function spritePath(kind, slot) {
-  const f = traitFolders[kind];
-  return `${f.folder}/${slot}${f.suffix}`;
-}
 function bgPath(slot) {
   return `BG/${slot}BG.${slot <= 5 ? "JPG" : "jpg"}`;
 }
@@ -330,12 +346,34 @@ const stepsEl = document.getElementById("steps");
 let current = null;   // current featured frog state
 let audioStarted = false;
 let toneLoaded = false;
-let synth, kickP, clapP, hatP, filter;
+let synth, kickP, clapP, hatP, finalP, filter, dist;
 let stepTimer = null;
 let stepIdx = 0;
 let kickFlash = 0;
 let frameIdx = 0;
 let frameTimer = 0;
+
+// Bass variation: given a base pattern and a bar index (0-15), return the pattern
+// for that bar. Every 4 bars, swap one step. Bars 8-15 drop one note by an octave.
+// Bar 15 steps 9+: bass silent (the drop/outro).
+function patternForBar(basePattern, barCount, nonceHex) {
+  const p = basePattern.slice();
+  const modIdx1 = parseInt(nonceHex[2], 16) % 16; // 4-bar switch point 1
+  const modIdx2 = parseInt(nonceHex[3], 16) % 16; // 4-bar switch point 2
+  const modIdx3 = parseInt(nonceHex[4], 16) % 16; // 4-bar switch point 3
+  const octaveStep = parseInt(nonceHex[5], 16) % 16; // which step drops an octave in second half
+
+  // Bars 4-7: mute modIdx1
+  if (barCount >= 4 && barCount < 8 && p[modIdx1] > 0) p[modIdx1] = 0;
+  // Bars 8-11: drop octaveStep down an octave (octave=2 becomes root, root=1 stays root)
+  if (barCount >= 8 && barCount < 12 && p[octaveStep] === 2) p[octaveStep] = 1;
+  if (barCount >= 8 && barCount < 12 && p[octaveStep] === 1) p[octaveStep] = 1; // already low
+  // Bars 8-11 additionally: mute modIdx2
+  if (barCount >= 8 && barCount < 12 && p[modIdx2] > 0 && modIdx2 !== octaveStep) p[modIdx2] = 0;
+  // Bars 12-15: reintroduce modIdx1, mute modIdx3 instead
+  if (barCount >= 12 && p[modIdx3] > 0) p[modIdx3] = 0;
+  return p;
+}
 
 async function setFeatured(height) {
   infoEl.textContent = "fetching block " + height + "…";
@@ -409,19 +447,23 @@ async function startAudio() {
   await Tone.start();
   Tone.Transport.bpm.value = 123;
 
-  kickP = new Tone.Player({ url: KICK_URL, volume: -4 }).toDestination();
-  clapP = new Tone.Player({ url: CLAP_URL, volume: -6 }).toDestination();
-  hatP  = new Tone.Player({ url: HAT_URL,  volume: -14 }).toDestination();
+  kickP  = new Tone.Player({ url: KICK_URL,  volume: -4  }).toDestination();
+  clapP  = new Tone.Player({ url: CLAP_URL,  volume: -6  }).toDestination();
+  hatP   = new Tone.Player({ url: HAT_URL,   volume: -14 }).toDestination();
+  finalP = new Tone.Player({ url: FINAL_URL, volume: -2  }).toDestination();
 
+  // 303 chain: MonoSynth → Filter → Distortion → Destination (mirrors baby-303)
   filter = new Tone.Filter({
-    frequency: 400 + (parseInt(current.nonceHex[1],16) * 200),
-    type: "lowpass", Q: 6
-  }).toDestination();
+    frequency: 400 + (parseInt(current.nonceHex[1],16) * 150),
+    type: "lowpass", Q: 3
+  });
+  dist = new Tone.Distortion(0.15);
   synth = new Tone.MonoSynth({
     oscillator: { type: "sawtooth" },
     envelope:       { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 },
     filterEnvelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 0.3, baseFrequency: 200, octaves: 3 },
-  }).connect(filter);
+  });
+  synth.chain(filter, dist, Tone.Destination);
   synth.volume.value = -10;
 
   await Tone.loaded();
@@ -429,21 +471,60 @@ async function startAudio() {
   const STEP_MS = (60 / 123 / 4) * 1000;
   stepIdx = 0;
   stepTimer = setInterval(() => {
-    const beat = stepIdx % 16;
-    stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === beat));
+    const stepIn16 = stepIdx % 16;
+    const barCount = Math.floor(stepIdx / 16) % 16; // 16-bar loop
 
-    if (beat % 4 === 0) { kickP.start(); kickFlash = 1; }
-    if (beat === 4 || beat === 12) clapP.start();
-    if (beat % 2 === 1) hatP.start();
+    stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
 
-    const stepBits = current.pattern[beat];
-    if (stepBits !== 0) {
-      const octave = (stepBits === 2) ? 1 : 0;
+    // ---- KICK ----
+    // Bars 1-8: four-on-the-floor. Bar 1 has an extra kick on step 2 (rolling intro).
+    // Bar 9: ONE kick at step 0 only. Bars 10-16: no kick.
+    const isFirstHalf = barCount < 8;
+    if (isFirstHalf) {
+      if (stepIn16 % 4 === 0) { kickP.start(); kickFlash = 1; }
+    } else {
+      if (barCount === 8 && stepIn16 === 0) { kickP.start(); kickFlash = 1; }
+    }
+    if (barCount === 0 && stepIn16 === 2) kickP.start();
+
+    // ---- CLAP ----
+    // Bar 16 steps 12-15: three claps at the end (the outro).
+    // Otherwise: claps on step 4 and 12 (2 and 4 of the bar).
+    if (barCount === 15 && stepIn16 >= 12) {
+      clapP.start();
+    } else if (stepIn16 === 4 || stepIn16 === 12) {
+      clapP.start();
+    }
+
+    // ---- HAT ----
+    // Off-beats every 4 steps offset by 2 (steps 2,6,10,14) — skip during final claps.
+    if (stepIn16 % 4 === 2 && !(barCount === 15 && stepIn16 >= 12)) {
+      hatP.start();
+    }
+
+    // ---- FINAL HIT ("acid" sample) ----
+    if (barCount === 15 && stepIn16 === 12) finalP.start();
+
+    // ---- BASS (303) ----
+    // Stop bass from bar 16 step 9 onwards (the drop).
+    const bassAllowed = !(barCount === 15 && stepIn16 >= 9);
+    const pattern = patternForBar(current.pattern, barCount, current.nonceHex);
+    const stepBits = pattern[stepIn16];
+    if (bassAllowed && stepBits !== 0) {
       const slide  = (stepBits === 3);
+      const octave = (stepBits === 2) ? 1 : 0;
       const rootNote = ACID_NOTES[current.rootIdx];
       const note = octave ? rootNote.replace(/\d/, (d) => String(Number(d) + 1)) : rootNote;
       synth.triggerAttackRelease(note, slide ? "8n" : "16n");
+
+      // Progressive filter sweep across the 16 bars (like baby-303)
+      const progress = barCount / 15;
+      const cutoff = 400 + (progress * 1200) + Math.sin(stepIdx * 0.15) * 100;
+      const resonance = 3 + (progress * 3);
+      filter.frequency.setValueAtTime(cutoff, Tone.now());
+      filter.Q.setValueAtTime(resonance, Tone.now());
     }
+
     stepIdx++;
   }, STEP_MS);
 }
