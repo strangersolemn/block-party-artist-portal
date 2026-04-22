@@ -117,22 +117,17 @@
   </div>
 
   <div class="lore">
-    <b>4 · AUDIO — GENERATIVE 303 FROM NONCE</b><br>
-    Each frog plays a unique 16-step acid bassline in tech-house at 123 BPM. The nonce (32 bits) is the seed:<br><br>
-    <code>
-    nonce binary = 32 bits → 16 steps × 2 bits per step<br>
-    &nbsp;&nbsp;00 = rest<br>
-    &nbsp;&nbsp;01 = play root note<br>
-    &nbsp;&nbsp;10 = play root + octave<br>
-    &nbsp;&nbsp;11 = play root with slide<br><br>
-    nonce[0]   → root note (16 values → c2, d2, eb2, e2, f2, g2, ab2, a2, bb2, b2, c3, d3, eb3, f3, g3, a3)<br>
-    nonce[1]   → filter cutoff base (0-3000Hz)<br>
-    </code><br><br>
-    Drum pattern is fixed (four-on-floor kick + clap on 5 &amp; 13 + off-beat hats — classic tech house). The 303 line on top is where every frog's individuality lives.<br><br>
-    <b>All audio uses your existing on-chain infra:</b><br>
-    · Tone.js → recursive inscription <code>04813d77…13062i0</code><br>
-    · Kick/Clap/Hat samples → already inscribed<br>
-    · 303 filter/distortion chain → built inside the renderer, following the same architecture as your Baby 303 inscription
+    <b>4 · AUDIO — THE SINISTER WALK</b><br>
+    Every frog plays <b>Pattern #8 "Sinister Walk"</b> from strangersolemn's 50-pattern TB-303 library. A descending chromatic walk in the dark minimal techno tradition: <code>c2 → b1 → bb1 → a1 → ab1 → g1 → gb1</code> with ghost notes and one high stab on step 6 (eb4). Plays at <b>123 BPM</b>.<br><br>
+    <b>Per-frog variation (every 2 bars):</b> one note is dropped an octave lower. Which step gets dropped is decided by the block's nonce — so every frog plays the same underlying pattern but with two signature low notes unique to that block. Minimal, dark, rolling underground.<br><br>
+    <b>Structure (inherited from baby-303 inscription):</b><br>
+    · Bars 1–8: four-on-the-floor kick + bassline + off-beat hats + claps on 2 &amp; 4<br>
+    · Bar 9: single kick on beat 1 — the drop<br>
+    · Bars 10–15: bass, hats, claps only (no kick — underground tension)<br>
+    · Bar 16 step 9+: bass stops entirely<br>
+    · Bar 16 steps 12–15: three claps + the ACID final hit<br><br>
+    <b>Filter sweep:</b> cutoff &amp; resonance ramp upward across all 16 bars — the classic acid build. Initial cutoff tuned per block via nonce[1].<br><br>
+    <b>All audio uses existing on-chain inscriptions:</b> Tone.js · kick · clap · hat · final "acid" hit sample.
   </div>
 
   <div class="lore">
@@ -232,7 +227,36 @@ const colorWeights256 = [
   { ...colorVariants[4], w: 13 },
 ];
 
-const ACID_NOTES = ["c2","d2","eb2","e2","f2","g2","ab2","a2","bb2","b2","c3","d3","eb3","f3","g3","a3"];
+// Pattern #8 "Sinister Walk" from strangersolemn's 50-pattern acid library.
+// Descending chromatic walk with ghost notes. Underground dark feel.
+// Each step: { note: 'c2'|null, play: true=normal, false=ghost (lower velocity) }
+const BASE_PATTERN = [
+  { note: 'c2',  play: true  },  // 0
+  { note: null,  play: true  },  // 1
+  { note: 'b1',  play: false },  // 2  ghost
+  { note: 'bb1', play: true  },  // 3
+  { note: null,  play: false },  // 4
+  { note: 'eb4', play: true  },  // 5  high stab
+  { note: 'a1',  play: true  },  // 6
+  { note: null,  play: true  },  // 7
+  { note: 'ab1', play: false },  // 8  ghost
+  { note: null,  play: false },  // 9
+  { note: 'g1',  play: true  },  // 10
+  { note: 'c3',  play: true  },  // 11
+  { note: null,  play: true  },  // 12
+  { note: 'gb1', play: false },  // 13 ghost
+  { note: null,  play: false },  // 14
+  { note: null,  play: false },  // 15
+];
+// Drop a note one octave (for underground variation). Returns null if can't drop further.
+function lowerOctave(noteStr) {
+  if (!noteStr) return null;
+  const m = noteStr.match(/^([a-g][b#]?)(\d+)$/i);
+  if (!m) return noteStr;
+  const oct = parseInt(m[2], 10);
+  if (oct <= 0) return noteStr;
+  return m[1] + (oct - 1);
+}
 
 const TONE_URL  = "https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0";
 const KICK_URL  = "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0";
@@ -252,14 +276,22 @@ function pickWeighted(table, byteVal) {
 function pickByMod(table, byteVal) {
   return table[byteVal % table.length];
 }
-function buildAcidPattern(nonceHex) {
-  const nonce = BigInt("0x" + nonceHex);
-  const pattern = [];
-  for (let step = 0; step < 16; step++) {
-    const bits = Number((nonce >> BigInt((15 - step) * 2)) & 0b11n);
-    pattern.push(bits);
+// Returns the 16-step bass pattern for a given bar, with 2-bar variations.
+// "Underground dark" rule: every 2 bars, drop one note an octave lower.
+// Which note is picked from the nonce.
+function patternForBarDeep(basePattern, barCount, nonceHex) {
+  const p = basePattern.map(x => ({...x}));
+  const stepA = parseInt(nonceHex[2], 16) % 16;  // variation swap step #1
+  const stepB = parseInt(nonceHex[3], 16) % 16;  // variation swap step #2
+  const pairIdx = Math.floor(barCount / 2);      // 0..7 across the 16-bar loop
+
+  if (pairIdx % 2 === 1 && p[stepA].note) {
+    p[stepA] = { ...p[stepA], note: lowerOctave(p[stepA].note) };
   }
-  return pattern;
+  if (pairIdx >= 4 && pairIdx % 2 === 0 && p[stepB].note && stepB !== stepA) {
+    p[stepB] = { ...p[stepB], note: lowerOctave(p[stepB].note) };
+  }
+  return p;
 }
 function loadImg(url) {
   return new Promise((res) => {
@@ -353,25 +385,23 @@ let kickFlash = 0;
 let frameIdx = 0;
 let frameTimer = 0;
 
-// Bass variation: given a base pattern and a bar index (0-15), return the pattern
-// for that bar. Every 4 bars, swap one step. Bars 8-15 drop one note by an octave.
-// Bar 15 steps 9+: bass silent (the drop/outro).
+// Bass variation — subtle change every 2 bars for underground/dark feel.
+// On odd pairs (bars 3-4, 7-8, 11-12, 15-16): force one step to lowest octave root.
+// On later pairs (4+): also modify a second step. Minimal — just 1-2 notes.
 function patternForBar(basePattern, barCount, nonceHex) {
   const p = basePattern.slice();
-  const modIdx1 = parseInt(nonceHex[2], 16) % 16; // 4-bar switch point 1
-  const modIdx2 = parseInt(nonceHex[3], 16) % 16; // 4-bar switch point 2
-  const modIdx3 = parseInt(nonceHex[4], 16) % 16; // 4-bar switch point 3
-  const octaveStep = parseInt(nonceHex[5], 16) % 16; // which step drops an octave in second half
+  const stepA = parseInt(nonceHex[2], 16) % 16;  // dark-swap step #1
+  const stepB = parseInt(nonceHex[3], 16) % 16;  // dark-swap step #2
+  const pairIdx = Math.floor(barCount / 2);      // 0..7 across the 16-bar loop
 
-  // Bars 4-7: mute modIdx1
-  if (barCount >= 4 && barCount < 8 && p[modIdx1] > 0) p[modIdx1] = 0;
-  // Bars 8-11: drop octaveStep down an octave (octave=2 becomes root, root=1 stays root)
-  if (barCount >= 8 && barCount < 12 && p[octaveStep] === 2) p[octaveStep] = 1;
-  if (barCount >= 8 && barCount < 12 && p[octaveStep] === 1) p[octaveStep] = 1; // already low
-  // Bars 8-11 additionally: mute modIdx2
-  if (barCount >= 8 && barCount < 12 && p[modIdx2] > 0 && modIdx2 !== octaveStep) p[modIdx2] = 0;
-  // Bars 12-15: reintroduce modIdx1, mute modIdx3 instead
-  if (barCount >= 12 && p[modIdx3] > 0) p[modIdx3] = 0;
+  // Every other pair: drop stepA to root (value 1 = lowest playable, darker)
+  if (pairIdx % 2 === 1 && p[stepA] > 0) {
+    p[stepA] = 1;
+  }
+  // From pair 4 onwards, alternate in stepB on the even pairs too
+  if (pairIdx >= 4 && pairIdx % 2 === 0 && p[stepB] > 0 && stepB !== stepA) {
+    p[stepB] = 1;
+  }
   return p;
 }
 
@@ -383,12 +413,10 @@ async function setFeatured(height) {
 
   const traits = pickTraits(merkle);
   const sprites = await loadFrogSprites(traits);
-  const pattern = buildAcidPattern(nonceHex);
-  const rootIdx = parseInt(nonceHex[0], 16);
 
   mainBG.src = bgPath(traits.bg.slot);
 
-  current = { height, block, merkle, nonceHex, traits, sprites, pattern, rootIdx };
+  current = { height, block, merkle, nonceHex, traits, sprites };
 
   const date = new Date((block.time || block.mediantime) * 1000);
   infoEl.innerHTML = `
@@ -398,7 +426,7 @@ async function setFeatured(height) {
       <div class="k">difficulty</div><div>${block.difficulty}</div>
       <div class="k">merkleroot</div><div style="font-size:10px">${merkle.slice(0,24)}…</div>
       <div class="k">nonce</div><div>0x${nonceHex}</div>
-      <div class="k">root note</div><div>${ACID_NOTES[rootIdx]}</div>
+      <div class="k">pattern</div><div>Sinister Walk (c2→b1→bb1→a1→ab1→g1→gb1)</div>
     </div>
     <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px">
       <div><span class="tier-${traits.color.tier.toUpperCase()}">${traits.color.name.toUpperCase()}</span> frog · ${traits.color.tier}</div>
@@ -409,10 +437,13 @@ async function setFeatured(height) {
     </div>
   `;
 
+  // Step display: mark steps by pattern activity (base pattern, bar 0)
   stepsEl.innerHTML = "";
-  pattern.forEach((s, i) => {
+  BASE_PATTERN.forEach((s, i) => {
     const el = document.createElement("div");
-    el.className = "step " + (s === 1 ? "root" : s === 2 ? "octave" : s === 3 ? "slide" : "");
+    let cls = "step";
+    if (s.note) cls += s.play ? " root" : " octave";  // 'octave' style = ghost (dimmer)
+    el.className = cls;
     stepsEl.appendChild(el);
   });
 }
@@ -450,7 +481,7 @@ async function startAudio() {
   kickP  = new Tone.Player({ url: KICK_URL,  volume: -4  }).toDestination();
   clapP  = new Tone.Player({ url: CLAP_URL,  volume: -6  }).toDestination();
   hatP   = new Tone.Player({ url: HAT_URL,   volume: -14 }).toDestination();
-  finalP = new Tone.Player({ url: FINAL_URL, volume: -2  }).toDestination();
+  finalP = new Tone.Player({ url: FINAL_URL, volume: 4   }).toDestination(); // +6dB from prior -2dB = ~doubled
 
   // 303 chain: MonoSynth → Filter → Distortion → Destination (mirrors baby-303)
   filter = new Tone.Filter({
@@ -505,17 +536,14 @@ async function startAudio() {
     // ---- FINAL HIT ("acid" sample) ----
     if (barCount === 15 && stepIn16 === 12) finalP.start();
 
-    // ---- BASS (303) ----
+    // ---- BASS (303) — Sinister Walk pattern from strangersolemn's library ----
     // Stop bass from bar 16 step 9 onwards (the drop).
     const bassAllowed = !(barCount === 15 && stepIn16 >= 9);
-    const pattern = patternForBar(current.pattern, barCount, current.nonceHex);
-    const stepBits = pattern[stepIn16];
-    if (bassAllowed && stepBits !== 0) {
-      const slide  = (stepBits === 3);
-      const octave = (stepBits === 2) ? 1 : 0;
-      const rootNote = ACID_NOTES[current.rootIdx];
-      const note = octave ? rootNote.replace(/\d/, (d) => String(Number(d) + 1)) : rootNote;
-      synth.triggerAttackRelease(note, slide ? "8n" : "16n");
+    const pattern = patternForBarDeep(BASE_PATTERN, barCount, current.nonceHex);
+    const step = pattern[stepIn16];
+    if (bassAllowed && step.note) {
+      const velocity = step.play ? 0.85 : 0.45;  // ghost notes quieter
+      synth.triggerAttackRelease(step.note, "16n", Tone.now(), velocity);
 
       // Progressive filter sweep across the 16 bars (like baby-303)
       const progress = barCount / 15;
