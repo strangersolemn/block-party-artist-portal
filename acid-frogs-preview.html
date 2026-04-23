@@ -38,6 +38,20 @@
   .step.octave{background:#080}
   .step.slide{background:#0b0}
   .step.active{background:#fff!important;box-shadow:0 0 8px var(--acid)}
+  .fx{border-top:1px solid #333;padding-top:10px;margin-top:10px}
+  .fx h4{font-size:11px;letter-spacing:2px;margin:0 0 8px;color:#fff;opacity:.9}
+  .fx-row{display:grid;grid-template-columns:80px 1fr 44px;gap:8px;align-items:center;margin-bottom:6px}
+  .fx-row label{font-size:11px;opacity:.75;text-transform:uppercase;letter-spacing:1px}
+  .fx-row input[type=range]{
+    -webkit-appearance:none;width:100%;height:3px;background:#222;outline:none;border-radius:2px
+  }
+  .fx-row input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;background:var(--acid);border-radius:50%;cursor:pointer;box-shadow:0 0 6px var(--acid)
+  }
+  .fx-row input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;background:var(--acid);border-radius:50%;cursor:pointer;box-shadow:0 0 6px var(--acid);border:none
+  }
+  .fx-row .val{font-size:10px;opacity:.6;text-align:right;font-variant-numeric:tabular-nums}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px}
   .card{border:1px solid var(--acid);padding:10px;background:rgba(0,30,0,0.2);cursor:pointer;transition:all .15s;position:relative}
   .card:hover{background:rgba(0,60,0,0.4);transform:translateY(-2px);box-shadow:0 0 20px var(--acidglow)}
@@ -440,13 +454,15 @@ const stepsEl = document.getElementById("steps");
 let current = null;   // current featured frog state
 let audioStarted = false;
 let toneLoaded = false;
-let synth, kickP, clapP, hatP, finalP, filter, dist;
+let synth, kickP, clapP, hatP, finalP, filter, dist, delayFX, reverbFX;
 let stepTimer = null;
 let stepIdx = 0;
 let kickFlash = 0;
 let frameIdx = 0;
 let frameTimer = 0;
 let stepsSinceHat = 999;  // how many 16th-notes since last hat — drives dance pose
+let userCutoff = null;    // if set, overrides auto-sweep base freq
+let userReso   = null;    // if set, overrides auto resonance
 
 // Bass variation — subtle change every 2 bars for underground/dark feel.
 // On odd pairs (bars 3-4, 7-8, 11-12, 15-16): force one step to lowest octave root.
@@ -513,7 +529,17 @@ async function setFeatured(height) {
     <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px;font-size:11px">
       <b>Sprite load status:</b><br>${layerStatus}
     </div>
+    <div class="fx">
+      <h4>ACID FX · LIVE KNOBS</h4>
+      <div class="fx-row"><label>cutoff</label><input type="range" id="fx-cutoff"    min="200" max="4000" step="10" value="800"><span class="val" id="fx-cutoff-val">800</span></div>
+      <div class="fx-row"><label>reso</label><input type="range" id="fx-reso"      min="1"   max="20"   step="0.1" value="6"><span class="val" id="fx-reso-val">6.0</span></div>
+      <div class="fx-row"><label>delay</label><input type="range" id="fx-delay"     min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-delay-val">0</span></div>
+      <div class="fx-row"><label>reverb</label><input type="range" id="fx-reverb"    min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-reverb-val">0</span></div>
+      <div class="fx-row"><label>drive</label><input type="range" id="fx-drive"     min="0"   max="100"  step="1"   value="15"><span class="val" id="fx-drive-val">15</span></div>
+    </div>
   `;
+  // Wire up knob listeners (fx nodes may not exist yet — applyFX checks)
+  wireFXKnobs();
 
   // Step display: mark steps by the block's own bassline
   stepsEl.innerHTML = "";
@@ -538,6 +564,40 @@ function animate() {
 // 16th-note step timer (only when audio is playing). When audio is stopped, frog
 // stays on frame 0. See stepTimer callback below.
 
+// ---- FX knob wiring ----
+function wireFXKnobs() {
+  const bindings = [
+    ["fx-cutoff", (v) => { userCutoff = Number(v); if (filter) filter.frequency.setValueAtTime(userCutoff, Tone.now ? Tone.now() : 0); }],
+    ["fx-reso",   (v) => { userReso   = Number(v); if (filter) filter.Q.setValueAtTime(userReso, Tone.now ? Tone.now() : 0); }],
+    ["fx-delay",  (v) => { if (delayFX) delayFX.wet.value = Number(v) / 100; }],
+    ["fx-reverb", (v) => { if (reverbFX) reverbFX.wet.value = Number(v) / 100; }],
+    ["fx-drive",  (v) => { if (dist) dist.distortion = Number(v) / 100; }],
+  ];
+  for (const [id, fn] of bindings) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const labelEl = document.getElementById(id + "-val");
+    if (el._acidWired) continue;
+    el._acidWired = true;
+    el.addEventListener("input", () => {
+      fn(el.value);
+      if (labelEl) labelEl.textContent = el.value;
+    });
+  }
+}
+function applyFXFromKnobs() {
+  const getVal = (id, def) => {
+    const el = document.getElementById(id);
+    return el ? Number(el.value) : def;
+  };
+  userCutoff = getVal("fx-cutoff", null);
+  userReso   = getVal("fx-reso", null);
+  if (filter)  { filter.frequency.setValueAtTime(userCutoff, Tone.now()); filter.Q.setValueAtTime(userReso, Tone.now()); }
+  if (delayFX) { delayFX.wet.value = getVal("fx-delay", 0) / 100; }
+  if (reverbFX){ reverbFX.wet.value = getVal("fx-reverb", 0) / 100; }
+  if (dist)    { dist.distortion = getVal("fx-drive", 15) / 100; }
+}
+
 async function startAudio() {
   if (!current) return;
   if (audioStarted) return;
@@ -560,19 +620,25 @@ async function startAudio() {
   hatP   = new Tone.Player({ url: HAT_URL,   volume: -14 }).toDestination();
   finalP = new Tone.Player({ url: FINAL_URL, volume: 4   }).toDestination(); // +6dB from prior -2dB = ~doubled
 
-  // 303 chain: MonoSynth → Filter → Distortion → Destination (mirrors baby-303)
+  // 303 chain: MonoSynth → Filter → Distortion → Delay → Reverb → Destination
   filter = new Tone.Filter({
     frequency: 400 + (parseInt(current.nonceHex[1],16) * 150),
     type: "lowpass", Q: 3
   });
   dist = new Tone.Distortion(0.15);
+  delayFX = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.5, wet: 0 });
+  reverbFX = new Tone.Reverb({ decay: 3, wet: 0 });
+  await reverbFX.generate();
   synth = new Tone.MonoSynth({
     oscillator: { type: "sawtooth" },
     envelope:       { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 },
     filterEnvelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 0.3, baseFrequency: 200, octaves: 3 },
   });
-  synth.chain(filter, dist, Tone.Destination);
+  synth.chain(filter, dist, delayFX, reverbFX, Tone.Destination);
   synth.volume.value = -10;
+
+  // Apply any knob values the user set before pressing play
+  applyFXFromKnobs();
 
   await Tone.loaded();
 
@@ -633,12 +699,17 @@ async function startAudio() {
       const velocity = step.play ? 0.85 : 0.45;  // ghost notes quieter
       synth.triggerAttackRelease(step.note, "16n", Tone.now(), velocity);
 
-      // Progressive filter sweep across the 8 bars
-      const progress = barCount / 7;
-      const cutoff = 400 + (progress * 1200) + Math.sin(stepIdx * 0.15) * 100;
-      const resonance = 3 + (progress * 3);
-      filter.frequency.setValueAtTime(cutoff, Tone.now());
-      filter.Q.setValueAtTime(resonance, Tone.now());
+      // Progressive filter sweep across the 8 bars — unless user is overriding
+      if (userCutoff === null) {
+        const progress = barCount / 7;
+        const cutoff = 400 + (progress * 1200) + Math.sin(stepIdx * 0.15) * 100;
+        filter.frequency.setValueAtTime(cutoff, Tone.now());
+      }
+      if (userReso === null) {
+        const progress = barCount / 7;
+        const resonance = 3 + (progress * 3);
+        filter.Q.setValueAtTime(resonance, Tone.now());
+      }
     }
 
     stepIdx++;
