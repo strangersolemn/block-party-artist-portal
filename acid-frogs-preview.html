@@ -533,12 +533,12 @@ async function startAudio() {
   stepIdx = 0;
   stepTimer = setInterval(() => {
     const stepIn16 = stepIdx % 16;
-    const barCount = Math.floor(stepIdx / 16) % 16; // 16-bar loop
+    const barCount = Math.floor(stepIdx / 16) % 8; // 8-bar loop (halved from 16)
 
     // FROG DANCE — reacts to CLAPS only.
     // Between claps: static (frame 0). On clap: bounce pose (frame 1), then landing (frame 2), then back to 0.
     const isClapStep =
-      (barCount === 15 && stepIn16 >= 12) ||        // outro claps
+      (barCount === 7 && stepIn16 >= 12) ||         // outro claps on final bar
       (stepIn16 === 4 || stepIn16 === 12);           // regular beats 2 & 4
     if (isClapStep) stepsSinceClap = 0;
     else stepsSinceClap++;
@@ -550,20 +550,20 @@ async function startAudio() {
     stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
 
     // ---- KICK ----
-    // Bars 1-8: four-on-the-floor. Bar 1 has an extra kick on step 2 (rolling intro).
-    // Bar 9: ONE kick at step 0 only. Bars 10-16: no kick.
-    const isFirstHalf = barCount < 8;
+    // Bars 1-4: four-on-the-floor. Bar 1 has an extra kick on step 2 (rolling intro).
+    // Bar 5: ONE kick at step 0 only. Bars 6-8: no kick.
+    const isFirstHalf = barCount < 4;
     if (isFirstHalf) {
       if (stepIn16 % 4 === 0) { kickP.start(); kickFlash = 1; }
     } else {
-      if (barCount === 8 && stepIn16 === 0) { kickP.start(); kickFlash = 1; }
+      if (barCount === 4 && stepIn16 === 0) { kickP.start(); kickFlash = 1; }
     }
     if (barCount === 0 && stepIn16 === 2) kickP.start();
 
     // ---- CLAP ----
-    // Bar 16 steps 12-15: three claps at the end (the outro).
+    // Bar 8 steps 12-15: three claps at the end (the outro).
     // Otherwise: claps on step 4 and 12 (2 and 4 of the bar).
-    if (barCount === 15 && stepIn16 >= 12) {
+    if (barCount === 7 && stepIn16 >= 12) {
       clapP.start();
     } else if (stepIn16 === 4 || stepIn16 === 12) {
       clapP.start();
@@ -571,24 +571,24 @@ async function startAudio() {
 
     // ---- HAT ----
     // Off-beats every 4 steps offset by 2 (steps 2,6,10,14) — skip during final claps.
-    if (stepIn16 % 4 === 2 && !(barCount === 15 && stepIn16 >= 12)) {
+    if (stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) {
       hatP.start();
     }
 
     // ---- FINAL HIT ("acid" sample) ----
-    if (barCount === 15 && stepIn16 === 12) finalP.start();
+    if (barCount === 7 && stepIn16 === 12) finalP.start();
 
     // ---- BASS (303) — Sinister Walk pattern from strangersolemn's library ----
-    // Stop bass from bar 16 step 9 onwards (the drop).
-    const bassAllowed = !(barCount === 15 && stepIn16 >= 9);
+    // Stop bass from bar 8 step 9 onwards (the drop).
+    const bassAllowed = !(barCount === 7 && stepIn16 >= 9);
     const pattern = patternForBarDeep(BASE_PATTERN, barCount, current.nonceHex);
     const step = pattern[stepIn16];
     if (bassAllowed && step.note) {
       const velocity = step.play ? 0.85 : 0.45;  // ghost notes quieter
       synth.triggerAttackRelease(step.note, "16n", Tone.now(), velocity);
 
-      // Progressive filter sweep across the 16 bars (like baby-303)
-      const progress = barCount / 15;
+      // Progressive filter sweep across the 8 bars
+      const progress = barCount / 7;
       const cutoff = 400 + (progress * 1200) + Math.sin(stepIdx * 0.15) * 100;
       const resonance = 3 + (progress * 3);
       filter.frequency.setValueAtTime(cutoff, Tone.now());
