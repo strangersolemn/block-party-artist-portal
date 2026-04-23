@@ -435,6 +435,15 @@ async function setFeatured(height) {
   current = { height, block, merkle, nonceHex, traits, sprites };
 
   const date = new Date((block.time || block.mediantime) * 1000);
+  // Build per-layer load status
+  const layerStatus = ["body","mouth","eyes","clothing","head","smoke"]
+    .filter(k => k !== "smoke" || traits.smoke.slot > 0)
+    .map(k => {
+      const ok = !!sprites[k];
+      const slot = traits[k] ? traits[k].slot : 1;
+      return `<div style="color:${ok ? '#9f9' : '#f66'}">${ok ? '✓' : '✗'} ${k}(${slot}) ${ok ? '' : 'FAILED'}</div>`;
+    }).join("");
+
   infoEl.innerHTML = `
     <div class="kv">
       <div class="k">block</div><div>#${height}</div>
@@ -446,11 +455,13 @@ async function setFeatured(height) {
     </div>
     <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px">
       <div><span class="tier-${traits.color.tier.toUpperCase()}">${traits.color.name.toUpperCase()}</span> frog · ${traits.color.tier}</div>
-      <div>head ${traits.head.slot}/44 · eyes ${traits.eyes.slot}/25</div>
-      <div>clothing ${traits.clothing.slot}/12 · mouth ${traits.mouth.slot}/2</div>
+      <div>head ${traits.head.slot}/48 · eyes ${traits.eyes.slot}/27</div>
+      <div>clothing ${traits.clothing.slot}/21 · mouth ${traits.mouth.slot}/2</div>
       <div>smoke: ${traits.smoke.slot === 0 ? "none" : traits.smoke.slot}</div>
       <div>background ${traits.bg.slot}/8</div>
-      <div style="opacity:.5;margin-top:6px">sprites loaded: ${sprites._debug.loaded}/${sprites._debug.total}${sprites._debug.loaded < sprites._debug.total ? ' ⚠ check console' : ''}</div>
+    </div>
+    <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px;font-size:11px">
+      <b>Sprite load status:</b><br>${layerStatus}
     </div>
   `;
 
