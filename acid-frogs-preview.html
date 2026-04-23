@@ -486,10 +486,9 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-// sprite frames at 19fps
-setInterval(() => {
-  frameIdx = (frameIdx + 1) % 3;
-}, 1000 / 19);
+// Frog animation is DRIVEN BY THE AUDIO SEQUENCER — frameIdx advances inside the
+// 16th-note step timer (only when audio is playing). When audio is stopped, frog
+// stays on frame 0. See stepTimer callback below.
 
 async function startAudio() {
   if (!current) return;
@@ -534,6 +533,12 @@ async function startAudio() {
   stepTimer = setInterval(() => {
     const stepIn16 = stepIdx % 16;
     const barCount = Math.floor(stepIdx / 16) % 16; // 16-bar loop
+
+    // FROG DANCE — frame advances every 2 steps (8th note), synced to kick pulse.
+    // Three-frame cycle fires twice per bar = tech-house head-nod rhythm.
+    if (stepIdx % 2 === 0) {
+      frameIdx = (frameIdx + 1) % 3;
+    }
 
     stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
 
@@ -590,6 +595,7 @@ async function startAudio() {
 function stopAudio() {
   if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
   audioStarted = false;
+  frameIdx = 0; // frog returns to resting pose
   playBtn.textContent = "▶ PLAY ACID";
 }
 
