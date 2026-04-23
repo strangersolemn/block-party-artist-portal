@@ -434,7 +434,9 @@ async function setFeatured(height) {
 
   current = { height, block, merkle, nonceHex, traits, sprites };
 
-  const date = new Date((block.time || block.mediantime) * 1000);
+  const ts = block.timestamp || block.time || block.median_time || block.mediantime || 0;
+  const date = new Date(ts * 1000);
+  const dateStr = isNaN(date.getTime()) ? "—" : date.toISOString().slice(0,16).replace("T"," ");
   // Build per-layer load status
   const layerStatus = ["body","mouth","eyes","clothing","head","smoke"]
     .filter(k => k !== "smoke" || traits.smoke.slot > 0)
@@ -447,7 +449,7 @@ async function setFeatured(height) {
   infoEl.innerHTML = `
     <div class="kv">
       <div class="k">block</div><div>#${height}</div>
-      <div class="k">date</div><div>${date.toISOString().slice(0,16).replace("T"," ")} UTC</div>
+      <div class="k">date</div><div>${dateStr} UTC</div>
       <div class="k">difficulty</div><div>${block.difficulty}</div>
       <div class="k">merkleroot</div><div style="font-size:10px">${merkle.slice(0,24)}…</div>
       <div class="k">nonce</div><div>0x${nonceHex}</div>
