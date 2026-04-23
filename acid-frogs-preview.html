@@ -92,13 +92,9 @@
   </div>
 
   <div class="lore">
-    <b>2 · WHY FIELD 12 — THE PIONEER PLAY</b><br>
-    Fields currently indexed by Trac hold every DMT project ever shipped:<br>
-    · <b>Field 11 (bits)</b> — Natcats (3b), Royals (cc)<br>
-    · <b>Field 10 (nonce)</b> — handful of projects<br>
-    · <b>Field 4 (height)</b> — dmt-cash, aurumdraconisnats, etc.<br><br>
-    <b>Field 12 (difficulty): zero projects.</b> Acid Frogs is the first element ever in this field. The narrative is equal to the execution — "first project in the difficulty field" + "first time Bitcoin's difficulty contained 1337" is a double-first nobody else can claim.<br><br>
-    <b>Field 12 also has the same 2016-block clustering mechanic as field 11</b> — difficulty is recalculated only at retarget. So we get the "generation" magic that made Natcats work, but in untouched territory.
+    <b>2 · WHY FIELD 12</b><br>
+    Field 12 (difficulty) has the same 2,016-block clustering mechanic as field 11 (bits) — difficulty is recalculated only at retarget, so the value is locked for an entire epoch. That's what gives us the "generation" structure: one qualifying difficulty = 2,016 qualifying blocks.<br><br>
+    The difficulty number is a headline Bitcoiners actually track. When it contains <code>1337</code>, it's immediately recognisable as the "leet" epoch — cultural alignment with the cypherpunk origin of Bitcoin.
   </div>
 
   <div class="lore">
@@ -117,17 +113,16 @@
   </div>
 
   <div class="lore">
-    <b>4 · AUDIO — THE SINISTER WALK</b><br>
-    Every frog plays <b>Pattern #8 "Sinister Walk"</b> from strangersolemn's 50-pattern TB-303 library. A descending chromatic walk in the dark minimal techno tradition: <code>c2 → b1 → bb1 → a1 → ab1 → g1 → gb1</code> with ghost notes and one high stab on step 6 (eb4). Plays at <b>123 BPM</b>.<br><br>
-    <b>Per-frog variation (every 2 bars):</b> one note is dropped an octave lower. Which step gets dropped is decided by the block's nonce — so every frog plays the same underlying pattern but with two signature low notes unique to that block. Minimal, dark, rolling underground.<br><br>
-    <b>Structure (inherited from baby-303 inscription):</b><br>
-    · Bars 1–8: four-on-the-floor kick + bassline + off-beat hats + claps on 2 &amp; 4<br>
-    · Bar 9: single kick on beat 1 — the drop<br>
-    · Bars 10–15: bass, hats, claps only (no kick — underground tension)<br>
-    · Bar 16 step 9+: bass stops entirely<br>
-    · Bar 16 steps 12–15: three claps + the ACID final hit<br><br>
-    <b>Filter sweep:</b> cutoff &amp; resonance ramp upward across all 16 bars — the classic acid build. Initial cutoff tuned per block via nonce[1].<br><br>
-    <b>All audio uses existing on-chain inscriptions:</b> Tone.js · kick · clap · hat · final "acid" hit sample.
+    <b>4 · AUDIO — BASSLINE GENERATED FROM EACH BLOCK</b><br>
+    Every frog plays a unique 303 bassline at <b>123 BPM</b>. Notes are picked from the block's merkleroot — one byte per step selects from a dark chromatic pool (low bass in the c1–c2 octave range, occasional mid and high stabs). The rhythm template stays the same across all frogs (inspired by Sinister Walk from strangersolemn's 50-pattern TB-303 library) but the specific notes are deterministic from block data. Per-frog variation every 2 bars: one note drops an octave, picked from the nonce.<br><br>
+    <b>8-bar loop structure (inherited from baby-303 inscription):</b><br>
+    · Bars 1–4: four-on-the-floor kick + bassline + off-beat hats + claps on 2 &amp; 4<br>
+    · Bar 5 step 0: single kick — the drop<br>
+    · Bars 6–7: bass, hats, claps only (no kick)<br>
+    · Bar 8 step 9+: bass stops<br>
+    · Bar 8 steps 12–15: three claps + the ACID final hit<br><br>
+    <b>Filter sweep:</b> cutoff &amp; resonance ramp upward across the 8 bars — classic acid build. Initial cutoff tuned per block via nonce.<br><br>
+    <b>Audio stack uses existing on-chain inscriptions:</b> Tone.js · kick · clap · hat · final "acid" hit sample.
   </div>
 
   <div class="lore">
@@ -145,19 +140,19 @@
   </div>
 
   <div class="lore">
-    <b>7 · LAUNCH MODEL — ROYALS-STYLE, PRIV-AUTH</b><br>
+    <b>7 · LAUNCH MODEL</b><br>
+    Planned approach, following the template set by Natcats and Royals:<br>
     · Paid mint on <b>Mscribe Blockpad</b><br>
     · <b>Trac priv-auth</b> whitelist to prevent bot snipes<br>
     · Phase structure: OG list → WL → Public<br>
-    · Target mint price ~0.0012 BTC anchor (Natcats standard)<br>
+    · Target mint price anchor ~0.0012 BTC<br>
     · Creator reserves ~10% (~200 pieces)<br>
-    · Single-epoch scarcity = hard cap at 2,016<br>
-    · Dual first-mover story: "first field 12 element" + "first project on new indexer support"
+    · Single-epoch hard cap: 2,016 pieces
   </div>
 
   <div class="lore" style="background:rgba(255,215,0,0.08);border-color:var(--gold);color:var(--gold)">
-    <b>8 · CURRENT BLOCKER</b><br>
-    Field 12 isn't in the Trac indexer yet. Our element is on-chain and valid per the DMT spec — just not recognised until indexing activates. We're launch-ready whenever Trac adds it. Happy to be the showcase project for field 12 going live.
+    <b>8 · CURRENT STATUS</b><br>
+    Field 12 isn't currently indexed by Trac. Element is on-chain and valid per the DMT spec, waiting for indexer support before the collection can be recognised and deployed. Patient on Trac's schedule.
   </div>
 
   <div style="font-size:11px;opacity:.6;margin-top:40px;letter-spacing:2px">
@@ -231,26 +226,57 @@ const colorWeights256 = [
   { ...colorVariants[4], w: 13 },
 ];
 
-// Pattern #8 "Sinister Walk" from strangersolemn's 50-pattern acid library.
-// Descending chromatic walk with ghost notes. Underground dark feel.
-// Each step: { note: 'c2'|null, play: true=normal, false=ghost (lower velocity) }
-const BASE_PATTERN = [
-  { note: 'c2',  play: true  },  // 0
-  { note: null,  play: true  },  // 1
-  { note: 'b1',  play: false },  // 2  ghost
-  { note: 'bb1', play: true  },  // 3
-  { note: null,  play: false },  // 4
-  { note: 'eb4', play: true  },  // 5  high stab
-  { note: 'a1',  play: true  },  // 6
-  { note: null,  play: true  },  // 7
-  { note: 'ab1', play: false },  // 8  ghost
-  { note: null,  play: false },  // 9
-  { note: 'g1',  play: true  },  // 10
-  { note: 'c3',  play: true  },  // 11
-  { note: null,  play: true  },  // 12
-  { note: 'gb1', play: false },  // 13 ghost
-  { note: null,  play: false },  // 14
-  { note: null,  play: false },  // 15
+// "Sinister Walk" RHYTHM TEMPLATE — same feel for every frog, but the actual
+// notes are picked per-block from the merkleroot. So every frog has its own
+// unique bassline while staying in the underground chromatic character.
+//
+// Each step type:
+//   low   = a low chromatic bass note (c2..c1 range)
+//   mid   = a mid note (c3..bb3)
+//   high  = a high stab (eb4..g4)
+//   ghost = same pool as 'low' but lower velocity
+//   rest  = silence
+const RHYTHM_TEMPLATE = [
+  "low",   "rest",  "ghost", "low",     // steps 0-3
+  "rest",  "high",  "low",   "rest",    // steps 4-7
+  "ghost", "rest",  "low",   "mid",     // steps 8-11
+  "rest",  "ghost", "rest",  "rest",    // steps 12-15
+];
+
+// Note pools — all dark, all in key (loose C/Eb minor territory)
+const BASS_LOW  = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1","e1","f1"];
+const BASS_MID  = ["c3","eb3","f3","g3","bb3","ab3"];
+const BASS_HIGH = ["eb4","g4","f4","c4","bb3","ab4"];
+
+// Generate a per-block bassline from the merkleroot hex.
+// Uses 2 hex chars (1 byte) of merkleroot per step for note picking.
+function generateBasslineFromBlock(merkleHex) {
+  const m = (merkleHex || "").replace(/^0x/, "").padEnd(32, "0");
+  const out = [];
+  for (let i = 0; i < 16; i++) {
+    const slot = RHYTHM_TEMPLATE[i];
+    if (slot === "rest") { out.push({ note: null, play: true }); continue; }
+    const byte = parseInt(m.substr(i * 2, 2), 16);
+    let pool;
+    if (slot === "high") pool = BASS_HIGH;
+    else if (slot === "mid") pool = BASS_MID;
+    else pool = BASS_LOW; // 'low' and 'ghost' share the low pool
+    const note = pool[byte % pool.length];
+    out.push({ note, play: slot !== "ghost" });
+  }
+  return out;
+}
+
+// Preview/demo pattern — Sinister Walk verbatim — used when no block loaded
+const PREVIEW_PATTERN = [
+  { note: 'c2',  play: true  }, { note: null,  play: true  },
+  { note: 'b1',  play: false }, { note: 'bb1', play: true  },
+  { note: null,  play: false }, { note: 'eb4', play: true  },
+  { note: 'a1',  play: true  }, { note: null,  play: true  },
+  { note: 'ab1', play: false }, { note: null,  play: false },
+  { note: 'g1',  play: true  }, { note: 'c3',  play: true  },
+  { note: null,  play: true  }, { note: 'gb1', play: false },
+  { note: null,  play: false }, { note: null,  play: false },
 ];
 // Drop a note one octave (for underground variation). Returns null if can't drop further.
 function lowerOctave(noteStr) {
@@ -282,17 +308,17 @@ function pickByMod(table, byteVal) {
 }
 // Returns the 16-step bass pattern for a given bar, with 2-bar variations.
 // "Underground dark" rule: every 2 bars, drop one note an octave lower.
-// Which note is picked from the nonce.
+// Which step is picked varies from the block nonce.
 function patternForBarDeep(basePattern, barCount, nonceHex) {
   const p = basePattern.map(x => ({...x}));
   const stepA = parseInt(nonceHex[2], 16) % 16;  // variation swap step #1
   const stepB = parseInt(nonceHex[3], 16) % 16;  // variation swap step #2
-  const pairIdx = Math.floor(barCount / 2);      // 0..7 across the 16-bar loop
+  const pairIdx = Math.floor(barCount / 2);      // 0..3 across the 8-bar loop
 
   if (pairIdx % 2 === 1 && p[stepA].note) {
     p[stepA] = { ...p[stepA], note: lowerOctave(p[stepA].note) };
   }
-  if (pairIdx >= 4 && pairIdx % 2 === 0 && p[stepB].note && stepB !== stepA) {
+  if (pairIdx >= 2 && pairIdx % 2 === 0 && p[stepB].note && stepB !== stepA) {
     p[stepB] = { ...p[stepB], note: lowerOctave(p[stepB].note) };
   }
   return p;
@@ -430,10 +456,11 @@ async function setFeatured(height) {
 
   const traits = pickTraits(merkle);
   const sprites = await loadFrogSprites(traits);
+  const bassline = generateBasslineFromBlock(merkle);
 
   mainBG.src = bgPath(traits.bg.slot);
 
-  current = { height, block, merkle, nonceHex, traits, sprites };
+  current = { height, block, merkle, nonceHex, traits, sprites, bassline };
 
   const ts = block.timestamp || block.time || block.median_time || block.mediantime || 0;
   const date = new Date(ts * 1000);
@@ -454,7 +481,7 @@ async function setFeatured(height) {
       <div class="k">difficulty</div><div>${block.difficulty}</div>
       <div class="k">merkleroot</div><div style="font-size:10px">${merkle.slice(0,24)}…</div>
       <div class="k">nonce</div><div>0x${nonceHex}</div>
-      <div class="k">pattern</div><div>Sinister Walk (c2→b1→bb1→a1→ab1→g1→gb1)</div>
+      <div class="k">bass notes</div><div style="font-size:10px">${bassline.filter(s => s.note).map(s => s.note).join(" · ")}</div>
     </div>
     <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px">
       <div><span class="tier-${traits.color.tier.toUpperCase()}">${traits.color.name.toUpperCase()}</span> frog · ${traits.color.tier}</div>
@@ -468,9 +495,9 @@ async function setFeatured(height) {
     </div>
   `;
 
-  // Step display: mark steps by pattern activity (base pattern, bar 0)
+  // Step display: mark steps by the block's own bassline
   stepsEl.innerHTML = "";
-  BASE_PATTERN.forEach((s, i) => {
+  bassline.forEach((s, i) => {
     const el = document.createElement("div");
     let cls = "step";
     if (s.note) cls += s.play ? " root" : " octave";  // 'octave' style = ghost (dimmer)
@@ -580,7 +607,7 @@ async function startAudio() {
     // ---- BASS (303) — Sinister Walk pattern from strangersolemn's library ----
     // Stop bass from bar 8 step 9 onwards (the drop).
     const bassAllowed = !(barCount === 7 && stepIn16 >= 9);
-    const pattern = patternForBarDeep(BASE_PATTERN, barCount, current.nonceHex);
+    const pattern = patternForBarDeep(current.bassline, barCount, current.nonceHex);
     const step = pattern[stepIn16];
     if (bassAllowed && step.note) {
       const velocity = step.play ? 0.85 : 0.45;  // ghost notes quieter
