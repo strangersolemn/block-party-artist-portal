@@ -113,8 +113,9 @@
   </div>
 
   <div class="lore">
-    <b>4 · AUDIO — BASSLINE GENERATED FROM EACH BLOCK</b><br>
-    Every frog plays a unique 303 bassline at <b>123 BPM</b>. Notes are picked from the block's merkleroot — one byte per step selects from a dark chromatic pool (low bass in the c1–c2 octave range, occasional mid and high stabs). The rhythm template stays the same across all frogs (inspired by Sinister Walk from strangersolemn's 50-pattern TB-303 library) but the specific notes are deterministic from block data. Per-frog variation every 2 bars: one note drops an octave, picked from the nonce.<br><br>
+    <b>4 · AUDIO — FULLY DMT-GENERATED BASSLINE</b><br>
+    Every frog plays its own unique 303 bassline — <b>rhythm AND notes are both derived from the block's merkleroot</b>. One byte of merkleroot per sequencer step. The byte's high nibble decides the rhythm state (rest / ghost / low bass / mid / high stab), the low nibble picks the specific note from that state's pool of dark minor tones. Across 2,016 blocks that's 2,016 distinct basslines, no two the same. Bitcoin block data literally composes the music.<br><br>
+    123 BPM tech-house tempo. Dark chromatic note pools (c1–c2 range for low bass, c3–bb3 for mid stabs, eb4–g4 for high acid stabs). Per-frog variation every 2 bars: one note drops an octave, step picked from the nonce.<br><br>
     <b>8-bar loop structure (inherited from baby-303 inscription):</b><br>
     · Bars 1–4: four-on-the-floor kick + bassline + off-beat hats + claps on 2 &amp; 4<br>
     · Bar 5 step 0: single kick — the drop<br>
@@ -226,48 +227,54 @@ const colorWeights256 = [
   { ...colorVariants[4], w: 13 },
 ];
 
-// "Sinister Walk" RHYTHM TEMPLATE — same feel for every frog, but the actual
-// notes are picked per-block from the merkleroot. So every frog has its own
-// unique bassline while staying in the underground chromatic character.
+// Note pools — all dark minor territory (C / Eb phrygian feel)
+const BASS_LOW  = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1","e1","ab2","a2","bb2"];
+const BASS_MID  = ["c3","eb3","f3","g3","bb3","ab3","db3","d3"];
+const BASS_HIGH = ["eb4","g4","f4","c4","bb3","ab4","d4","db4"];
+
+// Generate a PER-BLOCK bassline. RHYTHM and NOTES are both derived from merkleroot.
+// One byte of merkleroot per step. The byte determines:
+//   - high nibble (4 bits) → rhythm state: rest / ghost / low / mid / high / accent
+//   - low nibble  (4 bits) → note index within that state's pool
 //
-// Each step type:
-//   low   = a low chromatic bass note (c2..c1 range)
-//   mid   = a mid note (c3..bb3)
-//   high  = a high stab (eb4..g4)
-//   ghost = same pool as 'low' but lower velocity
-//   rest  = silence
-const RHYTHM_TEMPLATE = [
-  "low",   "rest",  "ghost", "low",     // steps 0-3
-  "rest",  "high",  "low",   "rest",    // steps 4-7
-  "ghost", "rest",  "low",   "mid",     // steps 8-11
-  "rest",  "ghost", "rest",  "rest",    // steps 12-15
-];
-
-// Note pools — all dark, all in key (loose C/Eb minor territory)
-const BASS_LOW  = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1","e1","f1"];
-const BASS_MID  = ["c3","eb3","f3","g3","bb3","ab3"];
-const BASS_HIGH = ["eb4","g4","f4","c4","bb3","ab4"];
-
-// Generate a per-block bassline from the merkleroot hex.
-// Uses 2 hex chars (1 byte) of merkleroot per step for note picking.
+// Result: every frog has a fundamentally different pattern structure.
+// Distribution (from 16 possible rhythm values):
+//   5/16 rest     (~31%)   silence
+//   3/16 ghost    (~19%)   lowered-velocity low note
+//   5/16 low      (~31%)   normal low bass note
+//   2/16 mid      (~12%)   mid stab
+//   1/16 high     (~6%)    high acid stab
 function generateBasslineFromBlock(merkleHex) {
   const m = (merkleHex || "").replace(/^0x/, "").padEnd(32, "0");
   const out = [];
   for (let i = 0; i < 16; i++) {
-    const slot = RHYTHM_TEMPLATE[i];
-    if (slot === "rest") { out.push({ note: null, play: true }); continue; }
     const byte = parseInt(m.substr(i * 2, 2), 16);
-    let pool;
-    if (slot === "high") pool = BASS_HIGH;
-    else if (slot === "mid") pool = BASS_MID;
-    else pool = BASS_LOW; // 'low' and 'ghost' share the low pool
-    const note = pool[byte % pool.length];
+    const rhythmBits = byte >> 4;    // 0..15
+    const noteBits   = byte & 0x0F;  // 0..15
+
+    let slot;
+    if      (rhythmBits < 5)  slot = "rest";   // 0-4
+    else if (rhythmBits < 8)  slot = "ghost";  // 5-7
+    else if (rhythmBits < 13) slot = "low";    // 8-12
+    else if (rhythmBits < 15) slot = "mid";    // 13-14
+    else                      slot = "high";   // 15
+
+    if (slot === "rest") {
+      out.push({ note: null, play: true });
+      continue;
+    }
+    const pool =
+      slot === "high" ? BASS_HIGH :
+      slot === "mid"  ? BASS_MID  :
+      BASS_LOW; // low + ghost share the low pool
+    const note = pool[noteBits % pool.length];
     out.push({ note, play: slot !== "ghost" });
   }
   return out;
 }
 
-// Preview/demo pattern — Sinister Walk verbatim — used when no block loaded
+// Preview/demo pattern — "Sinister Walk" from strangersolemn's 50-pattern library.
+// Shown before any block is loaded. Every real block generates its own pattern.
 const PREVIEW_PATTERN = [
   { note: 'c2',  play: true  }, { note: null,  play: true  },
   { note: 'b1',  play: false }, { note: 'bb1', play: true  },
