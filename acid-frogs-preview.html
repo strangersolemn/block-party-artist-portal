@@ -535,16 +535,16 @@ async function startAudio() {
     const stepIn16 = stepIdx % 16;
     const barCount = Math.floor(stepIdx / 16) % 8; // 8-bar loop (halved from 16)
 
-    // FROG DANCE — one nod per hi-hat hit. Hats fire on steps 2,6,10,14
-    // = 4 per bar = double the 2-per-bar clap rate.
-    // Each nod: frame 1 (up) for ~244ms, then frame 2 (down) for ~244ms.
+    // FROG DANCE — one quick pop per hi-hat hit, REST between hats.
+    // Hats fire on steps 2,6,10,14 = 4 per bar.
+    // Each nod: frame 1 (up, 1 step), frame 2 (down, 1 step), then rest.
     const isHatStep = stepIn16 % 4 === 2;
     if (isHatStep) stepsSinceHat = 0;
     else stepsSinceHat++;
 
-    if (stepsSinceHat < 2) frameIdx = 1;       // up on hat, holds for 2 sub-steps
-    else if (stepsSinceHat < 4) frameIdx = 2;  // down for next 2 sub-steps
-    else frameIdx = 0;                          // rest (only hit if audio stopped before next hat)
+    if (stepsSinceHat === 0)      frameIdx = 1;  // up (the hat hit)
+    else if (stepsSinceHat === 1) frameIdx = 2;  // down (following step)
+    else                          frameIdx = 0;  // rest (steps 2 and 3)
 
     stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
 
