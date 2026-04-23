@@ -98,37 +98,47 @@
   </div>
 
   <div class="lore">
-    <b>3 · TRAIT DERIVATION — DMT-PURE</b><br>
-    Every frog's art is deterministic from its block's <code>merkleroot</code> (64 hex chars = 256 bits). We split the merkleroot into bytes and pick traits via weighted lookup tables. No PRNG library, no external state — the renderer reads block data once and composes.<br><br>
-    <code>
-    byte[0] → frog colour &nbsp;(Green 70% / Blue 10% / Red 8% / Pink 7% / Purple 5%)<br>
-    byte[1] → head &nbsp;&nbsp;(1 of 44)<br>
-    byte[2] → eyes &nbsp;&nbsp;(1 of 25)<br>
-    byte[3] → clothing (1 of 12)<br>
-    byte[4] → mouth &nbsp;(1 of 2)<br>
-    byte[5] → smoke &nbsp;(~22% chance, 1 of 2)<br>
-    byte[6] → background (1 of 8)
-    </code><br><br>
-    Same mechanic Natcats uses for height-digit colour picks, just upgraded from 10-value digits to 256-value bytes — lets us have <b>weighted rarity</b> (Legendary Purple frog: 13/256 = ~5% = ~100 pieces; Green Common: 179/256 = ~70% = ~1,400 pieces) without leaving DMT purity.
+    <b>3 · DMT FIELD MAPPING — WHAT USES WHAT</b><br>
+    Every audible and visible aspect of each frog is derived from a specific Bitcoin block header field, per the DMT spec. This is what makes it DMT music — the Bitcoin data is literally composing the audio and picking the art.<br><br>
+    <table style="width:100%;font-size:11px;border-collapse:collapse">
+      <tr style="background:rgba(153,255,153,0.1)">
+        <th style="text-align:left;padding:4px;border:1px solid #333">Component</th>
+        <th style="text-align:left;padding:4px;border:1px solid #333">DMT field</th>
+        <th style="text-align:left;padding:4px;border:1px solid #333">How</th>
+      </tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>Supply filter</b></td><td style="padding:4px;border:1px solid #333">12 (difficulty)</td><td style="padding:4px;border:1px solid #333">block qualifies if difficulty contains "1337"</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>Frog colour</b></td><td style="padding:4px;border:1px solid #333">7 (merkleroot)</td><td style="padding:4px;border:1px solid #333">byte[0] → weighted pick: Green 70% / Blue 10% / Red 8% / Pink 7% / Purple 5%</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>Head</b></td><td style="padding:4px;border:1px solid #333">7 (merkleroot)</td><td style="padding:4px;border:1px solid #333">byte[1] mod 48</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>Eyes</b></td><td style="padding:4px;border:1px solid #333">7 (merkleroot)</td><td style="padding:4px;border:1px solid #333">byte[2] mod 27</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>Clothing</b></td><td style="padding:4px;border:1px solid #333">7 (merkleroot)</td><td style="padding:4px;border:1px solid #333">byte[3] mod 21</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>Mouth</b></td><td style="padding:4px;border:1px solid #333">7 (merkleroot)</td><td style="padding:4px;border:1px solid #333">byte[4] mod 2</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>Smoke (optional)</b></td><td style="padding:4px;border:1px solid #333">7 (merkleroot)</td><td style="padding:4px;border:1px solid #333">byte[5] &gt;= 200 → 1 of 2 smokes (rare)</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>Background</b></td><td style="padding:4px;border:1px solid #333">7 (merkleroot)</td><td style="padding:4px;border:1px solid #333">byte[6] mod 8</td></tr>
+      <tr style="background:rgba(153,255,153,0.1)"><td style="padding:4px;border:1px solid #333"><b>Bassline rhythm</b></td><td style="padding:4px;border:1px solid #333">7 (merkleroot)</td><td style="padding:4px;border:1px solid #333">byte[i]'s high nibble → rest / ghost / low / mid / high at step i</td></tr>
+      <tr style="background:rgba(153,255,153,0.1)"><td style="padding:4px;border:1px solid #333"><b>Bassline notes</b></td><td style="padding:4px;border:1px solid #333">7 (merkleroot)</td><td style="padding:4px;border:1px solid #333">byte[i]'s low nibble → index into that step's note pool</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>2-bar variation steps</b></td><td style="padding:4px;border:1px solid #333">10 (nonce)</td><td style="padding:4px;border:1px solid #333">nonce hex[2..3] → which steps drop an octave every 2 bars</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333"><b>303 filter initial cutoff</b></td><td style="padding:4px;border:1px solid #333">10 (nonce)</td><td style="padding:4px;border:1px solid #333">nonce hex[1] scales base frequency 400–3400Hz</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333">Drums (kick/clap/hat/final)</td><td style="padding:4px;border:1px solid #333">— fixed</td><td style="padding:4px;border:1px solid #333">same drum samples for all frogs (from your existing on-chain inscriptions)</td></tr>
+      <tr><td style="padding:4px;border:1px solid #333">Tempo + 8-bar structure</td><td style="padding:4px;border:1px solid #333">— fixed</td><td style="padding:4px;border:1px solid #333">123 BPM, the drop/outro arrangement inherited from baby-303</td></tr>
+    </table>
+    <br>
+    So for every one of the 2,016 frogs: the <b>art</b> is picked from block data, the <b>bassline</b> is composed from block data, and the <b>hard limits</b> (supply, tempo, drum kit, arrangement) are fixed constants that keep all frogs living in the same tech-house universe. This is DMT, fully — every variable pulls from a numbered header field, no PRNG, no off-chain randomness.
   </div>
 
   <div class="lore">
-    <b>4 · AUDIO — FULLY DMT-GENERATED BASSLINE</b><br>
-    Every frog plays its own unique 303 bassline — <b>rhythm AND notes are both derived from the block's merkleroot</b>. One byte of merkleroot per sequencer step. The byte's high nibble decides the rhythm state (rest / ghost / low bass / mid / high stab), the low nibble picks the specific note from that state's pool of dark minor tones. Across 2,016 blocks that's 2,016 distinct basslines, no two the same. Bitcoin block data literally composes the music.<br><br>
-    123 BPM tech-house tempo. Dark chromatic note pools (c1–c2 range for low bass, c3–bb3 for mid stabs, eb4–g4 for high acid stabs). Per-frog variation every 2 bars: one note drops an octave, step picked from the nonce.<br><br>
-    <b>8-bar loop structure (inherited from baby-303 inscription):</b><br>
+    <b>4 · 8-BAR LOOP STRUCTURE</b> (inherited from the baby-303 inscription)<br>
     · Bars 1–4: four-on-the-floor kick + bassline + off-beat hats + claps on 2 &amp; 4<br>
     · Bar 5 step 0: single kick — the drop<br>
-    · Bars 6–7: bass, hats, claps only (no kick)<br>
+    · Bars 6–7: bass, hats, claps only (no kick — underground tension)<br>
     · Bar 8 step 9+: bass stops<br>
     · Bar 8 steps 12–15: three claps + the ACID final hit<br><br>
-    <b>Filter sweep:</b> cutoff &amp; resonance ramp upward across the 8 bars — classic acid build. Initial cutoff tuned per block via nonce.<br><br>
-    <b>Audio stack uses existing on-chain inscriptions:</b> Tone.js · kick · clap · hat · final "acid" hit sample.
+    <b>Filter sweep:</b> cutoff &amp; resonance ramp upward across the 8 bars — classic acid build.<br><br>
+    <b>Audio stack uses existing on-chain inscriptions:</b> Tone.js · kick · clap · hat · final "acid" hit sample — nothing new to inscribe for audio.
   </div>
 
   <div class="lore">
-    <b>5 · ANIMATION — THE FROG DANCES</b><br>
-    Sprites are 1500×500, 3 frames laid horizontally. At 19fps (from your existing Block Party Portal code) the frog dances in sync with the kick. On every kick beat the background shape pulses outward. The four layers — body (colour-shifted) → mouth → eyes (colour-shifted) → clothing → head → smoke — composite into one 500×500 canvas each frame.
+    <b>5 · ANIMATION — THE FROG DANCES ON THE HI-HAT</b><br>
+    Sprites are 1500×500, 3 frames laid horizontally. On every hi-hat hit (4 per bar), the frog pops from rest (frame 0) → up (frame 1) → down (frame 2) → rest, giving one clean head-nod per hat. Between nods the frog sits still. The six layers — background + body (colour-shifted) + mouth + eyes (colour-shifted) + clothing + head + smoke — composite into one 500×500 canvas each frame. Animation only runs while audio plays; frog freezes in rest pose when silent.
   </div>
 
   <div class="lore">
