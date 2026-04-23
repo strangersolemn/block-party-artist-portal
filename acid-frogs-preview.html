@@ -400,7 +400,7 @@ let stepIdx = 0;
 let kickFlash = 0;
 let frameIdx = 0;
 let frameTimer = 0;
-let stepsSinceClap = 999;  // how many 16th-notes since last clap — drives dance pose
+let stepsSinceHat = 999;  // how many 16th-notes since last hat — drives dance pose
 
 // Bass variation — subtle change every 2 bars for underground/dark feel.
 // On odd pairs (bars 3-4, 7-8, 11-12, 15-16): force one step to lowest octave root.
@@ -535,10 +535,16 @@ async function startAudio() {
     const stepIn16 = stepIdx % 16;
     const barCount = Math.floor(stepIdx / 16) % 8; // 8-bar loop (halved from 16)
 
-    // FROG DANCE — double-nods on every hi-hat.
-    // Hats fire on 2,6,10,14 of each bar. Frame alternates 1 (up) / 2 (down)
-    // at 16th-note rate so each hat hit = 2 nods before the next one.
-    frameIdx = (stepIdx % 2 === 0) ? 1 : 2;
+    // FROG DANCE — one nod per hi-hat hit. Hats fire on steps 2,6,10,14
+    // = 4 per bar = double the 2-per-bar clap rate.
+    // Each nod: frame 1 (up) for ~244ms, then frame 2 (down) for ~244ms.
+    const isHatStep = stepIn16 % 4 === 2;
+    if (isHatStep) stepsSinceHat = 0;
+    else stepsSinceHat++;
+
+    if (stepsSinceHat < 2) frameIdx = 1;       // up on hat, holds for 2 sub-steps
+    else if (stepsSinceHat < 4) frameIdx = 2;  // down for next 2 sub-steps
+    else frameIdx = 0;                          // rest (only hit if audio stopped before next hat)
 
     stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
 
@@ -596,7 +602,7 @@ function stopAudio() {
   if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
   audioStarted = false;
   frameIdx = 0; // frog returns to resting pose
-  stepsSinceClap = 999;
+  stepsSinceHat = 999;
   playBtn.textContent = "▶ PLAY ACID";
 }
 
