@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acid Frogs — Hybrid · Real Frogs</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,"SF Pro Display","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+  :root {
+    --bg: #0a0814;
+    --bg-2: #14102a;
+    --acid: #71ff5e;
+    --neon-pink: #ff2d8d;
+    --neon-cyan: #2df0ff;
+    --neon-yellow: #fff42d;
+    --line: rgba(255,255,255,0.08);
+    --line-bright: rgba(255,255,255,0.15);
+    --ink: #fff;
+    --ink-soft: rgba(255,255,255,0.55);
+  }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(255,45,141,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse at 100% 100%, rgba(45,240,255,0.15) 0%, transparent 50%),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.04) 50%, transparent 50%, transparent 100%),
+      linear-gradient(90deg, transparent 0%, transparent 25%, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.04) 75%, transparent 75%, transparent 100%),
+      repeating-linear-gradient(0deg, transparent 0px, transparent 38px, rgba(255,255,255,0.03) 38px, rgba(255,255,255,0.03) 40px),
+      repeating-linear-gradient(90deg, transparent 0px, transparent 78px, rgba(255,255,255,0.04) 78px, rgba(255,255,255,0.04) 80px);
+    background-size:auto, auto, 160px 80px, 160px 80px, auto, auto;
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:32px 24px}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:36px}
+  .logo{font-size:26px;font-weight:800;letter-spacing:-1px;color:var(--ink)}
+  .logo .x{display:inline-block;color:var(--neon-pink);text-shadow:0 0 12px var(--neon-pink)}
+  .connect{
+    background:linear-gradient(135deg,var(--neon-pink),var(--neon-cyan));
+    color:#000;border:none;padding:11px 22px;border-radius:100px;
+    font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.3px;
+    box-shadow:0 4px 20px rgba(255,45,141,0.4)
+  }
+  .tag-strip{
+    text-align:center;font-size:11px;letter-spacing:4px;
+    color:var(--ink-soft);margin-bottom:32px;text-transform:uppercase
+  }
+  .layout{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
+
+  .stage{
+    background:rgba(20,16,42,0.6);
+    border-radius:24px;padding:32px;
+    border:1px solid var(--line);backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    position:relative;overflow:hidden;
+  }
+  .stage::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:radial-gradient(circle at 12px 12px, rgba(255,255,255,0.03) 4px, transparent 5px);
+    background-size:24px 24px;opacity:.6;
+  }
+  .stage > *{position:relative;z-index:1}
+  .stage-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+  .stage-title{font-size:11px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;font-weight:600}
+  .bpm-pill{font-size:11px;color:var(--acid);background:rgba(113,255,94,0.1);padding:4px 12px;border-radius:100px;letter-spacing:1px;font-weight:600;text-transform:uppercase}
+
+  /* SLOTS contain rendered canvases */
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
+  .slot{
+    aspect-ratio:1/1;border-radius:18px;overflow:hidden;position:relative;transition:all .2s
+  }
+  .slot.empty{
+    border:2px dashed var(--line-bright);background:rgba(0,0,0,0.25);
+    display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:11px;letter-spacing:2px;text-transform:uppercase
+  }
+  .slot.empty:hover{border-color:var(--acid);background:rgba(113,255,94,0.05)}
+  .slot.filled{
+    box-shadow:inset 0 -8px 0 rgba(0,0,0,0.18),inset 0 2px 0 rgba(255,255,255,0.18),0 6px 20px rgba(0,0,0,0.45);
+  }
+  .slot.filled canvas{width:100%;height:100%;display:block;background:#000}
+  .slot.filled .bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  .slot.filled canvas{position:relative;z-index:1;background:transparent}
+  .slot.filled::after{
+    content:"";position:absolute;top:0;left:0;right:0;height:12px;z-index:2;
+    background-image:radial-gradient(circle at 16px 8px, rgba(255,255,255,0.25) 5px, transparent 6px);
+    background-size:32px 12px;
+    pointer-events:none
+  }
+  .slot.filled .badge{
+    position:absolute;top:18px;right:14px;z-index:3;
+    background:rgba(0,0,0,0.4);color:#fff;font-size:10px;font-weight:600;
+    padding:4px 10px;border-radius:100px;letter-spacing:0.5px;backdrop-filter:blur(4px)
+  }
+
+  .transport{display:flex;gap:12px;margin-bottom:24px}
+  .play-btn{
+    flex:1;background:linear-gradient(135deg,var(--neon-pink),#ff5a9e);
+    color:#fff;border:none;padding:18px;border-radius:18px;
+    font-size:15px;font-weight:700;letter-spacing:1px;cursor:pointer;
+    box-shadow:0 6px 24px rgba(255,45,141,0.5);transition:all .15s
+  }
+  .play-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(255,45,141,0.7)}
+  .icon-btn{
+    width:54px;height:54px;border-radius:18px;
+    background:rgba(255,255,255,0.06);border:1px solid var(--line-bright);color:var(--ink);
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:0.5px;
+    display:flex;align-items:center;justify-content:center
+  }
+  .icon-btn.rec{color:#ff4060;border-color:#ff4060}
+  .knobs{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
+    padding-top:24px;border-top:1px solid var(--line)
+  }
+  .knob{display:flex;flex-direction:column;gap:8px}
+  .knob-label{font-size:10px;letter-spacing:2px;color:var(--ink-soft);text-transform:uppercase;font-weight:600}
+  .knob-slider{position:relative;height:6px;background:rgba(255,255,255,0.08);border-radius:100px;cursor:pointer}
+  .knob-slider::before{content:"";position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-pink));border-radius:100px;width:60%}
+  .knob:nth-child(2) .knob-slider::before{width:25%}
+  .knob:nth-child(3) .knob-slider::before{width:10%}
+  .knob:nth-child(4) .knob-slider::before{width:40%}
+  .knob-slider::after{content:"";position:absolute;top:-5px;left:60%;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.4),0 0 8px var(--neon-cyan);transform:translateX(-50%)}
+  .knob:nth-child(2) .knob-slider::after{left:25%}
+  .knob:nth-child(3) .knob-slider::after{left:10%}
+  .knob:nth-child(4) .knob-slider::after{left:40%}
+  .knob-val{font-size:11px;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+
+  .inventory{
+    background:rgba(20,16,42,0.6);
+    border-radius:24px;padding:22px;
+    border:1px solid var(--line);backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+  }
+  .inv-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .inv-title{font-size:11px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;font-weight:600}
+  .inv-count{font-size:11px;color:var(--acid);background:rgba(113,255,94,0.1);padding:3px 10px;border-radius:100px;letter-spacing:0.5px;font-weight:600}
+  .inv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .inv-frog{
+    aspect-ratio:1/1;border-radius:14px;overflow:hidden;position:relative;
+    box-shadow:inset 0 -4px 0 rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.18);
+    cursor:grab;
+    transition:all .15s
+  }
+  .inv-frog::after{
+    content:"";position:absolute;top:0;left:0;right:0;height:8px;z-index:2;
+    background-image:radial-gradient(circle at 10px 5px, rgba(255,255,255,0.25) 3px, transparent 4px);
+    background-size:20px 8px;
+    pointer-events:none
+  }
+  .inv-frog:hover{transform:translateY(-2px);box-shadow:inset 0 -4px 0 rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.18),0 6px 16px rgba(0,0,0,0.35)}
+  .inv-frog .bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  .inv-frog canvas{width:100%;height:100%;display:block;position:relative;z-index:1;background:transparent}
+
+  .footer-tag{
+    text-align:center;margin-top:48px;font-size:10px;
+    color:var(--ink-soft);letter-spacing:3px;text-transform:uppercase
+  }
+  @media (max-width:780px){
+    .layout{grid-template-columns:1fr}
+    .inventory{order:2}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="logo">acid<span class="x">·</span>frogs</div>
+    <button class="connect">Connect Wallet</button>
+  </div>
+
+  <div class="tag-strip">YOUR FROGS · YOUR TRACK · STACK · PLAY</div>
+
+  <div class="layout">
+    <div class="stage">
+      <div class="stage-head">
+        <div class="stage-title">Stage</div>
+        <div class="bpm-pill">123 BPM</div>
+      </div>
+
+      <div class="slots" id="slots">
+        <!-- 4 slots filled by JS -->
+      </div>
+
+      <div class="transport">
+        <button class="icon-btn rec">REC</button>
+        <button class="play-btn">▶ PLAY</button>
+        <button class="icon-btn">↗</button>
+      </div>
+
+      <div class="knobs">
+        <div class="knob"><span class="knob-label">Cutoff</span><div class="knob-slider"></div><span class="knob-val">60</span></div>
+        <div class="knob"><span class="knob-label">Reverb</span><div class="knob-slider"></div><span class="knob-val">25</span></div>
+        <div class="knob"><span class="knob-label">Delay</span><div class="knob-slider"></div><span class="knob-val">10</span></div>
+        <div class="knob"><span class="knob-label">Drive</span><div class="knob-slider"></div><span class="knob-val">40</span></div>
+      </div>
+    </div>
+
+    <div class="inventory">
+      <div class="inv-head">
+        <div class="inv-title">Your Frogs</div>
+        <div class="inv-count" id="inv-count">12</div>
+      </div>
+      <div class="inv-grid" id="inv-grid">
+        <!-- inventory bricks filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-tag">style 05 · hybrid · real frogs</div>
+</div>
+
+<script>
+// ==============================================================
+//   Same trait + composition logic as the main preview
+// ==============================================================
+
+const traitFolders = {
+  body:     { count: 1,  color: true  },
+  eyes:     { count: 27, color: true  },
+  mouth:    { count: 2,  color: false },
+  head:     { count: 48, color: false },
+  clothing: { count: 21, color: false },
+  smoke:    { count: 2,  color: false },
+};
+const colorWeights256 = [
+  { name:"Green",  filter:"none",                                  w:179 },
+  { name:"Blue",   filter:"hue-rotate(92deg) saturate(166%)",      w:26  },
+  { name:"Red",    filter:"hue-rotate(239deg) saturate(200%)",     w:20  },
+  { name:"Pink",   filter:"hue-rotate(197deg) saturate(200%)",     w:18  },
+  { name:"Purple", filter:"hue-rotate(158deg) saturate(198%)",     w:13  },
+];
+
+function spritePath(kind, slot) {
+  let p;
+  switch (kind) {
+    case "body":  p = "../Body_sprites/1body-sprite.avif"; break;
+    case "mouth": p = `../Mouth_sprites/${slot}Mouth-sprite.avif`; break;
+    case "eyes":  p = `../Eyes_sprites/${slot}eyes new.avif`; break;
+    case "clothing":
+      p = `../Clothing_sprites/${slot}${slot >= 19 ? "Brand" : "brand"} new clothing.avif`; break;
+    case "head":
+      p = slot <= 45 ? `../Head_sprites/brandnewhead${slot}.avif` : `../Head_sprites/${slot}Brandnewhead.avif`;
+      break;
+    case "smoke": p = `../smoke_sprites/${slot}smoke.avif`; break;
+  }
+  return p.split("/").map(encodeURIComponent).join("/").replace(/%2E%2E/g, "..");
+}
+function bgPath(slot) { return `../BG/${slot}BG.${slot <= 5 ? "JPG" : "jpg"}`; }
+
+function pickWeighted(table, byteVal) {
+  let cum = 0;
+  for (const t of table) { cum += t.w; if (byteVal < cum) return t; }
+  return table[table.length - 1];
+}
+function pickTraits(merkle) {
+  const m = merkle.replace(/^0x/, "");
+  const b = (i) => parseInt(m.substr(i*2, 2), 16);
+  return {
+    color:    pickWeighted(colorWeights256, b(0)),
+    head:     { slot: (b(1) % traitFolders.head.count) + 1 },
+    eyes:     { slot: (b(2) % traitFolders.eyes.count) + 1 },
+    clothing: { slot: (b(3) % traitFolders.clothing.count) + 1 },
+    mouth:    { slot: (b(4) % traitFolders.mouth.count) + 1 },
+    smoke:    { slot: b(5) < 200 ? 0 : (b(5) % traitFolders.smoke.count) + 1 },
+    bg:       { slot: (b(6) % 8) + 1 },
+    body:     { slot: 1 },
+  };
+}
+
+function loadImg(url) {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => res(null);
+    img.src = url;
+  });
+}
+async function loadFrogSprites(traits) {
+  const out = {};
+  out.body     = await loadImg(spritePath("body", 1));
+  out.mouth    = await loadImg(spritePath("mouth", traits.mouth.slot));
+  out.eyes     = await loadImg(spritePath("eyes", traits.eyes.slot));
+  out.clothing = await loadImg(spritePath("clothing", traits.clothing.slot));
+  out.head     = await loadImg(spritePath("head", traits.head.slot));
+  out.smoke    = traits.smoke.slot > 0 ? await loadImg(spritePath("smoke", traits.smoke.slot)) : null;
+  return out;
+}
+
+function drawFrame(ctx, sprites, traits, frameIndex) {
+  const W = 500, H = 500;
+  ctx.clearRect(0, 0, W, H);
+  const frameX = frameIndex * W;
+  const drawLayer = (img, applyColorFilter) => {
+    if (!img) return;
+    if (applyColorFilter && traits.color.filter !== "none") {
+      const tmp = document.createElement("canvas");
+      tmp.width = W; tmp.height = H;
+      const tctx = tmp.getContext("2d");
+      tctx.drawImage(img, frameX, 0, W, H, 0, 0, W, H);
+      tctx.filter = traits.color.filter;
+      tctx.globalCompositeOperation = "source-atop";
+      tctx.drawImage(tmp, 0, 0);
+      ctx.drawImage(tmp, 0, 0);
+    } else {
+      ctx.drawImage(img, frameX, 0, W, H, 0, 0, W, H);
+    }
+  };
+  drawLayer(sprites.body, true);
+  drawLayer(sprites.mouth, false);
+  drawLayer(sprites.eyes, true);
+  drawLayer(sprites.clothing, false);
+  drawLayer(sprites.head, false);
+  if (sprites.smoke && traits.smoke.slot > 0) drawLayer(sprites.smoke, false);
+}
+
+async function fetchBlock(height) {
+  try {
+    const res = await fetch("https://ordinals.com/r/blockinfo/" + height);
+    return await res.json();
+  } catch { return null; }
+}
+
+// Render a single frog into a brick (canvas + bg image + badge)
+async function renderFrogBrick(container, height, idNumber, isInStage) {
+  const block = await fetchBlock(height);
+  if (!block) return;
+  const merkle = (block.merkle_root || block.merkleroot || "").replace(/^0x/, "");
+  const traits = pickTraits(merkle);
+  const sprites = await loadFrogSprites(traits);
+
+  // Inject canvas + bg
+  const bgImg = document.createElement("img");
+  bgImg.className = "bg-img";
+  bgImg.src = bgPath(traits.bg.slot);
+  container.appendChild(bgImg);
+
+  const cv = document.createElement("canvas");
+  cv.width = 500; cv.height = 500;
+  container.appendChild(cv);
+  drawFrame(cv.getContext("2d"), sprites, traits, 0);
+
+  if (isInStage && idNumber) {
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = "#" + idNumber;
+    container.appendChild(badge);
+  }
+}
+
+// Pick 16 evenly-spaced blocks across the 1337 epoch for variety
+function pickBlocks(count) {
+  const start = 941472, end = 943487;
+  const step = Math.floor((end - start) / count);
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(start + i * step);
+  return out;
+}
+
+// ----- Build the stage (4 slots, 1 empty for variety) -----
+const stageEl = document.getElementById("slots");
+const stageBlocks = pickBlocks(4);
+const stagePattern = [true, false, true, true]; // 3 filled, 1 empty
+stagePattern.forEach((isFilled, i) => {
+  const slot = document.createElement("div");
+  slot.className = "slot " + (isFilled ? "filled" : "empty");
+  if (!isFilled) {
+    slot.innerHTML = "drop frog";
+  }
+  stageEl.appendChild(slot);
+  if (isFilled) {
+    const id = 287 + i * 451; // pretend id numbers
+    renderFrogBrick(slot, stageBlocks[i], id, true);
+  }
+});
+
+// ----- Build inventory (12 unique frogs) -----
+const invEl = document.getElementById("inv-grid");
+const invBlocks = pickBlocks(12);
+invBlocks.forEach((h) => {
+  const cell = document.createElement("div");
+  cell.className = "inv-frog";
+  invEl.appendChild(cell);
+  renderFrogBrick(cell, h, null, false);
+});
+</script>
+</body>
+</html>
