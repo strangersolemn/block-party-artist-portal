@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acid Frogs — Line Sequencer</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,"SF Pro Display","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+  :root {
+    --bg: #0a0814;
+    --acid: #71ff5e;
+    --neon-pink: #ff2d8d;
+    --neon-cyan: #2df0ff;
+    --line: rgba(255,255,255,0.08);
+    --line-bright: rgba(255,255,255,0.15);
+    --ink: #fff;
+    --ink-soft: rgba(255,255,255,0.55);
+  }
+  body{
+    background:var(--bg);color:var(--ink);min-height:100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(255,45,141,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse at 100% 100%, rgba(45,240,255,0.15) 0%, transparent 50%),
+      repeating-linear-gradient(0deg, transparent 0px, transparent 38px, rgba(255,255,255,0.03) 38px, rgba(255,255,255,0.03) 40px),
+      repeating-linear-gradient(90deg, transparent 0px, transparent 78px, rgba(255,255,255,0.04) 78px, rgba(255,255,255,0.04) 80px);
+  }
+  .wrap{max-width:1280px;margin:0 auto;padding:24px}
+
+  /* Top bar */
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+  .logo{font-size:26px;font-weight:800;letter-spacing:-1px}
+  .logo .x{color:var(--neon-pink);text-shadow:0 0 12px var(--neon-pink)}
+  .connect{
+    background:linear-gradient(135deg,var(--neon-pink),var(--neon-cyan));
+    color:#000;border:none;padding:11px 22px;border-radius:100px;
+    font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.3px
+  }
+
+  /* Inventory section */
+  .panel-title{
+    font-size:11px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;font-weight:600;
+    display:flex;align-items:center;justify-content:space-between;margin-bottom:14px
+  }
+  .panel-title .count{color:var(--acid);background:rgba(113,255,94,0.1);padding:3px 10px;border-radius:100px;letter-spacing:0.5px}
+
+  .inventory{
+    background:rgba(20,16,42,0.6);border-radius:24px;padding:24px;
+    border:1px solid var(--line);backdrop-filter:blur(10px);margin-bottom:20px
+  }
+  .inv-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+  .inv-frog{
+    aspect-ratio:1/1;border-radius:18px;overflow:hidden;position:relative;cursor:pointer;
+    box-shadow:inset 0 -6px 0 rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.18);
+    transition:all .15s
+  }
+  .inv-frog::after{
+    content:"";position:absolute;top:0;left:0;right:0;height:10px;z-index:2;
+    background-image:radial-gradient(circle at 14px 6px, rgba(255,255,255,0.25) 4px, transparent 5px);
+    background-size:28px 10px;pointer-events:none
+  }
+  .inv-frog:hover{transform:translateY(-3px);box-shadow:inset 0 -6px 0 rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.18),0 8px 24px rgba(255,45,141,0.3)}
+  .inv-frog .bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  .inv-frog canvas{width:100%;height:100%;display:block;position:relative;z-index:1;background:transparent}
+  .inv-frog .id-badge{
+    position:absolute;bottom:10px;left:10px;z-index:3;
+    background:rgba(0,0,0,0.55);color:#fff;font-size:10px;font-weight:700;
+    padding:4px 9px;border-radius:100px;letter-spacing:0.5px;backdrop-filter:blur(4px)
+  }
+  .inv-frog.in-stage{opacity:.4}
+  .inv-frog.in-stage::before{
+    content:"in stage";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--neon-cyan);font-size:11px;font-weight:700;letter-spacing:2px;
+    background:rgba(0,0,0,0.55);z-index:4
+  }
+
+  /* Stage — horizontal line of slots */
+  .stage{
+    background:rgba(20,16,42,0.6);border-radius:24px;padding:24px;
+    border:1px solid var(--line);backdrop-filter:blur(10px);position:relative;overflow:hidden;
+    margin-bottom:20px
+  }
+  .stage::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:radial-gradient(circle at 12px 12px, rgba(255,255,255,0.03) 4px, transparent 5px);
+    background-size:24px 24px;opacity:.6
+  }
+  .stage > *{position:relative;z-index:1}
+  .stage-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .stage-title{font-size:11px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;font-weight:600}
+  .bpm-pill{font-size:11px;color:var(--acid);background:rgba(113,255,94,0.1);padding:4px 12px;border-radius:100px;letter-spacing:1px;font-weight:600}
+
+  .timeline{
+    display:flex;gap:10px;overflow-x:auto;padding:6px 2px 14px;scrollbar-width:thin;
+  }
+  .timeline::-webkit-scrollbar{height:6px}
+  .timeline::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:3px}
+
+  .stage-slot{
+    flex-shrink:0;width:120px;aspect-ratio:1/1;border-radius:16px;position:relative;overflow:hidden;
+    cursor:pointer;transition:all .15s
+  }
+  .stage-slot.empty{
+    border:2px dashed var(--line-bright);background:rgba(0,0,0,0.25);
+    display:flex;align-items:center;justify-content:center
+  }
+  .stage-slot.empty .num{
+    color:var(--ink-soft);font-size:24px;font-weight:300;letter-spacing:1px
+  }
+  .stage-slot.empty:hover{border-color:var(--acid);background:rgba(113,255,94,0.05)}
+  .stage-slot.filled{
+    box-shadow:inset 0 -6px 0 rgba(0,0,0,0.18),inset 0 2px 0 rgba(255,255,255,0.18),0 4px 16px rgba(0,0,0,0.4);
+  }
+  .stage-slot.filled::after{
+    content:"";position:absolute;top:0;left:0;right:0;height:10px;z-index:2;
+    background-image:radial-gradient(circle at 14px 5px, rgba(255,255,255,0.25) 4px, transparent 5px);
+    background-size:28px 10px;pointer-events:none
+  }
+  .stage-slot.filled .bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  .stage-slot.filled canvas{width:100%;height:100%;display:block;position:relative;z-index:1;background:transparent}
+  .stage-slot.filled .step-num{
+    position:absolute;top:8px;left:8px;z-index:3;background:rgba(0,0,0,0.6);
+    color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px
+  }
+  .stage-slot.filled .x-btn{
+    position:absolute;top:8px;right:8px;z-index:3;width:20px;height:20px;border-radius:50%;
+    background:rgba(0,0,0,0.6);color:#fff;display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700
+  }
+  .stage-slot.now-playing{
+    box-shadow:0 0 0 3px var(--acid),0 0 24px var(--acid),inset 0 -6px 0 rgba(0,0,0,0.2)
+  }
+  .add-slot{
+    flex-shrink:0;width:60px;height:120px;border-radius:16px;
+    border:2px dashed var(--line-bright);background:transparent;color:var(--ink-soft);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;font-weight:300
+  }
+  .add-slot:hover{border-color:var(--acid);color:var(--acid)}
+
+  /* Transport + knobs */
+  .controls{
+    background:rgba(20,16,42,0.6);border-radius:24px;padding:24px;
+    border:1px solid var(--line);backdrop-filter:blur(10px)
+  }
+  .transport{display:flex;gap:12px;margin-bottom:20px}
+  .play-btn{
+    flex:1;background:linear-gradient(135deg,var(--neon-pink),#ff5a9e);
+    color:#fff;border:none;padding:18px;border-radius:18px;
+    font-size:15px;font-weight:700;letter-spacing:1px;cursor:pointer;
+    box-shadow:0 6px 24px rgba(255,45,141,0.5)
+  }
+  .icon-btn{
+    width:54px;height:54px;border-radius:18px;
+    background:rgba(255,255,255,0.06);border:1px solid var(--line-bright);color:var(--ink);
+    cursor:pointer;font-size:13px;font-weight:700;letter-spacing:0.5px;
+    display:flex;align-items:center;justify-content:center
+  }
+  .icon-btn.rec{color:#ff4060;border-color:#ff4060}
+
+  .knobs{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .knob{display:flex;flex-direction:column;gap:8px}
+  .knob-label{font-size:10px;letter-spacing:2px;color:var(--ink-soft);text-transform:uppercase;font-weight:600}
+  .knob-slider{position:relative;height:6px;background:rgba(255,255,255,0.08);border-radius:100px;cursor:pointer}
+  .knob-slider::before{content:"";position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-pink));border-radius:100px;width:var(--pct,50%)}
+  .knob-slider::after{content:"";position:absolute;top:-5px;left:var(--pct,50%);width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 0 8px var(--neon-cyan);transform:translateX(-50%)}
+  .knob-val{font-size:11px;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+
+  .footer-tag{text-align:center;margin-top:32px;font-size:10px;color:var(--ink-soft);letter-spacing:3px;text-transform:uppercase}
+
+  @media (max-width:760px){
+    .inv-grid{grid-template-columns:repeat(3,1fr)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="logo">acid<span class="x">·</span>frogs</div>
+    <button class="connect">Connect Wallet</button>
+  </div>
+
+  <div class="inventory">
+    <div class="panel-title"><span>Your Frogs</span><span class="count" id="inv-count">12</span></div>
+    <div class="inv-grid" id="inv-grid"></div>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head">
+      <div class="stage-title">Stage · <span style="color:var(--ink)">your track</span></div>
+      <div class="bpm-pill">123 BPM · 8 BARS PER FROG</div>
+    </div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+  <div class="controls">
+    <div class="transport">
+      <button class="icon-btn rec" id="rec-btn">REC</button>
+      <button class="play-btn" id="play-btn">▶ PLAY TRACK</button>
+      <button class="icon-btn" id="share-btn">↗</button>
+    </div>
+    <div class="knobs">
+      <div class="knob" data-label="Cutoff"><span class="knob-label">Cutoff</span><div class="knob-slider"></div><span class="knob-val">60</span></div>
+      <div class="knob" data-label="Reverb"><span class="knob-label">Reverb</span><div class="knob-slider"></div><span class="knob-val">25</span></div>
+      <div class="knob" data-label="Delay"><span class="knob-label">Delay</span><div class="knob-slider"></div><span class="knob-val">10</span></div>
+      <div class="knob" data-label="Drive"><span class="knob-label">Drive</span><div class="knob-slider"></div><span class="knob-val">40</span></div>
+    </div>
+  </div>
+
+  <div class="footer-tag">style 06 · line sequencer</div>
+</div>
+
+<script>
+// =============================================
+//   ACID FROGS · LINE SEQUENCER
+//   - Inventory of owned frogs (top, big tiles)
+//   - Timeline at bottom — drop frogs to build a track
+//   - Each frog plays 8 bars (full kick-drop-outro phrase) before passing to next
+//   - Master FX knobs ride the whole mix
+// =============================================
+
+const TONE_URL  = "https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0";
+const KICK_URL  = "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0";
+const CLAP_URL  = "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0";
+const HAT_URL   = "https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0";
+const FINAL_URL = "https://ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0";
+
+const BASS_LOW  = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1","e1","ab2","a2","bb2"];
+const BASS_MID  = ["c3","eb3","f3","g3","bb3","ab3","db3","d3"];
+const BASS_HIGH = ["eb4","g4","f4","c4","bb3","ab4","d4","db4"];
+
+const traitFolders = {
+  body:{count:1,color:true}, eyes:{count:27,color:true}, mouth:{count:2,color:false},
+  head:{count:48,color:false}, clothing:{count:21,color:false}, smoke:{count:2,color:false}
+};
+const colorWeights256 = [
+  { name:"Green",  filter:"none",                                  w:179 },
+  { name:"Blue",   filter:"hue-rotate(92deg) saturate(166%)",      w:26  },
+  { name:"Red",    filter:"hue-rotate(239deg) saturate(200%)",     w:20  },
+  { name:"Pink",   filter:"hue-rotate(197deg) saturate(200%)",     w:18  },
+  { name:"Purple", filter:"hue-rotate(158deg) saturate(198%)",     w:13  },
+];
+
+function generateBassline(merkleHex) {
+  const m = (merkleHex || "").replace(/^0x/, "").padEnd(32, "0");
+  const out = [];
+  for (let i = 0; i < 16; i++) {
+    const b = parseInt(m.substr(i*2,2),16);
+    const rB = b >> 4, nB = b & 0x0F;
+    let slot;
+    if      (rB < 5)  slot = "rest";
+    else if (rB < 8)  slot = "ghost";
+    else if (rB < 13) slot = "low";
+    else if (rB < 15) slot = "mid";
+    else              slot = "high";
+    if (slot === "rest") { out.push({note:null,play:true}); continue; }
+    const pool = slot==="high"?BASS_HIGH:slot==="mid"?BASS_MID:BASS_LOW;
+    out.push({note:pool[nB%pool.length], play:slot!=="ghost"});
+  }
+  return out;
+}
+function spritePath(kind, slot){
+  let p;
+  switch(kind){
+    case"body":p="../Body_sprites/1body-sprite.avif";break;
+    case"mouth":p=`../Mouth_sprites/${slot}Mouth-sprite.avif`;break;
+    case"eyes":p=`../Eyes_sprites/${slot}eyes new.avif`;break;
+    case"clothing":p=`../Clothing_sprites/${slot}${slot>=19?"Brand":"brand"} new clothing.avif`;break;
+    case"head":p=slot<=45?`../Head_sprites/brandnewhead${slot}.avif`:`../Head_sprites/${slot}Brandnewhead.avif`;break;
+    case"smoke":p=`../smoke_sprites/${slot}smoke.avif`;break;
+  }
+  return p.split("/").map(encodeURIComponent).join("/").replace(/%2E%2E/g,"..");
+}
+function bgPath(slot){return `../BG/${slot}BG.${slot<=5?"JPG":"jpg"}`;}
+function pickWeighted(table,b){let c=0;for(const t of table){c+=t.w;if(b<c)return t;}return table[table.length-1];}
+function pickTraits(merkle){
+  const m=merkle.replace(/^0x/,""),b=(i)=>parseInt(m.substr(i*2,2),16);
+  return {
+    color:pickWeighted(colorWeights256,b(0)),
+    head:{slot:(b(1)%traitFolders.head.count)+1},
+    eyes:{slot:(b(2)%traitFolders.eyes.count)+1},
+    clothing:{slot:(b(3)%traitFolders.clothing.count)+1},
+    mouth:{slot:(b(4)%traitFolders.mouth.count)+1},
+    smoke:{slot:b(5)<200?0:(b(5)%traitFolders.smoke.count)+1},
+    bg:{slot:(b(6)%8)+1}, body:{slot:1}
+  };
+}
+function loadImg(url){return new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=url;});}
+async function loadSprites(t){
+  return {
+    body:    await loadImg(spritePath("body",1)),
+    mouth:   await loadImg(spritePath("mouth",t.mouth.slot)),
+    eyes:    await loadImg(spritePath("eyes",t.eyes.slot)),
+    clothing:await loadImg(spritePath("clothing",t.clothing.slot)),
+    head:    await loadImg(spritePath("head",t.head.slot)),
+    smoke:   t.smoke.slot>0?await loadImg(spritePath("smoke",t.smoke.slot)):null
+  };
+}
+function drawFrame(ctx,sp,t,fi){
+  const W=500,H=500;ctx.clearRect(0,0,W,H);const fx=fi*W;
+  const dl=(img,col)=>{
+    if(!img)return;
+    if(col&&t.color.filter!=="none"){
+      const tm=document.createElement("canvas");tm.width=W;tm.height=H;
+      const tc=tm.getContext("2d");
+      tc.drawImage(img,fx,0,W,H,0,0,W,H);
+      tc.filter=t.color.filter;tc.globalCompositeOperation="source-atop";
+      tc.drawImage(tm,0,0);ctx.drawImage(tm,0,0);
+    } else { ctx.drawImage(img,fx,0,W,H,0,0,W,H); }
+  };
+  dl(sp.body,true); dl(sp.mouth,false); dl(sp.eyes,true);
+  dl(sp.clothing,false); dl(sp.head,false);
+  if(sp.smoke && t.smoke.slot>0) dl(sp.smoke,false);
+}
+async function fetchBlock(h){try{const r=await fetch("https://ordinals.com/r/blockinfo/"+h);return await r.json();}catch{return null;}}
+
+// =============================================
+//   APP STATE
+// =============================================
+const EPOCH_START = 941472, EPOCH_END = 943487;
+const INVENTORY_SIZE = 12;
+const STAGE_SIZE = 8; // 8 slots per track
+
+const inventoryFrogs = []; // { height, merkle, traits, sprites, bassline, nonceHex, idNumber, stageIdx (or -1) }
+const stage = new Array(STAGE_SIZE).fill(null);  // index in inventoryFrogs, or null
+
+// =============================================
+//   RENDER INVENTORY GRID
+// =============================================
+async function buildInventory() {
+  const grid = document.getElementById("inv-grid");
+  // Spread evenly across the 1337 epoch for variety
+  const step = Math.floor((EPOCH_END - EPOCH_START) / INVENTORY_SIZE);
+  for (let i = 0; i < INVENTORY_SIZE; i++) {
+    const height = EPOCH_START + i * step;
+    const block = await fetchBlock(height);
+    if (!block) continue;
+    const merkle = (block.merkle_root || block.merkleroot || "").replace(/^0x/, "");
+    const traits = pickTraits(merkle);
+    const sprites = await loadSprites(traits);
+    const idNumber = 100 + i * 137;
+
+    inventoryFrogs.push({
+      height, merkle, traits, sprites, idNumber,
+      bassline: generateBassline(merkle),
+      nonceHex: Number(block.nonce).toString(16).padStart(8,"0"),
+      stageIdx: -1,
+    });
+
+    const cell = document.createElement("div");
+    cell.className = "inv-frog";
+    cell.dataset.invIdx = i;
+
+    const bg = document.createElement("img");
+    bg.className = "bg-img";
+    bg.src = bgPath(traits.bg.slot);
+    cell.appendChild(bg);
+
+    const cv = document.createElement("canvas");
+    cv.width = 500; cv.height = 500;
+    cell.appendChild(cv);
+    drawFrame(cv.getContext("2d"), sprites, traits, 0);
+
+    const badge = document.createElement("span");
+    badge.className = "id-badge";
+    badge.textContent = "#" + idNumber;
+    cell.appendChild(badge);
+
+    cell.addEventListener("click", () => addFrogToStage(i));
+    grid.appendChild(cell);
+  }
+}
+
+// =============================================
+//   STAGE TIMELINE
+// =============================================
+function renderTimeline() {
+  const tl = document.getElementById("timeline");
+  tl.innerHTML = "";
+  for (let i = 0; i < STAGE_SIZE; i++) {
+    const slot = document.createElement("div");
+    slot.dataset.stageIdx = i;
+    if (stage[i] === null) {
+      slot.className = "stage-slot empty";
+      slot.innerHTML = `<span class="num">${i+1}</span>`;
+      slot.addEventListener("click", () => {
+        // Empty slot click: nothing (frog comes in via inventory click)
+      });
+    } else {
+      const frog = inventoryFrogs[stage[i]];
+      slot.className = "stage-slot filled";
+      const bg = document.createElement("img");
+      bg.className = "bg-img"; bg.src = bgPath(frog.traits.bg.slot);
+      slot.appendChild(bg);
+      const cv = document.createElement("canvas");
+      cv.width = 500; cv.height = 500;
+      slot.appendChild(cv);
+      drawFrame(cv.getContext("2d"), frog.sprites, frog.traits, 0);
+      const num = document.createElement("span");
+      num.className = "step-num"; num.textContent = (i+1);
+      slot.appendChild(num);
+      const x = document.createElement("span");
+      x.className = "x-btn"; x.textContent = "×";
+      x.addEventListener("click", (e) => {
+        e.stopPropagation();
+        removeFromStage(i);
+      });
+      slot.appendChild(x);
+      // Stash live ctx for animation
+      slot._ctx = cv.getContext("2d");
+      slot._frog = frog;
+    }
+    tl.appendChild(slot);
+  }
+  // Refresh inventory "in stage" greying
+  document.querySelectorAll(".inv-frog").forEach((el, idx) => {
+    if (inventoryFrogs[idx] && inventoryFrogs[idx].stageIdx >= 0) el.classList.add("in-stage");
+    else el.classList.remove("in-stage");
+  });
+}
+
+function addFrogToStage(invIdx) {
+  const frog = inventoryFrogs[invIdx];
+  if (!frog || frog.stageIdx >= 0) return;
+  const emptySlot = stage.findIndex(s => s === null);
+  if (emptySlot < 0) {
+    // No more space — could grow timeline, but capped at STAGE_SIZE
+    return;
+  }
+  stage[emptySlot] = invIdx;
+  frog.stageIdx = emptySlot;
+  renderTimeline();
+}
+function removeFromStage(stageIdx) {
+  const invIdx = stage[stageIdx];
+  if (invIdx === null) return;
+  inventoryFrogs[invIdx].stageIdx = -1;
+  stage[stageIdx] = null;
+  renderTimeline();
+}
+
+// =============================================
+//   AUDIO ENGINE — sequential, one frog at a time
+// =============================================
+const audio = {
+  started: false, toneLoaded: false,
+  stepIdx: 0, frameIdx: 0, stepsSinceHat: 999, currentStageIdx: 0,
+  stepTimer: null,
+  masterDist: null, masterReverb: null, masterDelay: null,
+  synth: null, filter: null,
+  kickP: null, clapP: null, hatP: null, finalP: null,
+  recording: false, mediaRecorder: null, recordedChunks: [],
+};
+
+async function loadTone() {
+  if (audio.toneLoaded) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = TONE_URL; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  audio.toneLoaded = true;
+}
+
+function getFilledStageIndices() {
+  return stage.map((v, i) => v === null ? -1 : i).filter(i => i >= 0);
+}
+function currentFrog() {
+  const filled = getFilledStageIndices();
+  if (filled.length === 0) return null;
+  const slotIdx = filled[audio.currentStageIdx % filled.length];
+  return { frog: inventoryFrogs[stage[slotIdx]], slotIdx };
+}
+
+async function startAudio() {
+  if (audio.started) return;
+  if (getFilledStageIndices().length === 0) {
+    alert("Drop a frog or two into the stage first 🐸");
+    return;
+  }
+  audio.started = true;
+  document.getElementById("play-btn").textContent = "■ STOP";
+
+  await loadTone();
+  await Tone.start();
+  Tone.Transport.bpm.value = 123;
+
+  audio.masterDist   = new Tone.Distortion(getKnobVal("Drive")/100).toDestination();
+  audio.masterReverb = new Tone.Reverb({decay:3, wet: getKnobVal("Reverb")/100});
+  await audio.masterReverb.generate();
+  audio.masterReverb.connect(audio.masterDist);
+  audio.masterDelay  = new Tone.FeedbackDelay({delayTime:"8n", feedback:0.5, wet: getKnobVal("Delay")/100});
+  audio.masterDelay.connect(audio.masterReverb);
+
+  audio.kickP  = new Tone.Player({url:KICK_URL,  volume:-4 });  audio.kickP.connect(audio.masterDist);
+  audio.clapP  = new Tone.Player({url:CLAP_URL,  volume:-6 });  audio.clapP.connect(audio.masterDist);
+  audio.hatP   = new Tone.Player({url:HAT_URL,   volume:-14}); audio.hatP.connect(audio.masterDist);
+  audio.finalP = new Tone.Player({url:FINAL_URL, volume:4 });   audio.finalP.connect(audio.masterDist);
+
+  // One synth + filter — re-tuned for each frog as the track plays
+  audio.filter = new Tone.Filter({frequency:600, type:"lowpass", Q:4});
+  audio.filter.connect(audio.masterDelay);
+  audio.synth = new Tone.MonoSynth({
+    oscillator:{type:"sawtooth"},
+    envelope:{attack:0.005,decay:0.2,sustain:0.1,release:0.2},
+    filterEnvelope:{attack:0.005,decay:0.3,sustain:0.2,release:0.3,baseFrequency:200,octaves:3},
+  });
+  audio.synth.connect(audio.filter);
+  audio.synth.volume.value = -10;
+
+  applyKnobsToFX();
+  await Tone.loaded();
+
+  audio.stepIdx = 0;
+  audio.currentStageIdx = 0;
+  tuneSynthForCurrentFrog();
+  highlightPlayingSlot();
+
+  const STEP_MS = (60/123/4)*1000;
+  audio.stepTimer = setInterval(audioStep, STEP_MS);
+}
+
+function tuneSynthForCurrentFrog() {
+  const c = currentFrog();
+  if (!c) return;
+  const { frog } = c;
+  const userCutoff = getKnobVal("Cutoff");
+  const baseFromKnob = 200 + (userCutoff/100) * 3800;
+  audio.filter.frequency.setValueAtTime(baseFromKnob, Tone.now());
+}
+
+function highlightPlayingSlot() {
+  document.querySelectorAll(".stage-slot").forEach(el => el.classList.remove("now-playing"));
+  const c = currentFrog();
+  if (!c) return;
+  const el = document.querySelector(`.stage-slot[data-stage-idx="${c.slotIdx}"]`);
+  if (el) el.classList.add("now-playing");
+}
+
+function audioStep() {
+  const stepIn16 = audio.stepIdx % 16;
+  const barCount = Math.floor(audio.stepIdx / 16) % 8;
+  const cur = currentFrog();
+  if (!cur) return;
+  const { frog, slotIdx } = cur;
+
+  // Hat-driven dance for the playing frog
+  const isHatStep = stepIn16 % 4 === 2;
+  if (isHatStep) audio.stepsSinceHat = 0; else audio.stepsSinceHat++;
+  if (audio.stepsSinceHat === 0)      audio.frameIdx = 1;
+  else if (audio.stepsSinceHat === 1) audio.frameIdx = 2;
+  else                                audio.frameIdx = 0;
+  // Redraw the playing slot's canvas
+  const playingEl = document.querySelector(`.stage-slot[data-stage-idx="${slotIdx}"]`);
+  if (playingEl && playingEl._ctx) drawFrame(playingEl._ctx, frog.sprites, frog.traits, audio.frameIdx);
+
+  // ---- Kick ----
+  if (barCount < 4) { if (stepIn16 % 4 === 0) audio.kickP.start(); }
+  else if (barCount === 4 && stepIn16 === 0) audio.kickP.start();
+  if (barCount === 0 && stepIn16 === 2) audio.kickP.start();
+
+  // ---- Clap ----
+  if (barCount === 7 && stepIn16 >= 12) audio.clapP.start();
+  else if (stepIn16 === 4 || stepIn16 === 12) audio.clapP.start();
+
+  // ---- Hat ----
+  if (stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) audio.hatP.start();
+
+  // ---- Final acid hit ----
+  if (barCount === 7 && stepIn16 === 12) audio.finalP.start();
+
+  // ---- Bass ----
+  const bassAllowed = !(barCount === 7 && stepIn16 >= 9);
+  if (bassAllowed) {
+    const step = frog.bassline[stepIn16];
+    if (step.note) {
+      const v = step.play ? 0.85 : 0.45;
+      audio.synth.triggerAttackRelease(step.note, "16n", Tone.now(), v);
+    }
+  }
+
+  audio.stepIdx++;
+  // After 8 bars (128 steps), advance to next filled slot
+  if (audio.stepIdx % 128 === 0) {
+    audio.currentStageIdx++;
+    tuneSynthForCurrentFrog();
+    highlightPlayingSlot();
+    // Reset dance frame on the now-finished slot
+    const prevEl = document.querySelector(`.stage-slot[data-stage-idx="${slotIdx}"]`);
+    if (prevEl && prevEl._ctx) drawFrame(prevEl._ctx, frog.sprites, frog.traits, 0);
+  }
+}
+
+function stopAudio() {
+  if (audio.stepTimer) { clearInterval(audio.stepTimer); audio.stepTimer = null; }
+  audio.started = false;
+  document.getElementById("play-btn").textContent = "▶ PLAY TRACK";
+  document.querySelectorAll(".stage-slot").forEach(el => {
+    el.classList.remove("now-playing");
+    if (el._ctx && el._frog) drawFrame(el._ctx, el._frog.sprites, el._frog.traits, 0);
+  });
+}
+
+document.getElementById("play-btn").addEventListener("click", () => {
+  audio.started ? stopAudio() : startAudio();
+});
+
+// =============================================
+//   KNOBS
+// =============================================
+function getKnob(label) {
+  return document.querySelector(`.knob[data-label="${label}"]`);
+}
+function getKnobVal(label) {
+  const k = getKnob(label);
+  return k ? Number(k.dataset.val ?? 0) : 0;
+}
+function setKnobVal(label, v) {
+  const k = getKnob(label);
+  if (!k) return;
+  k.dataset.val = v;
+  k.querySelector(".knob-slider").style.setProperty("--pct", v + "%");
+  k.querySelector(".knob-val").textContent = v;
+  applyKnobsToFX();
+}
+function applyKnobsToFX() {
+  if (!audio.started) return;
+  const cutoff = getKnobVal("Cutoff");
+  const freq = 200 + (cutoff/100)*3800;
+  audio.filter.frequency.setValueAtTime(freq, Tone.now());
+  if (audio.masterDelay)  audio.masterDelay.wet.value  = getKnobVal("Delay")/100;
+  if (audio.masterReverb) audio.masterReverb.wet.value = getKnobVal("Reverb")/100;
+  if (audio.masterDist)   audio.masterDist.distortion  = getKnobVal("Drive")/100;
+}
+const initKnobs = { Cutoff:60, Reverb:25, Delay:10, Drive:40 };
+for (const [label, v] of Object.entries(initKnobs)) {
+  const k = getKnob(label);
+  if (!k) continue;
+  k.dataset.val = v;
+  const slider = k.querySelector(".knob-slider");
+  slider.style.setProperty("--pct", v + "%");
+  let dragging = false;
+  const handleMove = (e) => {
+    const rect = slider.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    setKnobVal(label, Math.round(pct));
+  };
+  slider.addEventListener("mousedown", (e) => { dragging = true; handleMove(e); });
+  window.addEventListener("mousemove", (e) => { if (dragging) handleMove(e); });
+  window.addEventListener("mouseup", () => dragging = false);
+  slider.addEventListener("click", handleMove);
+}
+
+// =============================================
+//   RECORDING
+// =============================================
+document.getElementById("rec-btn").addEventListener("click", () => {
+  if (!audio.started) {
+    alert("Press PLAY first, then REC to capture audio.");
+    return;
+  }
+  const recBtn = document.getElementById("rec-btn");
+  if (audio.recording) {
+    audio.mediaRecorder.stop();
+    audio.recording = false;
+    recBtn.style.background = ""; recBtn.style.color = "#ff4060";
+  } else {
+    const dest = Tone.context.rawContext.createMediaStreamDestination();
+    Tone.Destination.connect(dest);
+    audio.recordedChunks = [];
+    audio.mediaRecorder = new MediaRecorder(dest.stream);
+    audio.mediaRecorder.ondataavailable = (e) => audio.recordedChunks.push(e.data);
+    audio.mediaRecorder.onstop = () => {
+      const blob = new Blob(audio.recordedChunks, {type:"audio/webm"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `acid-frogs-track-${Date.now()}.webm`;
+      a.click();
+    };
+    audio.mediaRecorder.start();
+    audio.recording = true;
+    recBtn.style.background = "#ff4060"; recBtn.style.color = "#fff";
+  }
+});
+
+// =============================================
+//   INIT
+// =============================================
+(async () => {
+  await buildInventory();
+  renderTimeline();
+})();
+</script>
+</body>
+</html>
