@@ -209,8 +209,37 @@
 
 <script>
 // ==============================================================
-//   Same trait + composition logic as the main preview
+//   Audio + composition logic — adapted from main preview
 // ==============================================================
+
+const TONE_URL  = "https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0";
+const KICK_URL  = "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0";
+const CLAP_URL  = "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0";
+const HAT_URL   = "https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0";
+const FINAL_URL = "https://ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0";
+
+const BASS_LOW  = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1","e1","ab2","a2","bb2"];
+const BASS_MID  = ["c3","eb3","f3","g3","bb3","ab3","db3","d3"];
+const BASS_HIGH = ["eb4","g4","f4","c4","bb3","ab4","d4","db4"];
+
+function generateBasslineFromBlock(merkleHex) {
+  const m = (merkleHex || "").replace(/^0x/, "").padEnd(32, "0");
+  const out = [];
+  for (let i = 0; i < 16; i++) {
+    const byte = parseInt(m.substr(i * 2, 2), 16);
+    const rB = byte >> 4, nB = byte & 0x0F;
+    let slot;
+    if      (rB < 5)  slot = "rest";
+    else if (rB < 8)  slot = "ghost";
+    else if (rB < 13) slot = "low";
+    else if (rB < 15) slot = "mid";
+    else              slot = "high";
+    if (slot === "rest") { out.push({ note: null, play: true }); continue; }
+    const pool = slot === "high" ? BASS_HIGH : slot === "mid" ? BASS_MID : BASS_LOW;
+    out.push({ note: pool[nB % pool.length], play: slot !== "ghost" });
+  }
+  return out;
+}
 
 const traitFolders = {
   body:     { count: 1,  color: true  },
@@ -318,7 +347,9 @@ async function fetchBlock(height) {
   } catch { return null; }
 }
 
-// Render a single frog into a brick (canvas + bg image + badge)
+// Render a single frog into a brick (canvas + bg image + badge).
+// If isInStage, also stash the merkleroot + bassline + canvas onto the container
+// so the audio engine can drive its dance + bass.
 async function renderFrogBrick(container, height, idNumber, isInStage) {
   const block = await fetchBlock(height);
   if (!block) return;
@@ -326,7 +357,6 @@ async function renderFrogBrick(container, height, idNumber, isInStage) {
   const traits = pickTraits(merkle);
   const sprites = await loadFrogSprites(traits);
 
-  // Inject canvas + bg
   const bgImg = document.createElement("img");
   bgImg.className = "bg-img";
   bgImg.src = bgPath(traits.bg.slot);
@@ -335,13 +365,20 @@ async function renderFrogBrick(container, height, idNumber, isInStage) {
   const cv = document.createElement("canvas");
   cv.width = 500; cv.height = 500;
   container.appendChild(cv);
-  drawFrame(cv.getContext("2d"), sprites, traits, 0);
+  const ctx = cv.getContext("2d");
+  drawFrame(ctx, sprites, traits, 0);
 
   if (isInStage && idNumber) {
     const badge = document.createElement("span");
     badge.className = "badge";
     badge.textContent = "#" + idNumber;
     container.appendChild(badge);
+
+    container._frog = {
+      merkle, traits, sprites, ctx, height,
+      bassline: generateBasslineFromBlock(merkle),
+      nonceHex: Number(block.nonce).toString(16).padStart(8, "0"),
+    };
   }
 }
 
@@ -379,6 +416,258 @@ invBlocks.forEach((h) => {
   cell.className = "inv-frog";
   invEl.appendChild(cell);
   renderFrogBrick(cell, h, null, false);
+});
+
+// ==============================================================
+//   AUDIO ENGINE — 4-slot polyphonic, master FX, drum kit shared
+// ==============================================================
+
+const playBtn = document.querySelector(".play-btn");
+const recBtn  = document.querySelector(".icon-btn.rec");
+let audioState = {
+  started: false,
+  toneLoaded: false,
+  recording: false,
+  stepIdx: 0,
+  frameIdx: 0,
+  stepsSinceHat: 999,
+  stepTimer: null,
+  // Master FX nodes
+  masterDelay: null, masterReverb: null, masterDist: null,
+  // Per-slot synth chains
+  slotSynths: [],   // [{ synth, filter, ref (slot DOM) }, ...]
+  // Drums
+  kickP: null, clapP: null, hatP: null, finalP: null,
+  // Recording
+  mediaRecorder: null, recordedChunks: [],
+};
+
+async function loadToneJS() {
+  if (audioState.toneLoaded) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = TONE_URL; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  audioState.toneLoaded = true;
+}
+
+function getStageFrogs() {
+  return Array.from(document.querySelectorAll(".slot.filled"))
+    .filter(s => s._frog)
+    .map(s => ({ slot: s, frog: s._frog }));
+}
+
+async function startAudio() {
+  if (audioState.started) return;
+  audioState.started = true;
+  playBtn.textContent = "■ STOP";
+
+  await loadToneJS();
+  await Tone.start();
+  Tone.Transport.bpm.value = 123;
+
+  // Master FX chain (shared)
+  audioState.masterDist   = new Tone.Distortion(getKnobVal("Drive") / 100).toDestination();
+  audioState.masterReverb = new Tone.Reverb({ decay: 3, wet: getKnobVal("Reverb") / 100 });
+  await audioState.masterReverb.generate();
+  audioState.masterReverb.connect(audioState.masterDist);
+  audioState.masterDelay  = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.5, wet: getKnobVal("Delay") / 100 });
+  audioState.masterDelay.connect(audioState.masterReverb);
+
+  // Drum players (also via master FX)
+  audioState.kickP  = new Tone.Player({ url: KICK_URL,  volume: -4 });  audioState.kickP.connect(audioState.masterDist);
+  audioState.clapP  = new Tone.Player({ url: CLAP_URL,  volume: -6 });  audioState.clapP.connect(audioState.masterDist);
+  audioState.hatP   = new Tone.Player({ url: HAT_URL,   volume: -14 }); audioState.hatP.connect(audioState.masterDist);
+  audioState.finalP = new Tone.Player({ url: FINAL_URL, volume: 4 });   audioState.finalP.connect(audioState.masterDist);
+
+  // Per-slot synth + filter
+  const stage = getStageFrogs();
+  audioState.slotSynths = stage.map(({ slot, frog }) => {
+    const filter = new Tone.Filter({
+      frequency: 400 + (parseInt(frog.nonceHex[1], 16) * 150),
+      type: "lowpass", Q: 4
+    });
+    filter.connect(audioState.masterDelay);
+    const synth = new Tone.MonoSynth({
+      oscillator: { type: "sawtooth" },
+      envelope:       { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 },
+      filterEnvelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 0.3, baseFrequency: 200, octaves: 3 },
+    });
+    synth.connect(filter);
+    synth.volume.value = -12; // 4 voices summed -> a bit quieter each
+    return { synth, filter, slot, frog };
+  });
+
+  // Apply current cutoff knob immediately
+  applyKnobsToFX();
+
+  await Tone.loaded();
+
+  const STEP_MS = (60 / 123 / 4) * 1000;
+  audioState.stepIdx = 0;
+  audioState.stepTimer = setInterval(() => audioStep(), STEP_MS);
+}
+
+function audioStep() {
+  const stepIn16 = audioState.stepIdx % 16;
+  const barCount = Math.floor(audioState.stepIdx / 16) % 8;
+
+  // Hat-driven dance frame for ALL filled stage frogs
+  const isHatStep = stepIn16 % 4 === 2;
+  if (isHatStep) audioState.stepsSinceHat = 0;
+  else audioState.stepsSinceHat++;
+  if (audioState.stepsSinceHat === 0)      audioState.frameIdx = 1;
+  else if (audioState.stepsSinceHat === 1) audioState.frameIdx = 2;
+  else                                     audioState.frameIdx = 0;
+
+  // Re-draw each filled stage frog at the current dance frame
+  for (const { slot, frog } of audioState.slotSynths) {
+    if (frog && frog.ctx) drawFrame(frog.ctx, frog.sprites, frog.traits, audioState.frameIdx);
+  }
+
+  // ---- Kick ----
+  if (barCount < 4) {
+    if (stepIn16 % 4 === 0) audioState.kickP.start();
+  } else if (barCount === 4 && stepIn16 === 0) {
+    audioState.kickP.start();
+  }
+  if (barCount === 0 && stepIn16 === 2) audioState.kickP.start();
+
+  // ---- Clap ----
+  if (barCount === 7 && stepIn16 >= 12) audioState.clapP.start();
+  else if (stepIn16 === 4 || stepIn16 === 12) audioState.clapP.start();
+
+  // ---- Hat ----
+  if (stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) audioState.hatP.start();
+
+  // ---- Final ACID hit ----
+  if (barCount === 7 && stepIn16 === 12) audioState.finalP.start();
+
+  // ---- Bass per slot ----
+  const bassAllowed = !(barCount === 7 && stepIn16 >= 9);
+  for (const { synth, frog } of audioState.slotSynths) {
+    if (!bassAllowed) continue;
+    const step = frog.bassline[stepIn16];
+    if (step.note) {
+      const velocity = step.play ? 0.85 : 0.45;
+      synth.triggerAttackRelease(step.note, "16n", Tone.now(), velocity);
+    }
+  }
+
+  audioState.stepIdx++;
+}
+
+function stopAudio() {
+  if (audioState.stepTimer) { clearInterval(audioState.stepTimer); audioState.stepTimer = null; }
+  audioState.started = false;
+  audioState.frameIdx = 0;
+  audioState.stepsSinceHat = 999;
+  // Reset dance frame
+  for (const { slot, frog } of audioState.slotSynths) {
+    if (frog && frog.ctx) drawFrame(frog.ctx, frog.sprites, frog.traits, 0);
+  }
+  playBtn.textContent = "▶ PLAY";
+}
+
+playBtn.addEventListener("click", () => audioState.started ? stopAudio() : startAudio());
+
+// ---- Knob handlers (cutoff/reverb/delay/drive) ----
+function getKnobByLabel(label) {
+  return Array.from(document.querySelectorAll(".knob")).find(k => k.querySelector(".knob-label").textContent === label);
+}
+function getKnobVal(label) {
+  const k = getKnobByLabel(label);
+  if (!k) return 0;
+  // Read percentage from the slider's pseudo-element width — but we don't have that.
+  // Use stored data attribute (initialised below).
+  return Number(k.dataset.val ?? 0);
+}
+function setKnobVal(label, v, max = 100) {
+  const k = getKnobByLabel(label);
+  if (!k) return;
+  k.dataset.val = v;
+  const slider = k.querySelector(".knob-slider");
+  slider.style.setProperty("--pct", (v / max * 100) + "%");
+  k.querySelector(".knob-val").textContent = v;
+  applyKnobsToFX();
+}
+function applyKnobsToFX() {
+  if (!audioState.started) return;
+  const cutoff = getKnobVal("Cutoff");
+  // Map cutoff 0-100 to 200-4000 Hz
+  const freq = 200 + (cutoff / 100) * 3800;
+  for (const { filter } of audioState.slotSynths) {
+    filter.frequency.setValueAtTime(freq, Tone.now());
+  }
+  if (audioState.masterDelay)  audioState.masterDelay.wet.value  = getKnobVal("Delay")  / 100;
+  if (audioState.masterReverb) audioState.masterReverb.wet.value = getKnobVal("Reverb") / 100;
+  if (audioState.masterDist)   audioState.masterDist.distortion  = getKnobVal("Drive")  / 100;
+}
+
+// Hook up sliders. Initial values read from the existing CSS percentages.
+const knobInits = { Cutoff: 60, Reverb: 25, Delay: 10, Drive: 40 };
+for (const [label, val] of Object.entries(knobInits)) {
+  const k = getKnobByLabel(label);
+  if (!k) continue;
+  k.dataset.val = val;
+  const slider = k.querySelector(".knob-slider");
+  slider.style.cursor = "pointer";
+  // Click anywhere on the slider sets the value proportional to where clicked
+  slider.addEventListener("click", (e) => {
+    const rect = slider.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    setKnobVal(label, Math.round(pct));
+  });
+  let dragging = false;
+  slider.addEventListener("mousedown", () => dragging = true);
+  window.addEventListener("mouseup", () => dragging = false);
+  window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const rect = slider.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    setKnobVal(label, Math.round(pct));
+  });
+}
+
+// Override the static CSS gradient widths with dynamic ones
+const styleHook = document.createElement("style");
+styleHook.textContent = `
+  .knob-slider::before { width: var(--pct, 50%) !important; }
+  .knob-slider::after  { left: var(--pct, 50%) !important; }
+`;
+document.head.appendChild(styleHook);
+
+// ---- Recording ----
+recBtn.addEventListener("click", async () => {
+  if (!audioState.started) {
+    alert("Press PLAY first, then REC to capture audio.");
+    return;
+  }
+  if (audioState.recording) {
+    audioState.mediaRecorder.stop();
+    audioState.recording = false;
+    recBtn.style.background = "";
+    recBtn.style.color = "#ff4060";
+  } else {
+    const dest = Tone.context.rawContext.createMediaStreamDestination();
+    Tone.Destination.connect(dest);
+    audioState.recordedChunks = [];
+    audioState.mediaRecorder = new MediaRecorder(dest.stream);
+    audioState.mediaRecorder.ondataavailable = (e) => audioState.recordedChunks.push(e.data);
+    audioState.mediaRecorder.onstop = () => {
+      const blob = new Blob(audioState.recordedChunks, { type: "audio/webm" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `acid-frogs-${Date.now()}.webm`;
+      a.click();
+    };
+    audioState.mediaRecorder.start();
+    audioState.recording = true;
+    recBtn.style.background = "#ff4060";
+    recBtn.style.color = "#fff";
+  }
 });
 </script>
 </body>
