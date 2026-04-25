@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acid Frogs — Lego Mockup 03 · Studio Apartment</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+  :root {
+    --bg: #fafaf7;
+    --ink: #111;
+    --ink-soft: #5a5a5a;
+    --line: #e8e6e1;
+    --accent: #1a3d1a;
+    --green-vibrant: #22c55e;
+  }
+  body{background:var(--bg);color:var(--ink);min-height:100vh}
+  .wrap{max-width:1100px;margin:0 auto;padding:32px 28px}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:48px}
+  .logo{font-size:22px;font-weight:600;letter-spacing:-0.5px}
+  .logo .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green-vibrant);margin:0 6px;vertical-align:middle}
+  .connect{background:var(--ink);color:#fff;border:none;padding:11px 20px;border-radius:100px;font-size:13px;font-weight:500;cursor:pointer}
+  .connect:hover{background:var(--accent)}
+
+  .layout{display:grid;grid-template-columns:1fr 320px;gap:36px;align-items:start}
+  .stage{background:#fff;border-radius:24px;padding:32px;border:1px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+  .stage-title{font-size:13px;color:var(--ink-soft);margin-bottom:18px;font-weight:500}
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px}
+  .slot{aspect-ratio:1/1;border-radius:18px;border:1px solid var(--line);background:#fafaf7;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;transition:all .2s}
+  .slot.filled{border:none;background:linear-gradient(135deg,#5fbb50,#2c8a1f)}
+  .slot.filled.purple{background:linear-gradient(135deg,#a866ff,#5e2cb8)}
+  .slot.filled.pink{background:linear-gradient(135deg,#ff77a8,#c01b5f)}
+  .slot.filled.blue{background:linear-gradient(135deg,#5e94ff,#1a40b8)}
+  .slot.filled .badge{position:absolute;top:12px;left:12px;background:rgba(255,255,255,0.9);font-size:10px;font-weight:600;padding:4px 8px;border-radius:100px;letter-spacing:0.5px}
+  .slot.filled .frog{font-size:60px}
+  .slot:not(.filled) .empty-msg{color:var(--ink-soft);font-size:12px;letter-spacing:0.5px}
+  .slot:not(.filled):hover{border-color:var(--ink-soft);background:#fff}
+
+  .transport{display:flex;align-items:center;gap:14px;margin-bottom:0}
+  .play-btn{flex:1;background:var(--ink);color:#fff;border:none;padding:18px;border-radius:18px;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:0.3px;transition:all .15s}
+  .play-btn:hover{background:var(--accent);transform:translateY(-1px)}
+  .icon-btn{width:54px;height:54px;border:1px solid var(--line);background:#fff;border-radius:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--ink-soft)}
+  .icon-btn:hover{border-color:var(--ink);color:var(--ink)}
+  .icon-btn.rec{color:#dc2626;border-color:#dc2626;background:#fff}
+  .icon-btn.rec:hover{background:#dc2626;color:#fff}
+
+  .knobs{margin-top:24px;padding-top:24px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .knob{display:flex;flex-direction:column;gap:6px}
+  .knob-label{font-size:11px;color:var(--ink-soft);font-weight:500}
+  .knob-slider{position:relative;height:5px;background:var(--line);border-radius:100px;cursor:pointer}
+  .knob-slider::after{content:"";position:absolute;top:-5px;left:60%;width:15px;height:15px;background:var(--ink);border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.2)}
+  .knob:nth-child(2) .knob-slider::after{left:25%}
+  .knob:nth-child(3) .knob-slider::after{left:10%}
+  .knob:nth-child(4) .knob-slider::after{left:40%}
+  .knob-val{font-size:11px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+
+  .inventory{background:#fff;border-radius:24px;padding:24px;border:1px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+  .inv-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .inv-title{font-size:13px;font-weight:600}
+  .inv-count{font-size:11px;color:var(--ink-soft);background:var(--bg);padding:4px 10px;border-radius:100px}
+  .inv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .inv-frog{aspect-ratio:1/1;border-radius:14px;background:linear-gradient(135deg,#5fbb50,#2c8a1f);cursor:grab;display:flex;align-items:center;justify-content:center;font-size:24px;transition:all .15s}
+  .inv-frog:nth-child(2n){background:linear-gradient(135deg,#5e94ff,#1a40b8)}
+  .inv-frog:nth-child(3n){background:linear-gradient(135deg,#a866ff,#5e2cb8)}
+  .inv-frog:nth-child(5n){background:linear-gradient(135deg,#ff77a8,#c01b5f)}
+  .inv-frog:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+
+  .footer-tag{text-align:center;margin-top:48px;font-size:11px;color:var(--ink-soft);letter-spacing:0.5px}
+  @media (max-width:760px){.layout{grid-template-columns:1fr}.inventory{order:2}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="logo">acid<span class="dot"></span>frogs</div>
+    <button class="connect">Connect Wallet</button>
+  </div>
+
+  <div class="layout">
+    <div class="stage">
+      <div class="stage-title">Stage</div>
+      <div class="slots">
+        <div class="slot filled"><span class="badge">#287</span><div class="frog">🐸</div></div>
+        <div class="slot"><span class="empty-msg">drop frog</span></div>
+        <div class="slot filled purple"><span class="badge">#1144</span><div class="frog">🐸</div></div>
+        <div class="slot"><span class="empty-msg">drop frog</span></div>
+      </div>
+
+      <div class="transport">
+        <button class="icon-btn rec">●</button>
+        <button class="play-btn">▶ Play</button>
+        <button class="icon-btn">↗</button>
+      </div>
+
+      <div class="knobs">
+        <div class="knob"><span class="knob-label">Cutoff</span><div class="knob-slider"></div><span class="knob-val">60</span></div>
+        <div class="knob"><span class="knob-label">Reverb</span><div class="knob-slider"></div><span class="knob-val">25</span></div>
+        <div class="knob"><span class="knob-label">Delay</span><div class="knob-slider"></div><span class="knob-val">10</span></div>
+        <div class="knob"><span class="knob-label">Drive</span><div class="knob-slider"></div><span class="knob-val">40</span></div>
+      </div>
+    </div>
+
+    <div class="inventory">
+      <div class="inv-head">
+        <div class="inv-title">Your Frogs</div>
+        <div class="inv-count">12 owned</div>
+      </div>
+      <div class="inv-grid">
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+        <div class="inv-frog">🐸</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-tag">style 03 · studio apartment</div>
+</div>
+</body>
+</html>

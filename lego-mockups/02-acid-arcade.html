@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acid Frogs — Lego Mockup 02 · Acid Arcade</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:"Press Start 2P","Courier New",monospace;image-rendering:pixelated}
+  body{background:#000;color:#9f9;min-height:100vh;font-size:11px;line-height:1.6;
+       background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,0,0.03) 2px,rgba(0,255,0,0.03) 3px)}
+  .wrap{max-width:920px;margin:0 auto;padding:24px;border:4px solid #9f9;margin-top:24px;margin-bottom:24px;box-shadow:0 0 20px rgba(0,255,0,0.4),inset 0 0 30px rgba(0,255,0,0.1)}
+  .logo{font-size:24px;text-align:center;letter-spacing:6px;margin-bottom:6px;text-shadow:0 0 12px #9f9}
+  .blink{animation:blink 1.4s infinite}
+  @keyframes blink{50%{opacity:0.3}}
+  .sub{text-align:center;font-size:9px;letter-spacing:3px;opacity:.6;margin-bottom:24px}
+  .top-bar{display:flex;justify-content:space-between;font-size:9px;margin-bottom:16px;border-bottom:2px solid #9f9;padding-bottom:8px}
+  .layout{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .panel{border:2px solid #9f9;padding:14px}
+  .panel h3{font-size:10px;letter-spacing:2px;margin-bottom:10px;color:#fff;text-shadow:0 0 6px #9f9}
+  .inv{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .frog-tile{aspect-ratio:1/1;border:2px solid #9f9;background:#0a2a0a;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;font-family:sans-serif}
+  .frog-tile:hover{background:#0f4f0f;box-shadow:inset 0 0 12px rgba(0,255,0,0.5)}
+  .stage-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .stage-slot{aspect-ratio:1/1;border:2px dashed #555;background:#000;display:flex;align-items:center;justify-content:center;font-size:9px;color:#555}
+  .stage-slot.filled{border-style:solid;border-color:#9f9;background:#0a2a0a;color:#9f9;font-size:18px;font-family:sans-serif}
+  .stage-slot.filled::before{content:"P1 ";font-size:8px;font-family:"Press Start 2P",monospace;position:absolute;margin-left:-30px;margin-top:-30px}
+  .stage-slot{position:relative}
+  .controls{margin-top:14px;border-top:2px solid #9f9;padding-top:14px;text-align:center}
+  .insert-coin{font-size:9px;letter-spacing:2px;margin-bottom:14px;animation:blink 1.4s infinite}
+  .play-btn{background:#000;color:#9f9;border:3px solid #9f9;padding:14px 32px;font-family:"Press Start 2P",monospace;font-size:11px;cursor:pointer;letter-spacing:3px}
+  .play-btn:hover{background:#9f9;color:#000}
+  .small-btns{display:flex;gap:8px;justify-content:center;margin-top:14px}
+  .pixel-btn{background:#000;color:#9f9;border:2px solid #9f9;padding:8px 14px;font-family:"Press Start 2P",monospace;font-size:8px;cursor:pointer;letter-spacing:2px}
+  .pixel-btn:hover{background:#9f9;color:#000}
+  .pixel-btn.rec{color:#f55;border-color:#f55}
+  .pixel-btn.rec:hover{background:#f55;color:#000}
+  .knob-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px;border-top:2px solid #9f9;padding-top:14px}
+  .pix-knob{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:8px;letter-spacing:1px}
+  .pix-knob .bar{width:100%;height:8px;background:#0a2a0a;border:1px solid #9f9;position:relative}
+  .pix-knob .bar::after{content:"";position:absolute;left:0;top:0;height:100%;background:#9f9}
+  .pix-knob:nth-child(1) .bar::after{width:60%}
+  .pix-knob:nth-child(2) .bar::after{width:25%}
+  .pix-knob:nth-child(3) .bar::after{width:10%}
+  .pix-knob:nth-child(4) .bar::after{width:40%}
+  .pix-knob span{opacity:.7}
+  .footer-tag{text-align:center;font-size:8px;opacity:.4;letter-spacing:3px;margin-top:14px;border-top:2px solid #555;padding-top:10px}
+  @media (max-width:680px){.layout{grid-template-columns:1fr}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">ACID<span class="blink">·</span>FROGS</div>
+  <div class="sub">PRESS START · INSERT YOUR FROGS</div>
+
+  <div class="top-bar">
+    <span>WALLET: bc1q...rp7z</span>
+    <span class="blink">SCORE: 12</span>
+    <span>HI: 2016</span>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <h3>▸ INVENTORY</h3>
+      <div class="inv">
+        <div class="frog-tile">🐸</div>
+        <div class="frog-tile">🐸</div>
+        <div class="frog-tile">🐸</div>
+        <div class="frog-tile">🐸</div>
+        <div class="frog-tile">🐸</div>
+        <div class="frog-tile">🐸</div>
+        <div class="frog-tile">🐸</div>
+        <div class="frog-tile">🐸</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>▸ STAGE</h3>
+      <div class="stage-grid">
+        <div class="stage-slot filled">🐸</div>
+        <div class="stage-slot">EMPTY</div>
+        <div class="stage-slot">EMPTY</div>
+        <div class="stage-slot filled">🐸</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="insert-coin">▸ PRESS PLAY TO START</div>
+    <button class="play-btn">▶ PLAY</button>
+    <div class="small-btns">
+      <button class="pixel-btn rec">● REC</button>
+      <button class="pixel-btn">SHARE</button>
+      <button class="pixel-btn">CLEAR</button>
+    </div>
+  </div>
+
+  <div class="knob-row">
+    <div class="pix-knob"><span>CUTOFF</span><div class="bar"></div><span>60</span></div>
+    <div class="pix-knob"><span>REVERB</span><div class="bar"></div><span>25</span></div>
+    <div class="pix-knob"><span>DELAY</span><div class="bar"></div><span>10</span></div>
+    <div class="pix-knob"><span>DRIVE</span><div class="bar"></div><span>40</span></div>
+  </div>
+
+  <div class="footer-tag">STYLE 02 · ACID ARCADE</div>
+</div>
+</body>
+</html>
