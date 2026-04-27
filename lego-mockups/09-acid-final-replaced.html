@@ -152,11 +152,37 @@ async function loadAll() {
   audio.synth.volume.value = -10;
 
   // --- 16 ACID players (route through master) ---
+  let loadedSamples = 0;
+  const updateBtn = () => {
+    document.getElementById("play").textContent = `loading… ${loadedSamples}/16`;
+  };
+  updateBtn();
+
   audio.acidPlayers = await Promise.all(
     ACID_URLS.map(url =>
       new Promise(res => {
-        const p = new Tone.Player({ url, volume: 4, onload: () => res(p) });
+        let resolved = false;
+        const finish = () => {
+          if (resolved) return;
+          resolved = true;
+          loadedSamples++;
+          updateBtn();
+          res(p);
+        };
+        const p = new Tone.Player({
+          url,
+          volume: 4,
+          onload: finish,
+          onerror: (e) => { console.warn("acid load error:", url, e); finish(); },
+        });
         p.connect(audio.masterDist);
+        // Safety timeout — if a sample takes more than 30s, give up on it
+        setTimeout(() => {
+          if (!resolved) {
+            console.warn("acid load timeout:", url);
+            finish();
+          }
+        }, 30000);
       })
     )
   );
