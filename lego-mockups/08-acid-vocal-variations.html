@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acid Frogs · ACID Vocal Variations</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0a0814;--acid:#71ff5e;--neon-pink:#ff2d8d;--neon-cyan:#2df0ff;--neon-yellow:#fff42d;
+    --line:rgba(255,255,255,0.08);--ink:#fff;--ink-soft:rgba(255,255,255,0.55);
+  }
+  body{background:var(--bg);color:var(--ink);min-height:100vh;font-family:-apple-system,"SF Pro Display",sans-serif;
+       background-image:radial-gradient(ellipse at 30% 0%,rgba(255,45,141,0.18) 0%,transparent 60%),
+       radial-gradient(ellipse at 100% 100%,rgba(45,240,255,0.15) 0%,transparent 50%)}
+  .wrap{max-width:880px;margin:0 auto;padding:36px 24px}
+  h1{font-size:28px;letter-spacing:-1px;margin-bottom:6px}
+  h1 .x{color:var(--neon-pink);text-shadow:0 0 12px var(--neon-pink)}
+  .sub{font-size:12px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;margin-bottom:32px}
+  .panel{background:rgba(20,16,42,0.6);border-radius:24px;padding:24px;border:1px solid var(--line);backdrop-filter:blur(10px);margin-bottom:18px}
+  .panel-title{font-size:11px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;font-weight:600;margin-bottom:12px}
+
+  .mode-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+  @media(min-width:760px){.mode-row{grid-template-columns:repeat(6,1fr)}}
+  .mode-btn{padding:14px 8px;border-radius:12px;border:2px solid var(--line);background:rgba(255,255,255,0.04);color:var(--ink);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-align:center;transition:all .15s}
+  .mode-btn:hover{border-color:var(--acid);background:rgba(113,255,94,0.08)}
+  .mode-btn.active{border-color:var(--acid);background:linear-gradient(135deg,rgba(113,255,94,0.2),rgba(45,240,255,0.15));box-shadow:0 0 16px rgba(113,255,94,0.4);color:#fff}
+  .mode-letter{font-size:18px;letter-spacing:1px;color:var(--acid);margin-bottom:4px;display:block}
+  .mode-btn.active .mode-letter{color:var(--neon-yellow)}
+
+  .desc{font-size:13px;line-height:1.6;color:var(--ink-soft);min-height:64px;margin-top:12px}
+  .desc b{color:#fff}
+
+  .transport{display:flex;gap:12px;margin:24px 0 18px;align-items:center}
+  .play-btn{flex:1;background:linear-gradient(135deg,var(--neon-pink),#ff5a9e);color:#fff;border:none;padding:18px;border-radius:18px;font-size:15px;font-weight:700;letter-spacing:1px;cursor:pointer;box-shadow:0 6px 24px rgba(255,45,141,0.5)}
+  .play-btn:hover{transform:translateY(-2px)}
+  .play-btn:disabled{opacity:.6;cursor:wait}
+
+  .seed-input{flex:1.2;background:rgba(0,0,0,0.3);border:1px solid var(--line);border-radius:12px;padding:14px 16px;color:var(--ink);font-family:ui-monospace,monospace;font-size:11px}
+
+  .vis{display:flex;gap:3px;margin:14px 0;justify-content:center;flex-wrap:wrap}
+  .step{width:18px;height:24px;background:#111;border:1px solid #222;transition:background .05s;position:relative}
+  .step.bass-rest{background:#1a1a1a}
+  .step.bass-low{background:#3d4f23}
+  .step.bass-mid{background:#5d7521}
+  .step.bass-high{background:#84a420}
+  .step.acid-on::after{content:"";position:absolute;inset:-3px;border-radius:3px;border:2px solid var(--neon-pink);box-shadow:0 0 10px var(--neon-pink);pointer-events:none}
+  .step.active{background:#fff !important;box-shadow:0 0 8px var(--neon-yellow);transform:scaleY(1.15)}
+
+  .bar-marker{display:flex;justify-content:space-between;color:var(--ink-soft);font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;letter-spacing:1px;color:var(--ink-soft);margin-top:6px;justify-content:center}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .legend i{display:inline-block;width:10px;height:10px;border:1px solid #333;border-radius:2px}
+
+  .footer-note{font-size:11px;color:var(--ink-soft);margin-top:18px;line-height:1.5}
+  .loading-text{font-size:12px;color:var(--ink-soft);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>acid<span class="x">·</span>frogs</h1>
+  <div class="sub">ACID vocal variations · 16 samples on chain</div>
+
+  <div class="panel">
+    <div class="panel-title">Pick a mode (switchable while playing)</div>
+    <div class="mode-row">
+      <button class="mode-btn" data-mode="none"><span class="mode-letter">—</span>None</button>
+      <button class="mode-btn active" data-mode="A1"><span class="mode-letter">A1</span>Bar hits</button>
+      <button class="mode-btn" data-mode="A2"><span class="mode-letter">A2</span>Pre-clap</button>
+      <button class="mode-btn" data-mode="A3"><span class="mode-letter">A3</span>Echo loop</button>
+      <button class="mode-btn" data-mode="A4"><span class="mode-letter">A4</span>Pepper gaps</button>
+      <button class="mode-btn" data-mode="A5"><span class="mode-letter">A5</span>All in</button>
+    </div>
+    <div class="desc" id="desc"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Seed (any 32 hex chars) · changes which ACID sample + which bassline</div>
+    <div class="transport">
+      <input class="seed-input" id="seed" value="3b6646a2589dc476b26f1fbb237b5fe6">
+      <button class="play-btn" id="play">▶ PLAY</button>
+    </div>
+
+    <div class="vis" id="vis"></div>
+    <div class="bar-marker"><span>BAR 1</span><span>BAR 5 (drop)</span><span>BAR 8 (outro)</span></div>
+
+    <div class="legend">
+      <span><i style="background:#1a1a1a"></i> bass rest</span>
+      <span><i style="background:#3d4f23"></i> bass note</span>
+      <span><i style="background:#84a420"></i> bass high</span>
+      <span><i style="background:#111;border:2px solid var(--neon-pink);box-shadow:0 0 6px var(--neon-pink)"></i> ACID fires</span>
+    </div>
+
+    <div class="loading-text" id="loading">Loading 16 ACID samples from chain… please wait before pressing play</div>
+    <div class="footer-note">
+      Showing 8 bars × 16 steps = 128 step grid. Each frog picks one of 16 ACID samples based on its seed.
+      Switch modes while playing to A/B/C compare.
+    </div>
+  </div>
+</div>
+
+<script src="https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0"></script>
+<script>
+const KICK_URL  = "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0";
+const CLAP_URL  = "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0";
+const HAT_URL   = "https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0";
+const FINAL_URL = "https://ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0";
+
+// 16 ACID vocal samples by strangersolemn — txid + i0..i15
+const ACID_PARENT = "0a79cf2b3f6742e020fbc758f08306685b6b4c483b3ba15ecc6e1ff0bcdccb24";
+const ACID_URLS = Array.from({length:16}, (_, i) => `https://ordinals.com/content/${ACID_PARENT}i${i}`);
+
+const BASS_LOW  = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1","e1","ab2","a2","bb2"];
+const BASS_MID  = ["c3","eb3","f3","g3","bb3","ab3","db3","d3"];
+const BASS_HIGH = ["eb4","g4","f4","c4","bb3","ab4","d4","db4"];
+
+function generateBassline(seed) {
+  const m = seed.replace(/^0x/,"").padEnd(32,"0").toLowerCase();
+  const out = [];
+  for (let i=0; i<16; i++) {
+    const b = parseInt(m.substr(i*2,2),16);
+    const rB = b>>4, nB = b & 0x0F;
+    let slot;
+    if (rB<5) slot="rest";
+    else if (rB<8) slot="ghost";
+    else if (rB<13) slot="low";
+    else if (rB<15) slot="mid";
+    else slot="high";
+    if (slot==="rest") { out.push({slot,note:null,play:true}); continue; }
+    const pool = slot==="high"?BASS_HIGH:slot==="mid"?BASS_MID:BASS_LOW;
+    out.push({slot,note:pool[nB%pool.length],play:slot!=="ghost"});
+  }
+  return out;
+}
+
+// Pick which ACID sample THIS frog uses (one per seed)
+function acidSampleIndex(seed) {
+  const m = seed.replace(/^0x/,"").padEnd(32,"0").toLowerCase();
+  const b = parseInt(m.substr(20*2 % 32, 2), 16); // byte at offset 20 mod 32
+  return b % 16;
+}
+
+// Compute when ACID fires across the full 8-bar phrase (128 steps)
+// Returns Set<stepIdx> where ACID should trigger
+// stepIdx is 0-127 (across all 8 bars)
+function computeAcidFiringSteps(mode, bassline) {
+  const fires = new Set();
+  if (mode === "none") return fires;
+
+  // Bar starts at step: bar*16. So bar 1 = 0, bar 5 = 64, bar 8 = 112.
+  if (mode === "A1") {
+    fires.add(0);     // bar 1 step 0
+    fires.add(64);    // bar 5 step 0 (the drop)
+  }
+  if (mode === "A2") {
+    fires.add(110);   // bar 8 step ~14 (just before outro claps at step 124-127)
+  }
+  if (mode === "A3") {
+    fires.add(0);     // bar 1 — single hit, echoes via delay/reverb naturally
+  }
+  if (mode === "A4") {
+    // "Pepper": fires on bass rests with low probability. We compute per phrase.
+    // bassline is 16 steps repeated 8 times in the loop; rest pattern is the same each bar.
+    for (let bar=0; bar<8; bar++) {
+      for (let s=0; s<16; s++) {
+        const stepIdx = bar*16 + s;
+        const inBar = bassline[s];
+        // bass-rest condition + small probability so it doesn't trigger every rest
+        if (inBar.slot === "rest") {
+          // Use bar+s parity to vary across bars
+          const fireProb = (bar + s) % 5 === 0;
+          if (fireProb) fires.add(stepIdx);
+        }
+      }
+    }
+  }
+  if (mode === "A5") {
+    // All-in: combine A1 + A2 (no echo, no pepper — too busy)
+    fires.add(0);
+    fires.add(64);
+    fires.add(110);
+  }
+  return fires;
+}
+
+// ---------- AUDIO ENGINE ----------
+const audio = {
+  started:false, loaded:false, stepIdx:0, stepTimer:null, mode:"A1", seed:"3b6646a2589dc476b26f1fbb237b5fe6",
+  bassline:null, fires:null, currentAcidIdx:0,
+  bassSynth:null, bassFilter:null,
+  acidPlayers: [],  // 16 Tone.Player for the ACID samples
+  acidEcho:null,    // FeedbackDelay used for mode A3
+  acidReverb:null,  // master reverb on the ACID bus
+  kickP:null, clapP:null, hatP:null, finalP:null,
+};
+
+async function loadAudio() {
+  await Tone.start();
+  Tone.Transport.bpm.value = 123;
+
+  // Drums
+  audio.kickP = new Tone.Player({url:KICK_URL,volume:-4}).toDestination();
+  audio.clapP = new Tone.Player({url:CLAP_URL,volume:-6}).toDestination();
+  audio.hatP  = new Tone.Player({url:HAT_URL,volume:-14}).toDestination();
+  audio.finalP= new Tone.Player({url:FINAL_URL,volume:4}).toDestination();
+
+  // Bass chain
+  audio.bassFilter = new Tone.Filter({frequency:800,type:"lowpass",Q:4}).toDestination();
+  audio.bassSynth = new Tone.MonoSynth({
+    oscillator:{type:"sawtooth"},
+    envelope:{attack:0.005,decay:0.2,sustain:0.1,release:0.2},
+    filterEnvelope:{attack:0.005,decay:0.3,sustain:0.2,release:0.3,baseFrequency:200,octaves:3},
+  });
+  audio.bassSynth.connect(audio.bassFilter);
+  audio.bassSynth.volume.value = -10;
+
+  // ACID bus: echo + reverb after the players
+  audio.acidReverb = new Tone.Reverb({decay:2.5, wet:0.20});
+  await audio.acidReverb.generate();
+  audio.acidReverb.toDestination();
+  // Echo (FeedbackDelay tuned for ~1 bar at 123 BPM = ~1950ms)
+  audio.acidEcho = new Tone.FeedbackDelay({delayTime:"4n.", feedback:0.55, wet:0.0}); // wet driven per-mode
+  audio.acidEcho.connect(audio.acidReverb);
+
+  // Load 16 ACID players in parallel
+  const loadingEl = document.getElementById("loading");
+  loadingEl.textContent = `Loading 16 ACID samples from chain… 0/16`;
+  let loaded = 0;
+  audio.acidPlayers = await Promise.all(
+    ACID_URLS.map(url =>
+      new Promise(res => {
+        const p = new Tone.Player({
+          url, volume: 0,
+          onload: () => {
+            loaded++;
+            loadingEl.textContent = `Loading 16 ACID samples from chain… ${loaded}/16`;
+            res(p);
+          }
+        });
+        p.connect(audio.acidEcho);
+      })
+    )
+  );
+
+  await Tone.loaded();
+  audio.loaded = true;
+  loadingEl.textContent = "✓ Ready · 16 ACID samples loaded";
+  document.getElementById("play").disabled = false;
+}
+
+function rebuildPatterns() {
+  audio.bassline = generateBassline(audio.seed);
+  audio.fires = computeAcidFiringSteps(audio.mode, audio.bassline);
+  audio.currentAcidIdx = acidSampleIndex(audio.seed);
+  applyEchoForMode();
+  renderVis();
+}
+
+function applyEchoForMode() {
+  if (!audio.acidEcho) return;
+  // A3 = echo loop; everything else dry
+  audio.acidEcho.wet.value = (audio.mode === "A3") ? 0.7 : 0.0;
+}
+
+async function start() {
+  if (audio.started) return;
+  if (!audio.loaded) {
+    document.getElementById("play").textContent = "loading…";
+    document.getElementById("play").disabled = true;
+    await loadAudio();
+    document.getElementById("play").disabled = false;
+  }
+  audio.started = true;
+  document.getElementById("play").textContent = "■ STOP";
+  rebuildPatterns();
+
+  audio.stepIdx = 0;
+  const STEP_MS = (60/123/4)*1000;
+  audio.stepTimer = setInterval(audioStep, STEP_MS);
+}
+
+function audioStep() {
+  const stepIn16 = audio.stepIdx % 16;
+  const barCount = Math.floor(audio.stepIdx/16) % 8;
+  const totalStep = (barCount * 16) + stepIn16;
+
+  // Visual current step
+  document.querySelectorAll(".step").forEach((el,i)=>el.classList.toggle("active", i===totalStep));
+
+  // Drums
+  if (barCount<4) { if (stepIn16%4===0) audio.kickP.start(); }
+  else if (barCount===4 && stepIn16===0) audio.kickP.start();
+  if (barCount===0 && stepIn16===2) audio.kickP.start();
+  if (barCount===7 && stepIn16>=12) audio.clapP.start();
+  else if (stepIn16===4 || stepIn16===12) audio.clapP.start();
+  if (stepIn16%4===2 && !(barCount===7 && stepIn16>=12)) audio.hatP.start();
+  if (barCount===7 && stepIn16===12) audio.finalP.start();
+
+  // Bass
+  const bassAllowed = !(barCount===7 && stepIn16>=9);
+  const bs = audio.bassline[stepIn16];
+  if (bassAllowed && bs.note) {
+    const v = bs.play ? 0.85 : 0.45;
+    audio.bassSynth.triggerAttackRelease(bs.note, "16n", Tone.now(), v);
+  }
+
+  // ACID vocal
+  if (audio.fires.has(totalStep)) {
+    const player = audio.acidPlayers[audio.currentAcidIdx];
+    if (player && player.loaded) {
+      try { player.start(); } catch (e) {}
+    }
+  }
+
+  audio.stepIdx++;
+}
+
+function stop() {
+  if (audio.stepTimer) { clearInterval(audio.stepTimer); audio.stepTimer = null; }
+  audio.started = false;
+  document.getElementById("play").textContent = "▶ PLAY";
+  document.querySelectorAll(".step").forEach(el=>el.classList.remove("active"));
+}
+
+// ---------- UI ----------
+const DESC = {
+  none: "<b>Just bass + drums.</b> Reference baseline — no ACID vocal at all.",
+  A1: "<b>Bar hits.</b> ACID fires at <b>bar 1 step 0</b> (start of phrase) and <b>bar 5 step 0</b> (the drop). Two strong vocal punches as anchor points. Sample picked from seed.",
+  A2: "<b>Pre-clap.</b> ACID fires once at bar 8 step 14 — just before the outro claps. Like a vocal flourish announcing the breakdown.",
+  A3: "<b>Echo loop.</b> ACID fires once at bar 1, then echoes through the next 4 bars via heavy feedback delay. The single vocal becomes a ghostly tail haunting the track.",
+  A4: "<b>Pepper.</b> ACID fires randomly in bass rest steps throughout all 8 bars. Vocal scattered like a percussion element — busy, dense, full of texture.",
+  A5: "<b>All-in.</b> Bar 1 hit + Bar 5 drop hit + pre-claps hit. Three big ACID anchors across the phrase. Spacious but punchy.",
+};
+
+function setMode(mode) {
+  audio.mode = mode;
+  document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+  document.getElementById("desc").innerHTML = DESC[mode];
+  if (audio.started) rebuildPatterns();
+  else {
+    audio.bassline = generateBassline(audio.seed);
+    audio.fires = computeAcidFiringSteps(audio.mode, audio.bassline);
+    audio.currentAcidIdx = acidSampleIndex(audio.seed);
+    renderVis();
+  }
+}
+document.querySelectorAll(".mode-btn").forEach(btn => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
+
+document.getElementById("play").addEventListener("click", () => audio.started ? stop() : start());
+document.getElementById("seed").addEventListener("input", (e) => {
+  audio.seed = e.target.value || "0";
+  if (audio.started) rebuildPatterns();
+  else {
+    audio.bassline = generateBassline(audio.seed);
+    audio.fires = computeAcidFiringSteps(audio.mode, audio.bassline);
+    audio.currentAcidIdx = acidSampleIndex(audio.seed);
+    renderVis();
+  }
+});
+
+function renderVis() {
+  const el = document.getElementById("vis");
+  el.innerHTML = "";
+  // Render 128 steps (8 bars × 16 steps)
+  for (let totalStep = 0; totalStep < 128; totalStep++) {
+    const bar = Math.floor(totalStep / 16);
+    const stepInBar = totalStep % 16;
+    const b = audio.bassline[stepInBar];
+    const d = document.createElement("div");
+    let cls = "step";
+    if (b.slot === "rest") cls += " bass-rest";
+    else if (b.slot === "high") cls += " bass-high";
+    else if (b.slot === "mid") cls += " bass-mid";
+    else cls += " bass-low";
+    if (audio.fires && audio.fires.has(totalStep)) cls += " acid-on";
+    d.className = cls;
+    el.appendChild(d);
+    // Bar dividers (small gap visually)
+    if (stepInBar === 15 && bar < 7) {
+      const sep = document.createElement("div");
+      sep.style.width = "8px";
+      el.appendChild(sep);
+    }
+  }
+}
+
+// Initial render
+audio.bassline = generateBassline(audio.seed);
+audio.fires = computeAcidFiringSteps("A1", audio.bassline);
+audio.currentAcidIdx = acidSampleIndex(audio.seed);
+setMode("A1");
+</script>
+</body>
+</html>
