@@ -127,13 +127,10 @@ async function loadAll() {
   await Tone.start();
   Tone.Transport.bpm.value = 123;
 
-  // --- Master FX bus (drums + bass + acid all go through) ---
+  // --- Master bus: dry distortion only. NO reverb, NO echo by default.
+  // Echo is only enabled in the Studio (where users layer multiple frogs and
+  // need user-controllable FX). On-chain stays dry so stacked frogs don't muddy.
   audio.masterDist = new Tone.Distortion(0.15).toDestination();
-  audio.masterReverb = new Tone.Reverb({ decay: 3, wet: 0.15 });
-  await audio.masterReverb.generate();
-  audio.masterReverb.connect(audio.masterDist);
-  audio.masterDelay = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.4, wet: 0.10 });
-  audio.masterDelay.connect(audio.masterReverb);
 
   // --- Drums (route through master) ---
   audio.kickP = new Tone.Player({ url:KICK_URL, volume:-4 });   audio.kickP.connect(audio.masterDist);
@@ -142,7 +139,7 @@ async function loadAll() {
 
   // --- Bass synth (matches original preview exactly) ---
   audio.filter = new Tone.Filter({ frequency: 800, type: "lowpass", Q: 4 });
-  audio.filter.connect(audio.masterDelay);
+  audio.filter.connect(audio.masterDist);
   audio.synth = new Tone.MonoSynth({
     oscillator: { type: "sawtooth" },
     envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 },
