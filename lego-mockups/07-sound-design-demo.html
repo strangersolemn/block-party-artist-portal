@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acid Frogs · Second Sound Demo</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0a0814;--acid:#71ff5e;--neon-pink:#ff2d8d;--neon-cyan:#2df0ff;--neon-yellow:#fff42d;
+    --line:rgba(255,255,255,0.08);--ink:#fff;--ink-soft:rgba(255,255,255,0.55);
+  }
+  body{background:var(--bg);color:var(--ink);min-height:100vh;font-family:-apple-system,"SF Pro Display",sans-serif;
+       background-image:radial-gradient(ellipse at 30% 0%,rgba(255,45,141,0.18) 0%,transparent 60%),
+       radial-gradient(ellipse at 100% 100%,rgba(45,240,255,0.15) 0%,transparent 50%)}
+  .wrap{max-width:760px;margin:0 auto;padding:36px 24px}
+  h1{font-size:28px;letter-spacing:-1px;margin-bottom:6px}
+  h1 .x{color:var(--neon-pink);text-shadow:0 0 12px var(--neon-pink)}
+  .sub{font-size:12px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;margin-bottom:32px}
+  .panel{background:rgba(20,16,42,0.6);border-radius:24px;padding:24px;border:1px solid var(--line);backdrop-filter:blur(10px);margin-bottom:18px}
+  .panel-title{font-size:11px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;font-weight:600;margin-bottom:12px}
+
+  .mode-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+  .mode-btn{padding:14px 8px;border-radius:12px;border:2px solid var(--line);background:rgba(255,255,255,0.04);color:var(--ink);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;text-align:center;transition:all .15s}
+  .mode-btn:hover{border-color:var(--acid);background:rgba(113,255,94,0.08)}
+  .mode-btn.active{border-color:var(--acid);background:linear-gradient(135deg,rgba(113,255,94,0.2),rgba(45,240,255,0.15));box-shadow:0 0 16px rgba(113,255,94,0.4);color:#fff}
+  .mode-letter{font-size:22px;letter-spacing:2px;color:var(--acid);margin-bottom:4px;display:block}
+  .mode-btn.active .mode-letter{color:var(--neon-yellow)}
+
+  .desc{font-size:13px;line-height:1.6;color:var(--ink-soft);min-height:50px}
+  .desc b{color:#fff}
+
+  .transport{display:flex;gap:12px;margin:24px 0 18px;align-items:center}
+  .play-btn{flex:1;background:linear-gradient(135deg,var(--neon-pink),#ff5a9e);color:#fff;border:none;padding:18px;border-radius:18px;font-size:15px;font-weight:700;letter-spacing:1px;cursor:pointer;box-shadow:0 6px 24px rgba(255,45,141,0.5)}
+  .play-btn:hover{transform:translateY(-2px)}
+
+  .seed-input{flex:1.2;background:rgba(0,0,0,0.3);border:1px solid var(--line);border-radius:12px;padding:14px 16px;color:var(--ink);font-family:ui-monospace,monospace;font-size:11px}
+
+  .vis{display:flex;gap:3px;margin:14px 0;justify-content:center}
+  .step{width:18px;height:24px;background:#111;border:1px solid #222;transition:background .05s}
+  .step.bass-rest{background:#1a1a1a}
+  .step.bass-low{background:#3d4f23}
+  .step.bass-mid{background:#5d7521}
+  .step.bass-high{background:#84a420}
+  .step.second-on{box-shadow:0 0 6px var(--neon-pink);border-color:var(--neon-pink)}
+  .step.active{background:#fff !important;box-shadow:0 0 8px var(--neon-yellow);transform:scaleY(1.15)}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;letter-spacing:1px;color:var(--ink-soft);margin-top:6px;justify-content:center}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .legend i{display:inline-block;width:10px;height:10px;border:1px solid #333;border-radius:2px}
+
+  .footer-note{font-size:11px;color:var(--ink-soft);margin-top:18px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>acid<span class="x">·</span>frogs</h1>
+  <div class="sub">Second sound · A/B/C compare</div>
+
+  <div class="panel">
+    <div class="panel-title">Pick a second-sound mode</div>
+    <div class="mode-row">
+      <button class="mode-btn" data-mode="none"><span class="mode-letter">—</span>None</button>
+      <button class="mode-btn active" data-mode="A"><span class="mode-letter">A</span>Stabs in gaps</button>
+      <button class="mode-btn" data-mode="B"><span class="mode-letter">B</span>Lead in gaps</button>
+      <button class="mode-btn" data-mode="C"><span class="mode-letter">C</span>Fixed pattern</button>
+    </div>
+    <div class="desc" id="desc"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Seed (any 32 hex chars)</div>
+    <div class="transport">
+      <input class="seed-input" id="seed" value="3b6646a2589dc476b26f1fbb237b5fe6">
+      <button class="play-btn" id="play">▶ PLAY</button>
+    </div>
+
+    <div class="vis" id="vis"></div>
+
+    <div class="legend">
+      <span><i style="background:#1a1a1a"></i> bass rest</span>
+      <span><i style="background:#3d4f23"></i> bass low</span>
+      <span><i style="background:#5d7521"></i> bass mid</span>
+      <span><i style="background:#84a420"></i> bass high</span>
+      <span><i style="background:#111;box-shadow:0 0 6px var(--neon-pink);border-color:var(--neon-pink)"></i> second sound</span>
+    </div>
+
+    <div class="footer-note">
+      Modes are switchable while playing. Try them while listening.<br>
+      Same seed plays the same bassline + same trait colors. Only the second sound changes between modes.
+    </div>
+  </div>
+</div>
+
+<script src="https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0"></script>
+<script>
+const KICK_URL  = "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0";
+const CLAP_URL  = "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0";
+const HAT_URL   = "https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0";
+const FINAL_URL = "https://ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0";
+
+const BASS_LOW  = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1","e1","ab2","a2","bb2"];
+const BASS_MID  = ["c3","eb3","f3","g3","bb3","ab3","db3","d3"];
+const BASS_HIGH = ["eb4","g4","f4","c4","bb3","ab4","d4","db4"];
+
+// Higher-pitched note pools for the SECOND sound (octaves above bass)
+const STAB_NOTES = ["c5","d5","eb5","e5","f5","g5","ab5","a5","bb5","b5","c6","d6","eb6","f6","g6","a6"];
+const LEAD_NOTES = ["c4","d4","eb4","f4","g4","a4","bb4","c5","d5","eb5","f5","g5"];
+
+function generateBassline(seed) {
+  const m = seed.replace(/^0x/,"").padEnd(32,"0").toLowerCase();
+  const out = [];
+  for (let i=0; i<16; i++) {
+    const b = parseInt(m.substr(i*2,2),16);
+    const rB = b>>4, nB = b & 0x0F;
+    let slot;
+    if (rB<5) slot="rest";
+    else if (rB<8) slot="ghost";
+    else if (rB<13) slot="low";
+    else if (rB<15) slot="mid";
+    else slot="high";
+    if (slot==="rest") { out.push({slot,note:null,play:true}); continue; }
+    const pool = slot==="high"?BASS_HIGH:slot==="mid"?BASS_MID:BASS_LOW;
+    out.push({slot,note:pool[nB%pool.length],play:slot!=="ghost"});
+  }
+  return out;
+}
+
+// Second-sound pattern derived from a DIFFERENT slice of the seed
+// Uses bytes 16-31 (the second half of the seed) for the second sound
+function generateSecondPattern(seed, mode, bassline) {
+  // Mode A & B: trigger on bass rests (call-and-response)
+  // Mode C: fixed pattern offset from kick
+  const m = seed.replace(/^0x/,"").padEnd(32,"0").toLowerCase();
+  const out = [];
+  for (let i=0; i<16; i++) {
+    const halfIdx = (i + 16) % 32;
+    const b = parseInt(m.substr(halfIdx,2) || m.substr(0,2), 16);
+    const noteIdx = b & 0x0F;
+    const playProb = b >> 4;
+
+    if (mode === "A") {
+      // Stab on bass rests (also play if bass is "ghost" sometimes)
+      if (bassline[i].slot === "rest") {
+        out.push({on:true, note: STAB_NOTES[noteIdx], duration:"32n"});
+      } else {
+        out.push({on:false});
+      }
+    } else if (mode === "B") {
+      // Sustained lead on bass rests, longer notes
+      if (bassline[i].slot === "rest") {
+        out.push({on:true, note: LEAD_NOTES[noteIdx % LEAD_NOTES.length], duration:"8n"});
+      } else {
+        out.push({on:false});
+      }
+    } else if (mode === "C") {
+      // Fixed pattern: every 4 steps offset by 1 from kick (steps 1, 5, 9, 13)
+      // With per-step probability gate from seed
+      const isStabSlot = (i % 4 === 1);
+      if (isStabSlot && playProb > 6) {
+        out.push({on:true, note: STAB_NOTES[noteIdx], duration:"16n"});
+      } else {
+        out.push({on:false});
+      }
+    } else {
+      out.push({on:false});
+    }
+  }
+  return out;
+}
+
+// ---------- AUDIO ENGINE ----------
+const audio = {
+  started:false, stepIdx:0, stepTimer:null, mode:"A", seed:"3b6646a2589dc476b26f1fbb237b5fe6",
+  bassline:null, secondPattern:null,
+  bassSynth:null, bassFilter:null,
+  stab2:null, stab2Filter:null, dist2:null,
+  kickP:null, clapP:null, hatP:null, finalP:null,
+};
+
+async function start() {
+  if (audio.started) return;
+  audio.started = true;
+  document.getElementById("play").textContent = "■ STOP";
+
+  await Tone.start();
+  Tone.Transport.bpm.value = 123;
+
+  // Drums
+  audio.kickP = new Tone.Player({url:KICK_URL,volume:-4}).toDestination();
+  audio.clapP = new Tone.Player({url:CLAP_URL,volume:-6}).toDestination();
+  audio.hatP  = new Tone.Player({url:HAT_URL,volume:-14}).toDestination();
+  audio.finalP= new Tone.Player({url:FINAL_URL,volume:4}).toDestination();
+
+  // Bass chain
+  audio.bassFilter = new Tone.Filter({frequency:800,type:"lowpass",Q:4}).toDestination();
+  audio.bassSynth = new Tone.MonoSynth({
+    oscillator:{type:"sawtooth"},
+    envelope:{attack:0.005,decay:0.2,sustain:0.1,release:0.2},
+    filterEnvelope:{attack:0.005,decay:0.3,sustain:0.2,release:0.3,baseFrequency:200,octaves:3},
+  });
+  audio.bassSynth.connect(audio.bassFilter);
+  audio.bassSynth.volume.value = -10;
+
+  // SECOND SYNTH chain (high stab / lead)
+  audio.dist2 = new Tone.Distortion(0.05).toDestination();
+  audio.stab2Filter = new Tone.Filter({frequency:2200,type:"highpass",Q:1});
+  audio.stab2Filter.connect(audio.dist2);
+  audio.stab2 = new Tone.PolySynth(Tone.Synth, {
+    oscillator:{type:"square"},
+    envelope:{attack:0.001,decay:0.1,sustain:0.0,release:0.05},
+  });
+  audio.stab2.connect(audio.stab2Filter);
+  audio.stab2.volume.value = -16;
+
+  await Tone.loaded();
+  rebuildPatterns();
+
+  audio.stepIdx = 0;
+  const STEP_MS = (60/123/4)*1000;
+  audio.stepTimer = setInterval(audioStep, STEP_MS);
+}
+
+function rebuildPatterns() {
+  audio.bassline = generateBassline(audio.seed);
+  audio.secondPattern = generateSecondPattern(audio.seed, audio.mode, audio.bassline);
+  renderVis();
+}
+
+function audioStep() {
+  const stepIn16 = audio.stepIdx % 16;
+  const barCount = Math.floor(audio.stepIdx/16) % 8;
+
+  // Visual: highlight current step
+  document.querySelectorAll(".step").forEach((el,i)=>el.classList.toggle("active", i===stepIn16));
+
+  // Drums
+  if (barCount<4) { if (stepIn16%4===0) audio.kickP.start(); }
+  else if (barCount===4 && stepIn16===0) audio.kickP.start();
+  if (barCount===0 && stepIn16===2) audio.kickP.start();
+  if (barCount===7 && stepIn16>=12) audio.clapP.start();
+  else if (stepIn16===4 || stepIn16===12) audio.clapP.start();
+  if (stepIn16%4===2 && !(barCount===7 && stepIn16>=12)) audio.hatP.start();
+  if (barCount===7 && stepIn16===12) audio.finalP.start();
+
+  // Bass
+  const bassAllowed = !(barCount===7 && stepIn16>=9);
+  const bs = audio.bassline[stepIn16];
+  if (bassAllowed && bs.note) {
+    const v = bs.play ? 0.85 : 0.45;
+    audio.bassSynth.triggerAttackRelease(bs.note, "16n", Tone.now(), v);
+  }
+
+  // Second sound
+  if (audio.mode !== "none" && bassAllowed) {
+    const ss = audio.secondPattern[stepIn16];
+    if (ss && ss.on) {
+      audio.stab2.triggerAttackRelease(ss.note, ss.duration, Tone.now(), 0.7);
+    }
+  }
+
+  audio.stepIdx++;
+}
+
+function stop() {
+  if (audio.stepTimer) { clearInterval(audio.stepTimer); audio.stepTimer = null; }
+  audio.started = false;
+  document.getElementById("play").textContent = "▶ PLAY";
+  document.querySelectorAll(".step").forEach(el=>el.classList.remove("active"));
+}
+
+// ---------- UI WIRING ----------
+const DESC = {
+  none: "<b>Just bass + drums</b>. Reference baseline — no second sound. Use this to hear what each mode ADDS.",
+  A: "<b>Stabs in the bass rests.</b> A short percussive blip fires every time the bass leaves a gap. Two voices in conversation. Pitch picked from the seed (different bytes than bass). Classic acid / Drexciya / Surgeon move.",
+  B: "<b>Sustained lead in the bass rests.</b> Same call-and-response idea but the second voice plays longer notes — more melodic, more 'song-like'. Fewer notes than mode A but each one rings out.",
+  C: "<b>Fixed offset stab pattern.</b> Independent of bass. Fires on a regular grid (offset from kick). More hypnotic and steady. Bass and stab don't interact — they're parallel layers.",
+};
+
+function setMode(mode) {
+  audio.mode = mode;
+  document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+  document.getElementById("desc").innerHTML = DESC[mode];
+  if (audio.started) rebuildPatterns();
+}
+document.querySelectorAll(".mode-btn").forEach(btn => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
+setMode("A");
+
+document.getElementById("play").addEventListener("click", () => audio.started ? stop() : start());
+
+document.getElementById("seed").addEventListener("input", (e) => {
+  audio.seed = e.target.value || "0";
+  if (audio.started) rebuildPatterns();
+});
+
+function renderVis() {
+  const el = document.getElementById("vis");
+  el.innerHTML = "";
+  audio.bassline.forEach((b,i) => {
+    const d = document.createElement("div");
+    let cls = "step";
+    if (b.slot === "rest") cls += " bass-rest";
+    else if (b.slot === "high") cls += " bass-high";
+    else if (b.slot === "mid") cls += " bass-mid";
+    else cls += " bass-low";
+    if (audio.secondPattern && audio.secondPattern[i] && audio.secondPattern[i].on) cls += " second-on";
+    d.className = cls;
+    el.appendChild(d);
+  });
+}
+
+// Initial visual
+audio.seed = document.getElementById("seed").value;
+audio.bassline = generateBassline(audio.seed);
+audio.secondPattern = generateSecondPattern(audio.seed, "A", audio.bassline);
+renderVis();
+</script>
+</body>
+</html>
