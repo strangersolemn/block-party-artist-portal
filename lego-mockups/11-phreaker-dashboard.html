@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acid Frogs · Phreaker Drum Dashboard</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0a0814;--acid:#71ff5e;--neon-pink:#ff2d8d;--neon-cyan:#2df0ff;--neon-yellow:#fff42d;
+    --line:rgba(255,255,255,0.08);--ink:#fff;--ink-soft:rgba(255,255,255,0.55);
+  }
+  body{background:var(--bg);color:var(--ink);min-height:100vh;font-family:-apple-system,"SF Pro Display",sans-serif;
+       background-image:radial-gradient(ellipse at 30% 0%,rgba(255,45,141,0.18) 0%,transparent 60%),
+       radial-gradient(ellipse at 100% 100%,rgba(45,240,255,0.15) 0%,transparent 50%)}
+  .wrap{max-width:1000px;margin:0 auto;padding:36px 24px}
+  h1{font-size:28px;letter-spacing:-1px;margin-bottom:6px}
+  h1 .x{color:var(--neon-pink);text-shadow:0 0 12px var(--neon-pink)}
+  .sub{font-size:12px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;margin-bottom:24px}
+  .panel{background:rgba(20,16,42,0.6);border-radius:24px;padding:24px;border:1px solid var(--line);backdrop-filter:blur(10px);margin-bottom:18px}
+  .panel-title{font-size:11px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;font-weight:600;margin-bottom:12px}
+
+  .preset-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:760px){.preset-grid{grid-template-columns:repeat(4,1fr)}}
+  .preset-btn{padding:16px 12px;border-radius:14px;border:2px solid var(--line);background:rgba(255,255,255,0.04);color:var(--ink);font-family:inherit;cursor:pointer;text-align:left;transition:all .15s;font-size:11px}
+  .preset-btn:hover{border-color:var(--acid);background:rgba(113,255,94,0.06);transform:translateY(-1px)}
+  .preset-btn.active{border-color:var(--acid);background:linear-gradient(135deg,rgba(113,255,94,0.18),rgba(45,240,255,0.12));box-shadow:0 0 16px rgba(113,255,94,0.3)}
+  .preset-btn .num{font-size:11px;color:var(--ink-soft);letter-spacing:2px;margin-bottom:4px}
+  .preset-btn .name{font-size:14px;font-weight:800;letter-spacing:1px;margin-bottom:6px;color:var(--acid)}
+  .preset-btn.active .name{color:var(--neon-yellow)}
+  .preset-btn .what{font-size:10px;color:var(--ink-soft);line-height:1.5}
+
+  .transport{display:flex;gap:12px;margin:20px 0 14px;align-items:center}
+  .play-btn{flex:1;background:linear-gradient(135deg,var(--neon-pink),#ff5a9e);color:#fff;border:none;padding:18px;border-radius:18px;font-size:15px;font-weight:700;letter-spacing:1px;cursor:pointer;box-shadow:0 6px 24px rgba(255,45,141,0.5)}
+  .play-btn:disabled{opacity:.5}
+  .seed-input{flex:1.2;background:rgba(0,0,0,0.3);border:1px solid var(--line);border-radius:12px;padding:14px 16px;color:var(--ink);font-family:ui-monospace,monospace;font-size:11px}
+
+  .vis{display:flex;gap:3px;margin:14px 0;justify-content:center;flex-wrap:wrap}
+  .step{width:18px;height:24px;background:#111;border:1px solid #222;transition:background .05s;position:relative}
+  .step.bass-rest{background:#1a1a1a}
+  .step.bass-low{background:#3d4f23}
+  .step.bass-mid{background:#5d7521}
+  .step.bass-high{background:#84a420}
+  .step.acid-on::after{content:"";position:absolute;inset:-3px;border-radius:3px;border:2px solid var(--neon-pink);box-shadow:0 0 12px var(--neon-pink);pointer-events:none}
+  .step.active{background:#fff !important;box-shadow:0 0 8px var(--acid);transform:scaleY(1.15)}
+  .bar-marker{display:flex;justify-content:space-between;color:var(--ink-soft);font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+
+  .now-playing{font-size:13px;color:var(--ink-soft);margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .now-playing b{color:var(--acid)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>acid<span class="x">·</span>frogs</h1>
+  <div class="sub">Phreaker drum dashboard · pick a beat, hear the bass &amp; vocal</div>
+
+  <div class="panel">
+    <div class="panel-title">Pick a drum preset (switch live)</div>
+    <div class="preset-grid" id="presets"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Same bassline + ACID vocal · drum kit changes per preset</div>
+    <div class="transport">
+      <input class="seed-input" id="seed" value="3b6646a2589dc476b26f1fbb237b5fe6">
+      <button class="play-btn" id="play" disabled>loading…</button>
+    </div>
+
+    <div class="vis" id="vis"></div>
+    <div class="bar-marker"><span>BAR 1</span><span>BAR 5 (drop)</span><span>BAR 8 (outro)</span></div>
+
+    <div class="now-playing" id="now-playing">Pick a preset above and hit PLAY.</div>
+  </div>
+</div>
+
+<script src="https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0"></script>
+<script>
+const SAMPLES = {
+  KICK_STD:  "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0",
+  CLAP:      "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0",
+  HAT_STD:   "https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0",
+  HAT_DIF:   "https://ordinals.com/content/544460a9c39fbe6307c3bf3c88eb43eb4711f21266c32308d5ee14182d9fabeai0",
+  SNARE_DIF: "https://ordinals.com/content/c0da354edd8cace5b39e8e4a711d61cc9caee1de9a950f76e062b1330c25211ai0",
+  TAMB:      "https://ordinals.com/content/8b5cf2d44507fc0ac9020373b51b3c0a1382ee3c8b1e1ec835253ded99543b9ci0",
+  WOOD:      "https://ordinals.com/content/75a4d1f19f98433fac91c5b048c139ae8309b385fb5346167ab1eb1aa8a55540i0",
+  SHAKER1:   "https://ordinals.com/content/809f6e1f0d9ece8c63af98b644c8c0767608b8de8dca4174d0057d134e861529i0",
+  SHAKER2:   "https://ordinals.com/content/ccaa4e6f8f862fffa9a20adc446f2e0c12bb091c40bb0fee7740fc0ba30a40cei0",
+};
+const ACID_PARENT = "0a79cf2b3f6742e020fbc758f08306685b6b4c483b3ba15ecc6e1ff0bcdccb24";
+const ACID_URLS = Array.from({length:16}, (_, i) => `https://ordinals.com/content/${ACID_PARENT}i${i}`);
+
+// ============================================================
+//  DRUM PRESETS — each one is a locked named beat
+// ============================================================
+//   kick:    "std"        4-on-floor (steps 0,4,8,12) bars 1-4 + drop
+//   kick:    "breakbeat"  4-on-floor + ghost hits at steps 7,11
+//   kick:    "sparse"     only steps 0 and 8 of bars 1-4 + drop
+//   hat:     "std" / "dif" / null (no hats)
+//   layers:  array of additional percussion sample names
+//   accents: bar 1 step 0 + bar 5 step 0 wood/tamb hits
+const PRESETS = [
+  { id:"P01", name:"Phreaker 01",  desc:"Standard 4-on-floor", kick:"std", hat:"std", layers:[] },
+  { id:"P02", name:"Phreaker 02",  desc:"Breakbeat ghosts",    kick:"breakbeat", hat:"std", layers:[] },
+  { id:"P03", name:"Phreaker 03",  desc:"Shaker drive",        kick:"std", hat:"std", layers:["SHAKER1"] },
+  { id:"P04", name:"Phreaker 04",  desc:"Minimal · no hats",   kick:"std", hat:null, layers:[] },
+  { id:"P05", name:"Phreaker 05",  desc:"Industrial wood/tamb",kick:"std", hat:"std", layers:["WOOD_HITS","TAMB"] },
+  { id:"P06", name:"Phreaker 06",  desc:"Dif hat throughout",  kick:"std", hat:"dif", layers:[] },
+  { id:"P07", name:"Phreaker 07",  desc:"Snare layer on 2/4",  kick:"std", hat:"std", layers:["SNARE_DIF"] },
+  { id:"P08", name:"Phreaker 08",  desc:"Full kit · everything",kick:"breakbeat", hat:"dif", layers:["SHAKER2","TAMB","SNARE_DIF","WOOD_HITS"] },
+];
+
+// ============================================================
+//  Bassline (same as Acid Frogs — derived from seed)
+// ============================================================
+const BASS_LOW  = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1","e1","ab2","a2","bb2"];
+const BASS_MID  = ["c3","eb3","f3","g3","bb3","ab3","db3","d3"];
+const BASS_HIGH = ["eb4","g4","f4","c4","bb3","ab4","d4","db4"];
+
+function generateBassline(seed) {
+  const m = seed.replace(/^0x/,"").padEnd(32,"0").toLowerCase();
+  const out = [];
+  for (let i=0; i<16; i++) {
+    const b = parseInt(m.substr(i*2,2),16);
+    const rB = b>>4, nB = b & 0x0F;
+    let slot;
+    if (rB<5) slot="rest";
+    else if (rB<8) slot="ghost";
+    else if (rB<13) slot="low";
+    else if (rB<15) slot="mid";
+    else slot="high";
+    if (slot==="rest") { out.push({slot,note:null,play:true}); continue; }
+    const pool = slot==="high"?BASS_HIGH:slot==="mid"?BASS_MID:BASS_LOW;
+    out.push({slot,note:pool[nB%pool.length],play:slot!=="ghost"});
+  }
+  return out;
+}
+function acidSampleIndex(seed) {
+  const m = seed.replace(/^0x/,"").padEnd(32,"0").toLowerCase();
+  return parseInt(m.substr(40, 2), 16) % 16;
+}
+
+// ============================================================
+//  AUDIO ENGINE
+// ============================================================
+const audio = {
+  started:false, loaded:false, stepIdx:0, stepTimer:null,
+  seed:"3b6646a2589dc476b26f1fbb237b5fe6",
+  bassline:null, currentPreset:PRESETS[0], currentAcidIdx:0,
+  synth:null, filter:null, masterDist:null, masterComp:null,
+  players:{}, acidPlayers:[],
+};
+
+async function makePlayer(url, volume) {
+  return new Promise(res => {
+    let resolved = false;
+    const fin = (val) => { if (!resolved) { resolved = true; res(val); } };
+    const p = new Tone.Player({
+      url, volume,
+      onload: () => fin(p),
+      onerror: () => fin(null),
+    });
+    setTimeout(() => fin(p), 30000);
+  });
+}
+
+async function loadAll() {
+  await Tone.start();
+  Tone.Transport.bpm.value = 123;
+
+  // ---- MASTER CHAIN ----
+  // Compressor for glue + Distortion for warmth + dry output
+  // No reverb, no echo on chain. Studio adds those via separate FX later.
+  audio.masterComp = new Tone.Compressor({ threshold:-18, ratio:3, attack:0.01, release:0.2 }).toDestination();
+  audio.masterDist = new Tone.Distortion(0.12);
+  audio.masterDist.connect(audio.masterComp);
+
+  // ---- BASS ----
+  audio.filter = new Tone.Filter({ frequency: 800, type: "lowpass", Q: 4 });
+  audio.filter.connect(audio.masterDist);
+  audio.synth = new Tone.MonoSynth({
+    oscillator: { type: "sawtooth" },
+    envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 },
+    filterEnvelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 0.3, baseFrequency: 200, octaves: 3 },
+  });
+  audio.synth.connect(audio.filter);
+  audio.synth.volume.value = -10;
+
+  // ---- DRUM SAMPLES ----
+  const drumPlan = [
+    ["KICK_STD",-4],["CLAP",-6],["HAT_STD",-14],["HAT_DIF",-14],
+    ["SNARE_DIF",-8],["TAMB",-16],["WOOD",-10],["SHAKER1",-18],["SHAKER2",-18],
+  ];
+  let progress = 0;
+  const total = drumPlan.length + 16;
+  const updateBtn = () => { document.getElementById("play").textContent = `loading… ${progress}/${total}`; };
+  updateBtn();
+
+  for (const [name, vol] of drumPlan) {
+    const p = await makePlayer(SAMPLES[name], vol);
+    audio.players[name] = p;
+    if (p) p.connect(audio.masterDist);
+    progress++; updateBtn();
+  }
+  audio.acidPlayers = await Promise.all(ACID_URLS.map(async url => {
+    const p = await makePlayer(url, 4);
+    if (p) p.connect(audio.masterDist);
+    progress++; updateBtn();
+    return p;
+  }));
+
+  await Tone.loaded();
+  audio.loaded = true;
+  document.getElementById("play").textContent = "▶ PLAY";
+  document.getElementById("play").disabled = false;
+}
+
+function rebuildState() {
+  audio.bassline = generateBassline(audio.seed);
+  audio.currentAcidIdx = acidSampleIndex(audio.seed);
+  renderVis();
+  renderNowPlaying();
+}
+
+async function start() {
+  if (audio.started || !audio.loaded) return;
+  audio.started = true;
+  document.getElementById("play").textContent = "■ STOP";
+  rebuildState();
+  audio.stepIdx = 0;
+  audio.stepTimer = setInterval(audioStep, (60/123/4)*1000);
+}
+function stop() {
+  if (audio.stepTimer) clearInterval(audio.stepTimer);
+  audio.stepTimer = null;
+  audio.started = false;
+  document.getElementById("play").textContent = "▶ PLAY";
+  document.querySelectorAll(".step").forEach(el=>el.classList.remove("active"));
+}
+
+function safeStart(player, vol) {
+  if (player && player.loaded) {
+    if (vol !== undefined) player.volume.value = vol;
+    try { player.start(); } catch (e) {}
+  }
+}
+
+function audioStep() {
+  const stepIn16 = audio.stepIdx % 16;
+  const barCount = Math.floor(audio.stepIdx/16) % 8;
+  const totalStep = barCount * 16 + stepIn16;
+  const P = audio.currentPreset;
+
+  document.querySelectorAll(".step").forEach((el,i)=>el.classList.toggle("active", i===totalStep));
+
+  // ============= KICK =============
+  const inFirstHalf = barCount < 4;
+  if (inFirstHalf) {
+    if (P.kick === "std" || P.kick === "breakbeat") {
+      if (stepIn16 % 4 === 0) safeStart(audio.players.KICK_STD, -4);
+    }
+    if (P.kick === "breakbeat" && (stepIn16 === 7 || stepIn16 === 11)) {
+      safeStart(audio.players.KICK_STD, -10);  // ghost hit, quieter
+    }
+    if (P.kick === "sparse") {
+      if (stepIn16 === 0 || stepIn16 === 8) safeStart(audio.players.KICK_STD, -4);
+    }
+  } else if (barCount === 4 && stepIn16 === 0) {
+    safeStart(audio.players.KICK_STD, -4);  // the drop
+  }
+  if (barCount === 0 && stepIn16 === 2) safeStart(audio.players.KICK_STD, -4);
+
+  // ============= CLAP =============
+  if (barCount === 7 && stepIn16 >= 12) safeStart(audio.players.CLAP);
+  else if (stepIn16 === 4 || stepIn16 === 12) safeStart(audio.players.CLAP);
+
+  // ============= HAT =============
+  if (P.hat && stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) {
+    if (P.hat === "dif") safeStart(audio.players.HAT_DIF);
+    else safeStart(audio.players.HAT_STD);
+  }
+
+  // ============= ACID =============
+  if (barCount === 7 && stepIn16 === 12) {
+    safeStart(audio.acidPlayers[audio.currentAcidIdx]);
+  }
+
+  // ============= LAYERS =============
+  const layers = P.layers || [];
+  // Snare on 2/4 of bars 1-7
+  if (layers.includes("SNARE_DIF") && (stepIn16 === 4 || stepIn16 === 12) && !(barCount === 7 && stepIn16 >= 12)) {
+    safeStart(audio.players.SNARE_DIF);
+  }
+  // Shakers — every 16th note until outro stop
+  if (layers.includes("SHAKER1") && !(barCount === 7 && stepIn16 >= 9)) {
+    safeStart(audio.players.SHAKER1);
+  }
+  if (layers.includes("SHAKER2") && !(barCount === 7 && stepIn16 >= 9)) {
+    safeStart(audio.players.SHAKER2);
+  }
+  // Tambourine — on the off-beats with the hat
+  if (layers.includes("TAMB") && stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) {
+    safeStart(audio.players.TAMB);
+  }
+  // Wood hits — bar 1 step 0 + bar 5 step 0 (rare percussive accents)
+  if (layers.includes("WOOD_HITS") && stepIn16 === 0 && (barCount === 0 || barCount === 4)) {
+    safeStart(audio.players.WOOD);
+  }
+
+  // ============= BASS =============
+  const bassAllowed = !(barCount === 7 && stepIn16 >= 9);
+  const bs = audio.bassline[stepIn16];
+  if (bassAllowed && bs.note) {
+    const v = bs.play ? 0.85 : 0.45;
+    audio.synth.triggerAttackRelease(bs.note, "16n", Tone.now(), v);
+  }
+
+  audio.stepIdx++;
+}
+
+// ============================================================
+//  UI
+// ============================================================
+function renderPresets() {
+  const grid = document.getElementById("presets");
+  grid.innerHTML = "";
+  PRESETS.forEach(p => {
+    const btn = document.createElement("button");
+    btn.className = "preset-btn" + (p.id === audio.currentPreset.id ? " active" : "");
+    btn.dataset.id = p.id;
+    btn.innerHTML = `<div class="num">${p.id}</div><div class="name">${p.name.replace("Phreaker ","").trim()}</div><div class="what">${p.desc}</div>`;
+    btn.addEventListener("click", () => {
+      audio.currentPreset = p;
+      document.querySelectorAll(".preset-btn").forEach(b => b.classList.toggle("active", b.dataset.id === p.id));
+      renderNowPlaying();
+    });
+    grid.appendChild(btn);
+  });
+}
+function renderVis() {
+  const el = document.getElementById("vis");
+  el.innerHTML = "";
+  const acidStep = 7 * 16 + 12;
+  for (let totalStep = 0; totalStep < 128; totalStep++) {
+    const bar = Math.floor(totalStep / 16);
+    const stepInBar = totalStep % 16;
+    const b = audio.bassline[stepInBar];
+    const d = document.createElement("div");
+    let cls = "step";
+    if (b.slot === "rest") cls += " bass-rest";
+    else if (b.slot === "high") cls += " bass-high";
+    else if (b.slot === "mid") cls += " bass-mid";
+    else cls += " bass-low";
+    if (totalStep === acidStep) cls += " acid-on";
+    d.className = cls;
+    el.appendChild(d);
+    if (stepInBar === 15 && bar < 7) {
+      const sep = document.createElement("div");
+      sep.style.width = "8px";
+      el.appendChild(sep);
+    }
+  }
+}
+function renderNowPlaying() {
+  const P = audio.currentPreset;
+  const el = document.getElementById("now-playing");
+  el.innerHTML = `Now playing: <b>${P.name} — ${P.desc}</b><br>
+    Kick: <b>${P.kick}</b> · Hat: <b>${P.hat || "none"}</b> · Layers: <b>${P.layers.length ? P.layers.join(", ") : "none"}</b> · ACID sample: <b>i${audio.currentAcidIdx}</b>`;
+}
+
+document.getElementById("play").addEventListener("click", () => audio.started ? stop() : start());
+document.getElementById("seed").addEventListener("input", (e) => {
+  audio.seed = e.target.value || "0";
+  rebuildState();
+});
+
+// Init
+loadAll();
+audio.bassline = generateBassline(audio.seed);
+audio.currentAcidIdx = acidSampleIndex(audio.seed);
+renderPresets();
+renderVis();
+renderNowPlaying();
+</script>
+</body>
+</html>
