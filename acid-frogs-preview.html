@@ -328,6 +328,28 @@ const CLAP_URL  = "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a71
 const HAT_URL   = "https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0";
 const FINAL_URL = "https://ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0";
 
+// Extra percussion samples (can be swapped via drum-kit toggle)
+const HAT_DIF_URL   = "https://ordinals.com/content/544460a9c39fbe6307c3bf3c88eb43eb4711f21266c32308d5ee14182d9fabeai0";
+const SNARE_DIF_URL = "https://ordinals.com/content/c0da354edd8cace5b39e8e4a711d61cc9caee1de9a950f76e062b1330c25211ai0";
+const TAMB_URL      = "https://ordinals.com/content/8b5cf2d44507fc0ac9020373b51b3c0a1382ee3c8b1e1ec835253ded99543b9ci0";
+const WOOD_URL      = "https://ordinals.com/content/75a4d1f19f98433fac91c5b048c139ae8309b385fb5346167ab1eb1aa8a55540i0";
+const SHAKER1_URL   = "https://ordinals.com/content/809f6e1f0d9ece8c63af98b644c8c0767608b8de8dca4174d0057d134e861529i0";
+const SHAKER2_URL   = "https://ordinals.com/content/ccaa4e6f8f862fffa9a20adc446f2e0c12bb091c40bb0fee7740fc0ba30a40cei0";
+
+// Drum kit presets — switchable live. Each is a complete locked beat.
+// Audio chain (the BEAUTIFUL one) stays exactly the same; only sample selection varies.
+const DRUM_KITS = [
+  { id:"P01", label:"01 · Standard",      kick:"std", hat:"std", layers:[] },
+  { id:"P02", label:"02 · Breakbeat",     kick:"breakbeat", hat:"std", layers:[] },
+  { id:"P03", label:"03 · Shaker drive",  kick:"std", hat:"std", layers:["SHAKER1"] },
+  { id:"P04", label:"04 · Minimal",       kick:"std", hat:null,  layers:[] },
+  { id:"P05", label:"05 · Industrial",    kick:"std", hat:"std", layers:["WOOD","TAMB"] },
+  { id:"P06", label:"06 · Dif hat",       kick:"std", hat:"dif", layers:[] },
+  { id:"P07", label:"07 · Snare layer",   kick:"std", hat:"std", layers:["SNARE_DIF"] },
+  { id:"P08", label:"08 · Full kit",      kick:"breakbeat", hat:"dif", layers:["SHAKER2","TAMB","SNARE_DIF","WOOD"] },
+];
+let currentKit = DRUM_KITS[0];
+
 // -------------------------- pure helpers --------------------------
 function pickWeighted(table, byteVal) {
   let cum = 0;
@@ -455,6 +477,7 @@ let current = null;   // current featured frog state
 let audioStarted = false;
 let toneLoaded = false;
 let synth, kickP, clapP, hatP, finalP, filter, dist, delayFX, reverbFX;
+let hatDifP, snareDifP, tambP, woodP, shaker1P, shaker2P;
 let stepTimer = null;
 let stepIdx = 0;
 let kickFlash = 0;
@@ -529,6 +552,12 @@ async function setFeatured(height) {
     <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px;font-size:11px">
       <b>Sprite load status:</b><br>${layerStatus}
     </div>
+    <div class="fx" style="margin-bottom:14px">
+      <h4>DRUM KIT · SWITCH LIVE</h4>
+      <div id="kit-picker" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px">
+        ${DRUM_KITS.map(k => `<button class="kit-btn" data-kit-id="${k.id}" style="padding:8px;border-radius:8px;border:1px solid ${k.id === currentKit.id ? '#9f9' : '#333'};background:${k.id === currentKit.id ? 'rgba(113,255,94,0.15)' : 'transparent'};color:#fff;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:0.5px;text-align:left">${k.label}</button>`).join('')}
+      </div>
+    </div>
     <div class="fx">
       <h4>ACID FX · LIVE KNOBS</h4>
       <div class="fx-row"><label>cutoff</label><input type="range" id="fx-cutoff"    min="200" max="4000" step="10" value="800"><span class="val" id="fx-cutoff-val">800</span></div>
@@ -540,6 +569,22 @@ async function setFeatured(height) {
   `;
   // Wire up knob listeners (fx nodes may not exist yet — applyFX checks)
   wireFXKnobs();
+
+  // Wire up kit picker buttons
+  document.querySelectorAll(".kit-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.kitId;
+      const kit = DRUM_KITS.find(k => k.id === id);
+      if (kit) {
+        currentKit = kit;
+        document.querySelectorAll(".kit-btn").forEach(b => {
+          const active = b.dataset.kitId === id;
+          b.style.borderColor = active ? "#9f9" : "#333";
+          b.style.background = active ? "rgba(113,255,94,0.15)" : "transparent";
+        });
+      }
+    });
+  });
 
   // Step display: mark steps by the block's own bassline
   stepsEl.innerHTML = "";
@@ -620,6 +665,14 @@ async function startAudio() {
   hatP   = new Tone.Player({ url: HAT_URL,   volume: -14 }).toDestination();
   finalP = new Tone.Player({ url: FINAL_URL, volume: 4   }).toDestination(); // +6dB from prior -2dB = ~doubled
 
+  // Extra percussion players for kit toggling
+  hatDifP   = new Tone.Player({ url: HAT_DIF_URL,   volume: -14 }).toDestination();
+  snareDifP = new Tone.Player({ url: SNARE_DIF_URL, volume: -8  }).toDestination();
+  tambP     = new Tone.Player({ url: TAMB_URL,      volume: -16 }).toDestination();
+  woodP     = new Tone.Player({ url: WOOD_URL,      volume: -10 }).toDestination();
+  shaker1P  = new Tone.Player({ url: SHAKER1_URL,   volume: -18 }).toDestination();
+  shaker2P  = new Tone.Player({ url: SHAKER2_URL,   volume: -18 }).toDestination();
+
   // 303 chain: MonoSynth → Filter → Distortion → Delay → Reverb → Destination
   filter = new Tone.Filter({
     frequency: 400 + (parseInt(current.nonceHex[1],16) * 150),
@@ -664,9 +717,14 @@ async function startAudio() {
     // ---- KICK ----
     // Bars 1-4: four-on-the-floor. Bar 1 has an extra kick on step 2 (rolling intro).
     // Bar 5: ONE kick at step 0 only. Bars 6-8: no kick.
+    // currentKit drives the variation.
     const isFirstHalf = barCount < 4;
     if (isFirstHalf) {
       if (stepIn16 % 4 === 0) { kickP.start(); kickFlash = 1; }
+      // Breakbeat ghost hits on steps 7 and 11 (only for kit P02 / P08)
+      if (currentKit.kick === "breakbeat" && (stepIn16 === 7 || stepIn16 === 11)) {
+        kickP.start();
+      }
     } else {
       if (barCount === 4 && stepIn16 === 0) { kickP.start(); kickFlash = 1; }
     }
@@ -683,12 +741,32 @@ async function startAudio() {
 
     // ---- HAT ----
     // Off-beats every 4 steps offset by 2 (steps 2,6,10,14) — skip during final claps.
-    if (stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) {
-      hatP.start();
+    // Kit can mute hats entirely (P04 minimal) or swap to dif hat sample (P06).
+    if (currentKit.hat && stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) {
+      if (currentKit.hat === "dif") hatDifP.start();
+      else hatP.start();
     }
 
     // ---- FINAL HIT ("acid" sample) ----
     if (barCount === 7 && stepIn16 === 12) finalP.start();
+
+    // ---- OPTIONAL PERCUSSION LAYERS (per kit) ----
+    const layers = currentKit.layers || [];
+    // Snare on 2/4 of bars 1-7
+    if (layers.includes("SNARE_DIF") && (stepIn16 === 4 || stepIn16 === 12) && !(barCount === 7 && stepIn16 >= 12)) {
+      snareDifP.start();
+    }
+    // Shakers — every 16th note until outro stop
+    if (layers.includes("SHAKER1") && !(barCount === 7 && stepIn16 >= 9)) shaker1P.start();
+    if (layers.includes("SHAKER2") && !(barCount === 7 && stepIn16 >= 9)) shaker2P.start();
+    // Tambourine — on the off-beats with the hat
+    if (layers.includes("TAMB") && stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) {
+      tambP.start();
+    }
+    // Wood hits — bar 1 step 0 + bar 5 step 0 (rare percussive accents)
+    if (layers.includes("WOOD") && stepIn16 === 0 && (barCount === 0 || barCount === 4)) {
+      woodP.start();
+    }
 
     // ---- BASS (303) — Sinister Walk pattern from strangersolemn's library ----
     // Stop bass from bar 8 step 9 onwards (the drop).
