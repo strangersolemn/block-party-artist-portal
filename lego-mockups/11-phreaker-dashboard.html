@@ -194,12 +194,13 @@ async function loadAll() {
   const updateBtn = () => { document.getElementById("play").textContent = `loading… ${progress}/${total}`; };
   updateBtn();
 
-  for (const [name, vol] of drumPlan) {
+  // Parallel-load all drums
+  await Promise.all(drumPlan.map(async ([name, vol]) => {
     const p = await makePlayer(SAMPLES[name], vol);
     audio.players[name] = p;
     if (p) p.connect(audio.masterDist);
     progress++; updateBtn();
-  }
+  }));
   audio.acidPlayers = await Promise.all(ACID_URLS.map(async url => {
     const p = await makePlayer(url, 4);
     if (p) p.connect(audio.masterDist);
