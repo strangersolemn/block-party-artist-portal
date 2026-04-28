@@ -830,13 +830,22 @@ async function startAudio() {
     const localStep = stepIdx;  // capture for the visual closure
 
     // ---- VISUALS — schedule on the audio clock so frog/step display stay synced ----
+    // 3-frame sprite dance:
+    //   frame 2 fires on every step a CLAP actually plays (the big movement)
+    //   frame 1 fires on every step a HAT  actually plays (small nod)
+    //   frame 0 = rest at all other steps
+    // Gates on whether the sound ACTUALLY fires (not step positions), so:
+    //   - During the silent drop gap (bar 8 steps 9-11): frog rests.
+    //   - Kits with hat=null (P04 Minimal): frog doesn't pop on hat steps.
+    //   - When the drums stop, the dance stops with them.
+    const clapFires = (barCount === 7 && stepIn16 >= 12) ||
+                      (stepIn16 === 4 || stepIn16 === 12);
+    const hatFires  = currentKit.hat && stepIn16 % 4 === 2 &&
+                      !(barCount === 7 && stepIn16 >= 12);
     Tone.Draw.schedule(() => {
-      const isHatStep = stepIn16 % 4 === 2;
-      if (isHatStep) stepsSinceHat = 0;
-      else stepsSinceHat++;
-      if (stepsSinceHat === 0)      frameIdx = 1;
-      else if (stepsSinceHat === 1) frameIdx = 2;
-      else                          frameIdx = 0;
+      if      (clapFires) frameIdx = 2;
+      else if (hatFires)  frameIdx = 1;
+      else                frameIdx = 0;
       stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
     }, time);
 
