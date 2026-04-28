@@ -312,26 +312,6 @@ const PREVIEW_PATTERN = [
   { note: null,  play: true  }, { note: 'gb1', play: false },
   { note: null,  play: false }, { note: null,  play: false },
 ];
-// Generate a 16-step BLEEP ARPEGGIO pattern from merkleroot bytes 16-31
-// (different slice than the bass, which uses bytes 0-15).
-// Sparse on purpose — sits on top of the bass without clutter.
-function generateArpFromBlock(merkleHex) {
-  const m = (merkleHex || "").replace(/^0x/, "").padEnd(64, "0");
-  const out = [];
-  for (let i = 0; i < 16; i++) {
-    const byte = parseInt(m.substr(32 + i * 2, 2), 16);
-    const playBits = byte >> 4;     // 0..15
-    const noteBits = byte & 0x0F;   // 0..15
-    // Sparser than bass: only ~38% of steps play (6/16 of nibble values)
-    const play = playBits >= 10;
-    out.push({
-      play,
-      note: ARP_NOTES[noteBits % ARP_NOTES.length],
-    });
-  }
-  return out;
-}
-
 // Drop a note one octave (for underground variation). Returns null if can't drop further.
 function lowerOctave(noteStr) {
   if (!noteStr) return null;
@@ -359,10 +339,6 @@ const SHAKER2_URL   = "https://ordinals.com/content/ccaa4e6f8f862fffa9a20adc446f
 // 16 ACID vocal samples — one fires at the drop (bar 8 step 12), txid-derived choice.
 const VOCAL_BASE = "0a79cf2b3f6742e020fbc758f08306685b6b4c483b3ba15ecc6e1ff0bcdccb24";
 const VOCAL_URLS = Array.from({length:16}, (_,i) => `https://ordinals.com/content/${VOCAL_BASE}i${i}`);
-
-// Higher-octave note pool for the BLEEP ARPEGGIO (second melody).
-// Cm pentatonic up high so it never clashes with the bass.
-const ARP_NOTES = ["c5","eb5","g5","bb5","c6","eb6","g6","bb6"];
 
 // Drum kit presets — switchable live. Each is a complete locked beat.
 // Audio chain (the BEAUTIFUL one) stays exactly the same; only sample selection varies.
@@ -507,7 +483,7 @@ let toneLoaded = false;
 let synth, kickP, clapP, hatP, finalP, filter, dist, delayFX, reverbFX;
 let hatDifP, snareDifP, tambP, woodP, shaker1P, shaker2P;
 let vocalsP = [];  // 16 ACID vocal players, one fires at the drop
-let arpSynth, arpFilter, arpPan;
+let driveMakeup, masterLimiter;  // inverse makeup gain + brick-wall limiter for drive sweep
 let stepTimer = null;
 let stepIdx = 0;
 let kickFlash = 0;
@@ -516,6 +492,7 @@ let frameTimer = 0;
 let stepsSinceHat = 999;  // how many 16th-notes since last hat — drives dance pose
 let userCutoff = null;    // if set, overrides auto-sweep base freq
 let userReso   = null;    // if set, overrides auto resonance
+let userDrive  = null;    // if set, overrides auto-drive sweep (still gets makeup-gain compensation)
 
 // Bass variation — subtle change every 2 bars for underground/dark feel.
 // On odd pairs (bars 3-4, 7-8, 11-12, 15-16): force one step to lowest octave root.
@@ -546,7 +523,6 @@ async function setFeatured(height) {
   const traits = pickTraits(merkle);
   const sprites = await loadFrogSprites(traits);
   const bassline = generateBasslineFromBlock(merkle);
-  const arpline  = generateArpFromBlock(merkle);
 
   // Per-frog drum kit: txid byte picks 1 of 8 kits → every frog feels different
   const kitIdx = parseInt(merkle.substr(0, 2), 16) % DRUM_KITS.length;
@@ -557,7 +533,7 @@ async function setFeatured(height) {
 
   mainBG.src = bgPath(traits.bg.slot);
 
-  current = { height, block, merkle, nonceHex, traits, sprites, bassline, arpline, vocalIdx };
+  current = { height, block, merkle, nonceHex, traits, sprites, bassline, vocalIdx };
 
   const ts = block.timestamp || block.time || block.median_time || block.mediantime || 0;
   const date = new Date(ts * 1000);
@@ -580,7 +556,6 @@ async function setFeatured(height) {
       <div class="k">nonce</div><div>0x${nonceHex}</div>
       <div class="k">bass notes</div><div style="font-size:10px">${bassline.filter(s => s.note).map(s => s.note).join(" · ")}</div>
       <div class="k">kit (auto)</div><div style="font-size:10px;color:#9f9">${currentKit.label}</div>
-      <div class="k">arp notes</div><div style="font-size:10px">${arpline.filter(s => s.play).map(s => s.note).join(" · ") || "(silent)"}</div>
       <div class="k">vocal #</div><div style="font-size:10px">${vocalIdx + 1}/16</div>
     </div>
     <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px">
@@ -650,6 +625,18 @@ function animate() {
 // 16th-note step timer (only when audio is playing). When audio is stopped, frog
 // stays on frame 0. See stepTimer callback below.
 
+// Drive + makeup-gain helper: setting drive ALWAYS pairs the distortion amount
+// with an inverse gain so perceived loudness stays flat as drive sweeps up.
+// Formula chosen by ear: drive 0 → 0 dB, 0.3 → -3 dB, 0.6 → -5.5 dB, 1.0 → -8 dB.
+function setDrive(amount) {
+  const a = Math.max(0, Math.min(1, amount));
+  if (dist) dist.distortion = a;
+  if (driveMakeup) {
+    const makeup = 1 / (1 + a * 1.5);
+    driveMakeup.gain.setValueAtTime(makeup, Tone.now ? Tone.now() : 0);
+  }
+}
+
 // ---- FX knob wiring ----
 function wireFXKnobs() {
   const bindings = [
@@ -657,7 +644,7 @@ function wireFXKnobs() {
     ["fx-reso",   (v) => { userReso   = Number(v); if (filter) filter.Q.setValueAtTime(userReso, Tone.now ? Tone.now() : 0); }],
     ["fx-delay",  (v) => { if (delayFX) delayFX.wet.value = Number(v) / 100; }],
     ["fx-reverb", (v) => { if (reverbFX) reverbFX.wet.value = Number(v) / 100; }],
-    ["fx-drive",  (v) => { if (dist) dist.distortion = Number(v) / 100; }],
+    ["fx-drive",  (v) => { userDrive = Number(v) / 100; setDrive(userDrive); }],
   ];
   for (const [id, fn] of bindings) {
     const el = document.getElementById(id);
@@ -678,10 +665,11 @@ function applyFXFromKnobs() {
   };
   userCutoff = getVal("fx-cutoff", null);
   userReso   = getVal("fx-reso", null);
+  userDrive  = null;  // let auto-sweep run by default
   if (filter)  { filter.frequency.setValueAtTime(userCutoff, Tone.now()); filter.Q.setValueAtTime(userReso, Tone.now()); }
   if (delayFX) { delayFX.wet.value = getVal("fx-delay", 0) / 100; }
   if (reverbFX){ reverbFX.wet.value = getVal("fx-reverb", 0) / 100; }
-  if (dist)    { dist.distortion = getVal("fx-drive", 15) / 100; }
+  // Drive: respect knob if user has touched it; otherwise leave to auto-sweep
 }
 
 async function startAudio() {
@@ -717,32 +705,26 @@ async function startAudio() {
   // 16 ACID vocal players — load all once, the txid picks which one fires at the drop.
   vocalsP = VOCAL_URLS.map(url => new Tone.Player({ url, volume: -2 }).toDestination());
 
-  // BLEEP ARPEGGIO — second melody. FM sine pluck, high-passed, slightly off-center pan.
-  // Sits on top of the bass without muddying it.
-  arpFilter = new Tone.Filter({ type: "highpass", frequency: 800, Q: 0.5 });
-  arpPan    = new Tone.Panner(0.25);
-  arpSynth  = new Tone.Synth({
-    oscillator: { type: "fmsine", harmonicity: 2, modulationIndex: 4 },
-    envelope:   { attack: 0.002, decay: 0.08, sustain: 0.0, release: 0.08 },
-  });
-  arpSynth.chain(arpFilter, arpPan, Tone.Destination);
-  arpSynth.volume.value = -14;
-
-  // 303 chain: MonoSynth → Filter → Distortion → Delay → Reverb → Destination
+  // 303 chain: MonoSynth → Filter → Distortion → MakeupGain → Delay → Reverb → Limiter → Destination
+  // - MakeupGain compensates inversely for the loudness boost that distortion adds,
+  //   so when drive sweeps up the perceived volume stays roughly constant.
+  // - Limiter is a brick-wall safety on the master out: nothing exceeds -1 dBFS.
   filter = new Tone.Filter({
     frequency: 400 + (parseInt(current.nonceHex[1],16) * 150),
     type: "lowpass", Q: 3
   });
   dist = new Tone.Distortion(0.15);
-  delayFX = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.5, wet: 0 });
-  reverbFX = new Tone.Reverb({ decay: 3, wet: 0 });
+  driveMakeup   = new Tone.Gain(1.0);            // 1.0 = 0 dB at zero drive, drops as drive sweeps up
+  delayFX       = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.5, wet: 0 });
+  reverbFX      = new Tone.Reverb({ decay: 3, wet: 0 });
+  masterLimiter = new Tone.Limiter(-1);          // brick-wall at -1 dBFS
   await reverbFX.generate();
   synth = new Tone.MonoSynth({
     oscillator: { type: "sawtooth" },
     envelope:       { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 },
     filterEnvelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 0.3, baseFrequency: 200, octaves: 3 },
   });
-  synth.chain(filter, dist, delayFX, reverbFX, Tone.Destination);
+  synth.chain(filter, dist, driveMakeup, delayFX, reverbFX, masterLimiter, Tone.Destination);
   synth.volume.value = -10;
 
   // Apply any knob values the user set before pressing play
@@ -811,20 +793,6 @@ async function startAudio() {
       try { vocalsP[current.vocalIdx].start(); } catch (e) { /* still loading */ }
     }
 
-    // ---- BLEEP ARPEGGIO (second melody) ----
-    // Higher-octave pluck. Plays bars 1-7 from the per-frog arpline pattern.
-    // Drops out at bar 8 step 9 with the bass for a clean break.
-    const arpAllowed = !(barCount === 7 && stepIn16 >= 9);
-    if (arpAllowed && current && current.arpline) {
-      const arpStep = current.arpline[stepIn16];
-      if (arpStep && arpStep.play) {
-        // Skip the first bar so it enters as a development, not a wall of sound.
-        if (barCount > 0) {
-          try { arpSynth.triggerAttackRelease(arpStep.note, "32n", Tone.now()); } catch (e) {}
-        }
-      }
-    }
-
     // ---- OPTIONAL PERCUSSION LAYERS (per kit) ----
     const layers = currentKit.layers || [];
     // Snare on 2/4 of bars 1-7
@@ -849,7 +817,7 @@ async function startAudio() {
     const pattern = patternForBarDeep(current.bassline, barCount, current.nonceHex);
     const step = pattern[stepIn16];
 
-    // ---- FILTER SWEEP (runs every step, even during rests) ----
+    // ---- FILTER + DRIVE SWEEP (runs every step, even during rests) ----
     // Classic 303 squelch: cutoff ramps 400 -> 3500 Hz across 8 bars
     // with a continuous LFO wobble for that acid sizzle.
     if (userCutoff === null) {
@@ -863,6 +831,14 @@ async function startAudio() {
       const progress = barCount / 7;
       const resonance = 4 + (progress * 6);                     // 4 -> 10 (more squelchy)
       filter.Q.setValueAtTime(resonance, Tone.now());
+    }
+    // Drive sweep: 0.10 -> 0.55 across 8 bars, with a slow ±0.05 wobble.
+    // setDrive() also applies inverse makeup gain so loudness stays flat.
+    if (userDrive === null) {
+      const progress = barCount / 7;
+      const baseDrive = 0.10 + (progress * 0.45);               // 0.10 -> 0.55
+      const wobble    = Math.sin(stepIdx * 0.12) * 0.05;        // ±0.05
+      setDrive(baseDrive + wobble);
     }
 
     if (bassAllowed && step.note) {
