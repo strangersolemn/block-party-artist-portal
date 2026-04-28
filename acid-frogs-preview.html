@@ -368,7 +368,7 @@ const VOCAL_URLS = Array.from({length:16}, (_,i) => `https://ordinals.com/conten
 //       half-time backbeat. Classic d&b/jungle structure.
 const DRUM_KITS = [
   { id:"P01", label:"01 · Tech-house",    kick:"std", hat:"std", layers:[] },
-  { id:"P02", label:"02 · Drum & Bass",   kick:"dnb", hat:"std", layers:["DNB_SNARE"] },
+  { id:"P02", label:"02 · Drum & Bass",   kick:"dnb", hat:"std", layers:["DNB_SNARE","DNB_RIM"] },
   { id:"P03", label:"03 · Shaker drive",  kick:"std", hat:"std", layers:["SHAKER1"] },
   { id:"P04", label:"04 · Minimal",       kick:"std", hat:null,  layers:[] },
   { id:"P05", label:"05 · Industrial",    kick:"std", hat:"std", layers:["WOOD","TAMB"] },
@@ -891,6 +891,10 @@ async function startAudio() {
     // D&B snare on the 3 (step 8) — half-time backbeat that pairs with the dnb kick
     if (layers.includes("DNB_SNARE") && stepIn16 === 8 && barCount < 7) {
       snareDifP.start();
+    }
+    // D&B rim/wood hit layered on the 3 — extra crack on the snare for d&b punch
+    if (layers.includes("DNB_RIM") && stepIn16 === 8 && barCount < 7) {
+      woodP.start();
     }
     // Shakers — every 16th note until outro stop
     if (layers.includes("SHAKER1") && !(barCount === 7 && stepIn16 >= 9)) shaker1P.start();
