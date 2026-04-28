@@ -312,6 +312,26 @@ const PREVIEW_PATTERN = [
   { note: null,  play: true  }, { note: 'gb1', play: false },
   { note: null,  play: false }, { note: null,  play: false },
 ];
+// Generate a 16-step SLIDE MASK (which bass steps glide from the previous
+// note). Derived from merkleroot bytes 16-23 — sparse, txid-unique per frog.
+// Roughly 1-3 slides per 16 steps, never two in a row (so the glide always
+// has a fresh target note to lock onto).
+function generateSlideMask(merkleHex) {
+  const m = (merkleHex || "").replace(/^0x/, "").padEnd(64, "0");
+  const mask = new Array(16).fill(false);
+  // 8 bytes = 8 candidate slide positions (every other step)
+  for (let i = 0; i < 8; i++) {
+    const byte = parseInt(m.substr(32 + i * 2, 2), 16);
+    // ~25% probability per candidate → ~2 slides per 16 steps on average
+    if ((byte & 0x0F) >= 12) {
+      const stepPos = i * 2 + 1;        // odd steps only — feels syncopated
+      // Avoid back-to-back slides
+      if (!mask[stepPos - 1] && !mask[stepPos + 1]) mask[stepPos] = true;
+    }
+  }
+  return mask;
+}
+
 // Drop a note one octave (for underground variation). Returns null if can't drop further.
 function lowerOctave(noteStr) {
   if (!noteStr) return null;
@@ -480,23 +500,27 @@ const stepsEl = document.getElementById("steps");
 let current = null;   // current featured frog state
 let audioStarted = false;
 let toneLoaded = false;
-let synth, kickP, clapP, hatP, finalP, filter, dist, delayFX, reverbFX;
+let synth, kickP, clapP, hatP, finalP, delayFX, reverbFX;
 let hatDifP, snareDifP, tambP, woodP, shaker1P, shaker2P;
 let vocalsP = [];  // 16 ACID vocal players, one fires at the drop
-let driveMakeup, masterLimiter;  // inverse makeup gain + brick-wall limiter for drive sweep
+// Two parallel bass chains: AUTO (baked-in squelch arrangement) + USER (manual)
+let filterAuto, distAuto, makeupAuto;
+let filterUser, distUser, makeupUser;
+let masterLimiter;  // brick-wall safety on the master out
 let stepTimer = null;
 let stepIdx = 0;
 let kickFlash = 0;
 let frameIdx = 0;
 let frameTimer = 0;
 let stepsSinceHat = 999;  // how many 16th-notes since last hat — drives dance pose
-// User-dial LIFTS — additive offsets on top of the always-running auto-sweep.
-// 0 = no lift. The auto-sweep (cutoff arc, reso arc, drive arrangement, and
-// per-bar LFO speed variations) ALWAYS runs underneath; these just boost the
-// whole thing. Knobs default to 0 so by default you hear the pure arrangement.
-let userCutoffLift = 0;   // additive Hz on top of auto-cutoff
-let userResoLift   = 0;   // additive Q on top of auto-reso
-let userDriveLift  = 0;   // additive distortion on top of auto-drive (range 0..0.30)
+// Two PARALLEL bass chains — same MonoSynth, fed into two independent
+// filter+drive paths, summed back together. AUTO chain runs the baked-in
+// arrangement (LFO speed variation + drive arc). USER chain is fully
+// manual — knobs set its values directly, no auto-sweep on this path.
+// Two distinct squelches layered on the same bassline.
+let userCutoff = 1000;    // user-chain filter cutoff (Hz)
+let userReso   = 5;       // user-chain filter Q
+let userDrive  = 0.15;    // user-chain distortion amount (0..1)
 
 // LFO phase accumulators — speed varies per bar so the squelch feels alive.
 // Phase is integrated continuously so changing speed never causes clicks.
@@ -504,6 +528,18 @@ let cutoffLfoPhase = 0;
 let resoLfoPhase   = 0;
 const CUTOFF_LFO_SPEEDS = [0.08, 0.12, 0.20, 0.28, 0.45, 0.55, 0.18, 0.10]; // slow→fast→slow
 const RESO_LFO_SPEEDS   = [0.06, 0.30, 0.10, 0.42, 0.18, 0.25, 0.50, 0.12]; // independent jitter
+
+// Auto-chain CUTOFF + RESO arcs as 9 keyframes (start of each bar + end of bar 7).
+// Real up-down movement, not monotonic ramps. Tuned to push acid character —
+// reso climbs to 13 by bar 6 (peak squelch), dips for the lull, jumps back for drop.
+const CUTOFF_ARC = [400, 1100,  700, 2200, 1500, 3300, 1800, 2400, 4500]; // Hz per bar boundary
+const RESO_ARC   = [3,    6,    4,    9,    5,   11,    7,    9,   13];   // Q  per bar boundary
+function lerpArc(arc, barCount, stepIn16) {
+  const a = arc[barCount];
+  const b = arc[Math.min(arc.length - 1, barCount + 1)];
+  const t = stepIn16 / 16;
+  return a + (b - a) * t;
+}
 
 // Bass variation — subtle change every 2 bars for underground/dark feel.
 // On odd pairs (bars 3-4, 7-8, 11-12, 15-16): force one step to lowest octave root.
@@ -534,6 +570,7 @@ async function setFeatured(height) {
   const traits = pickTraits(merkle);
   const sprites = await loadFrogSprites(traits);
   const bassline = generateBasslineFromBlock(merkle);
+  const slideMask = generateSlideMask(merkle);
 
   // Per-frog drum kit: txid byte picks 1 of 8 kits → every frog feels different
   const kitIdx = parseInt(merkle.substr(0, 2), 16) % DRUM_KITS.length;
@@ -544,7 +581,7 @@ async function setFeatured(height) {
 
   mainBG.src = bgPath(traits.bg.slot);
 
-  current = { height, block, merkle, nonceHex, traits, sprites, bassline, vocalIdx };
+  current = { height, block, merkle, nonceHex, traits, sprites, bassline, slideMask, vocalIdx };
 
   const ts = block.timestamp || block.time || block.median_time || block.mediantime || 0;
   const date = new Date(ts * 1000);
@@ -586,15 +623,15 @@ async function setFeatured(height) {
       </div>
     </div>
     <div class="fx">
-      <h4>ACID FX · LIVE LIFTS</h4>
+      <h4>ACID FX · USER CHAIN</h4>
       <div style="font-size:9px;color:#777;margin-bottom:8px;letter-spacing:0.5px">
-        AUTO-SWEEP RUNS UNDERNEATH · KNOBS LIFT ON TOP
+        AUTO 303 SQUELCH ARRANGEMENT RUNS IN PARALLEL · THESE KNOBS = SECOND BASS VOICE
       </div>
-      <div class="fx-row"><label>cutoff +</label><input type="range" id="fx-cutoff"    min="0"   max="2500" step="10"  value="0"><span class="val" id="fx-cutoff-val">0</span></div>
-      <div class="fx-row"><label>reso +</label><input type="range" id="fx-reso"      min="0"   max="10"   step="0.1" value="0"><span class="val" id="fx-reso-val">0</span></div>
-      <div class="fx-row"><label>drive +</label><input type="range" id="fx-drive"     min="0"   max="30"   step="1"   value="0"><span class="val" id="fx-drive-val">0</span></div>
-      <div class="fx-row"><label>delay</label><input type="range" id="fx-delay"     min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-delay-val">0</span></div>
-      <div class="fx-row"><label>reverb</label><input type="range" id="fx-reverb"    min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-reverb-val">0</span></div>
+      <div class="fx-row"><label>cutoff</label><input type="range" id="fx-cutoff"   min="200" max="4500" step="10"  value="1000"><span class="val" id="fx-cutoff-val">1000</span></div>
+      <div class="fx-row"><label>reso</label><input type="range" id="fx-reso"     min="0.5" max="18"   step="0.1" value="5"><span class="val" id="fx-reso-val">5</span></div>
+      <div class="fx-row"><label>drive</label><input type="range" id="fx-drive"    min="0"   max="60"   step="1"   value="15"><span class="val" id="fx-drive-val">15</span></div>
+      <div class="fx-row"><label>delay</label><input type="range" id="fx-delay"    min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-delay-val">0</span></div>
+      <div class="fx-row"><label>reverb</label><input type="range" id="fx-reverb"  min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-reverb-val">0</span></div>
     </div>
   `;
   // Wire up knob listeners (fx nodes may not exist yet — applyFX checks)
@@ -639,29 +676,40 @@ function animate() {
 // 16th-note step timer (only when audio is playing). When audio is stopped, frog
 // stays on frame 0. See stepTimer callback below.
 
-// Drive + makeup-gain helper: setting drive ALWAYS pairs the distortion amount
-// with an inverse gain so perceived loudness stays flat as drive sweeps up.
-// Formula chosen by ear: drive 0 → 0 dB, 0.3 → -3 dB, 0.6 → -5.5 dB, 1.0 → -8 dB.
-function setDrive(amount) {
+// Drive helpers — each chain (auto + user) has its own makeup gain so that
+// when distortion goes up, the chain's level drops inversely. With both
+// chains summing to ~unity, perceived loudness stays flat regardless of drive.
+function makeupFor(driveAmount) {
+  const a = Math.max(0, Math.min(1, driveAmount));
+  // Halved compared to single-chain version because two parallel paths sum:
+  // baseline of 0.5 per chain × ~unity perceived loudness compensation.
+  return 0.5 / (1 + a * 1.5);
+}
+function setAutoDrive(amount) {
   const a = Math.max(0, Math.min(1, amount));
-  if (dist) dist.distortion = a;
-  if (driveMakeup) {
-    const makeup = 1 / (1 + a * 1.5);
-    driveMakeup.gain.setValueAtTime(makeup, Tone.now ? Tone.now() : 0);
+  if (distAuto)   distAuto.distortion = a;
+  if (makeupAuto) makeupAuto.gain.setValueAtTime(makeupFor(a), Tone.now ? Tone.now() : 0);
+}
+function setUserChain(cutoff, reso, drive) {
+  userCutoff = cutoff; userReso = reso; userDrive = drive;
+  if (filterUser) {
+    filterUser.frequency.setValueAtTime(cutoff, Tone.now ? Tone.now() : 0);
+    filterUser.Q.setValueAtTime(reso, Tone.now ? Tone.now() : 0);
   }
+  if (distUser)   distUser.distortion = drive;
+  if (makeupUser) makeupUser.gain.setValueAtTime(makeupFor(drive), Tone.now ? Tone.now() : 0);
 }
 
 // ---- FX knob wiring ----
-// Cutoff/reso/drive knobs are LIFTS — they add to the auto-sweep, they don't
-// replace it. The step loop reads userCutoffLift/userResoLift/userDriveLift
-// every tick and applies them on top of the baked-in arrangement.
+// Cutoff/reso/drive knobs control the USER chain DIRECTLY. The auto chain
+// keeps running its baked-in squelch arrangement in parallel underneath.
 function wireFXKnobs() {
   const bindings = [
-    ["fx-cutoff", (v) => { userCutoffLift = Number(v); }],
-    ["fx-reso",   (v) => { userResoLift   = Number(v); }],
+    ["fx-cutoff", (v) => setUserChain(Number(v), userReso, userDrive)],
+    ["fx-reso",   (v) => setUserChain(userCutoff, Number(v), userDrive)],
     ["fx-delay",  (v) => { if (delayFX) delayFX.wet.value = Number(v) / 100; }],
     ["fx-reverb", (v) => { if (reverbFX) reverbFX.wet.value = Number(v) / 100; }],
-    ["fx-drive",  (v) => { userDriveLift  = Number(v) / 100; }],
+    ["fx-drive",  (v) => setUserChain(userCutoff, userReso, Number(v) / 100)],
   ];
   for (const [id, fn] of bindings) {
     const el = document.getElementById(id);
@@ -680,9 +728,11 @@ function applyFXFromKnobs() {
     const el = document.getElementById(id);
     return el ? Number(el.value) : def;
   };
-  userCutoffLift = getVal("fx-cutoff", 0);
-  userResoLift   = getVal("fx-reso", 0);
-  userDriveLift  = getVal("fx-drive", 0) / 100;
+  setUserChain(
+    getVal("fx-cutoff", 1000),
+    getVal("fx-reso", 5),
+    getVal("fx-drive", 15) / 100
+  );
   if (delayFX) { delayFX.wet.value = getVal("fx-delay", 0) / 100; }
   if (reverbFX){ reverbFX.wet.value = getVal("fx-reverb", 0) / 100; }
 }
@@ -720,27 +770,41 @@ async function startAudio() {
   // 16 ACID vocal players — load all once, the txid picks which one fires at the drop.
   vocalsP = VOCAL_URLS.map(url => new Tone.Player({ url, volume: -2 }).toDestination());
 
-  // 303 chain: MonoSynth → Filter → Distortion → MakeupGain → Delay → Reverb → Limiter → Destination
-  // - MakeupGain compensates inversely for the loudness boost that distortion adds,
-  //   so when drive sweeps up the perceived volume stays roughly constant.
-  // - Limiter is a brick-wall safety on the master out: nothing exceeds -1 dBFS.
-  filter = new Tone.Filter({
-    frequency: 400 + (parseInt(current.nonceHex[1],16) * 150),
-    type: "lowpass", Q: 3
-  });
-  dist = new Tone.Distortion(0.15);
-  driveMakeup   = new Tone.Gain(1.0);            // 1.0 = 0 dB at zero drive, drops as drive sweeps up
+  // 303 chain — TWO parallel filter/drive paths on the same MonoSynth, summed:
+  //
+  //   MonoSynth ─┬─[ filterAuto → distAuto → makeupAuto ]─┐
+  //              │                                         ├─→ delay → reverb → limiter → out
+  //              └─[ filterUser → distUser → makeupUser ]─┘
+  //
+  // Each path has its own makeup gain (-6 dB) so when the two paths sum, the
+  // perceived loudness stays at unity. Limiter at the end is a brick-wall safety.
+  filterAuto = new Tone.Filter({ frequency: 400, type: "lowpass", Q: 3 });
+  distAuto   = new Tone.Distortion(0.15);
+  makeupAuto = new Tone.Gain(0.5);
+
+  filterUser = new Tone.Filter({ frequency: userCutoff, type: "lowpass", Q: userReso });
+  distUser   = new Tone.Distortion(userDrive);
+  makeupUser = new Tone.Gain(0.5);
+
   delayFX       = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.5, wet: 0 });
   reverbFX      = new Tone.Reverb({ decay: 3, wet: 0 });
-  masterLimiter = new Tone.Limiter(-1);          // brick-wall at -1 dBFS
+  masterLimiter = new Tone.Limiter(-1);
   await reverbFX.generate();
+
   synth = new Tone.MonoSynth({
     oscillator: { type: "sawtooth" },
     envelope:       { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 },
     filterEnvelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 0.3, baseFrequency: 200, octaves: 3 },
+    portamento: 0,  // glide time — set per-note for 303-style slides
   });
-  synth.chain(filter, dist, driveMakeup, delayFX, reverbFX, masterLimiter, Tone.Destination);
   synth.volume.value = -10;
+
+  // Wire both parallel chains: synth fans out to both filters, both feed into
+  // the shared delay → reverb → limiter master bus.
+  synth.fan(filterAuto, filterUser);
+  filterAuto.chain(distAuto, makeupAuto, delayFX);
+  filterUser.chain(distUser, makeupUser, delayFX);
+  delayFX.chain(reverbFX, masterLimiter, Tone.Destination);
 
   // Apply any knob values the user set before pressing play
   applyFXFromKnobs();
@@ -832,53 +896,47 @@ async function startAudio() {
     const pattern = patternForBarDeep(current.bassline, barCount, current.nonceHex);
     const step = pattern[stepIn16];
 
-    // ============ AUTO-SWEEP (Tier 1 — baked-in arrangement) ============
-    // Always runs, every step, even during bass rests. User dials add ON TOP.
-    //
-    // CUTOFF: arc 400 → 3500 Hz across 8 bars + variable-speed LFO wobble.
-    // RESO:   arc 4 → 10 across 8 bars + independent variable-speed LFO.
-    // DRIVE:  song-arc shape — build through bar 7, brief lull bar 8 first
-    //         half, then a HARDER peak on the bar 8 drop (steps 9-15).
-    const progress = barCount / 7;
+    // ============ AUTO CHAIN — baked-in 303 squelch arrangement ============
+    // Drives filterAuto + distAuto only. The user chain runs in parallel,
+    // independently controlled by the FX knobs (filterUser/distUser).
 
     // Advance LFO phases at the bar's chosen speed (continuous integration
     // so changing speed at bar boundaries never causes audible clicks).
     cutoffLfoPhase += CUTOFF_LFO_SPEEDS[barCount];
     resoLfoPhase   += RESO_LFO_SPEEDS[barCount];
 
-    // CUTOFF — auto base arc + LFO wobble + user lift
-    const cutoffArc  = 400 + (progress * 3100);                  // 400 → 3500 Hz
-    const cutoffLfo  = Math.sin(cutoffLfoPhase) * 400;           // ±400 Hz wobble
-    const cutoffAuto = cutoffArc + cutoffLfo;
-    const cutoff     = Math.max(150, Math.min(6500, cutoffAuto + userCutoffLift));
-    filter.frequency.setValueAtTime(cutoff, Tone.now());
+    // CUTOFF — keyframe arc (real up-down movement) + variable-speed LFO wobble
+    const cutoffArc  = lerpArc(CUTOFF_ARC, barCount, stepIn16);
+    const cutoffLfo  = Math.sin(cutoffLfoPhase) * 350;
+    const cutoffAuto = Math.max(150, Math.min(6500, cutoffArc + cutoffLfo));
+    filterAuto.frequency.setValueAtTime(cutoffAuto, Tone.now());
 
-    // RESO — auto base arc + LFO wobble + user lift
-    const resoArc  = 4 + (progress * 6);                          // 4 → 10
-    const resoLfo  = Math.sin(resoLfoPhase) * 1.8;                // ±1.8 wobble
-    const resoAuto = resoArc + resoLfo;
-    const reso     = Math.max(0.5, Math.min(22, resoAuto + userResoLift));
-    filter.Q.setValueAtTime(reso, Tone.now());
+    // RESO — INDEPENDENT keyframe arc + own LFO speed (different from cutoff)
+    const resoArc  = lerpArc(RESO_ARC, barCount, stepIn16);
+    const resoLfo  = Math.sin(resoLfoPhase) * 1.8;
+    const resoAuto = Math.max(0.5, Math.min(22, resoArc + resoLfo));
+    filterAuto.Q.setValueAtTime(resoAuto, Tone.now());
 
     // DRIVE — song-arc with a deliberate lull and a harder drop peak.
     let driveAuto;
     if (barCount < 7) {
-      // Bars 1-7: linear build 0.10 → 0.50
       const buildProgress = (barCount * 16 + stepIn16) / (7 * 16);
-      driveAuto = 0.10 + buildProgress * 0.40;
+      driveAuto = 0.10 + buildProgress * 0.40;                      // build
     } else if (stepIn16 < 9) {
-      // Bar 8 first half (steps 0-8): drop down to 0.32 — short lull before the drop
-      driveAuto = 0.50 - (stepIn16 / 9) * 0.18;
+      driveAuto = 0.50 - (stepIn16 / 9) * 0.18;                     // lull
     } else {
-      // Bar 8 drop (steps 9-15): harder peak, climbs 0.32 → 0.65
-      driveAuto = 0.32 + ((stepIn16 - 9) / 6) * 0.33;
+      driveAuto = 0.32 + ((stepIn16 - 9) / 6) * 0.33;               // harder drop
     }
-    // Slow wobble on top so it's not a perfect ramp
-    driveAuto += Math.sin(stepIdx * 0.12) * 0.04;
-    setDrive(driveAuto + userDriveLift);
+    driveAuto += Math.sin(stepIdx * 0.12) * 0.04;                   // ±0.04 wobble
+    setAutoDrive(driveAuto);
 
     if (bassAllowed && step.note) {
-      const velocity = step.play ? 0.85 : 0.45;  // ghost notes quieter
+      const velocity = step.play ? 0.85 : 0.45;
+      // 303 SLIDE: certain steps glide from the previous note. Slide map is
+      // derived per-frog from merkleroot bytes (different slice from bass+arp).
+      // Slides only happen on full-velocity notes (no slides on ghosts).
+      const isSlide = step.play && current.slideMask && current.slideMask[stepIn16];
+      synth.portamento = isSlide ? 0.06 : 0;  // 60ms glide on slide notes
       synth.triggerAttackRelease(step.note, "16n", Tone.now(), velocity);
     }
 
