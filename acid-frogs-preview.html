@@ -362,19 +362,17 @@ const VOCAL_URLS = Array.from({length:16}, (_,i) => `https://ordinals.com/conten
 
 // Drum kit presets — switchable live. Each is a complete locked beat.
 // Audio chain (the BEAUTIFUL one) stays exactly the same; only sample selection varies.
-// kick: "std" = four-on-the-floor (tech house). "dnb" = drum & bass kick:
-//       one on the 1 (step 0) + one on the "and of 3" (step 10), with the
-//       snare layer ("DNB_SNARE") landing on the 3 (step 8) for the
-//       half-time backbeat. Classic d&b/jungle structure.
+// kick: "std"      = four-on-the-floor (tech house). Every quarter note.
+//       "halftime" = kick every 2 beats (the 1 and the 3 → steps 0 and 8). Sparser.
 const DRUM_KITS = [
-  { id:"P01", label:"01 · Tech-house",    kick:"std", hat:"std", layers:[] },
-  { id:"P02", label:"02 · Drum & Bass",   kick:"dnb", hat:"std", layers:["DNB_SNARE","DNB_RIM"] },
-  { id:"P03", label:"03 · Shaker drive",  kick:"std", hat:"std", layers:["SHAKER1"] },
-  { id:"P04", label:"04 · Minimal",       kick:"std", hat:null,  layers:[] },
-  { id:"P05", label:"05 · Industrial",    kick:"std", hat:"std", layers:["WOOD","TAMB"] },
-  { id:"P06", label:"06 · Dif hat",       kick:"std", hat:"dif", layers:[] },
-  { id:"P07", label:"07 · Snare layer",   kick:"std", hat:"std", layers:["SNARE_DIF"] },
-  { id:"P08", label:"08 · Full kit",      kick:"std", hat:"dif", layers:["SHAKER2","TAMB","SNARE_DIF","WOOD"] },
+  { id:"P01", label:"01 · Tech-house",    kick:"std",      hat:"std", layers:[] },
+  { id:"P02", label:"02 · Half-time",     kick:"halftime", hat:"std", layers:[] },
+  { id:"P03", label:"03 · Shaker drive",  kick:"std",      hat:"std", layers:["SHAKER1"] },
+  { id:"P04", label:"04 · Minimal",       kick:"std",      hat:null,  layers:[] },
+  { id:"P05", label:"05 · Industrial",    kick:"std",      hat:"std", layers:["WOOD","TAMB"] },
+  { id:"P06", label:"06 · Dif hat",       kick:"std",      hat:"dif", layers:[] },
+  { id:"P07", label:"07 · Snare layer",   kick:"std",      hat:"std", layers:["SNARE_DIF"] },
+  { id:"P08", label:"08 · Full kit",      kick:"std",      hat:"dif", layers:["SHAKER2","TAMB","SNARE_DIF","WOOD"] },
 ];
 let currentKit = DRUM_KITS[0];
 
@@ -835,14 +833,13 @@ async function startAudio() {
     stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
 
     // ---- KICK ----
-    // "dnb" = drum & bass kick: step 0 (the 1) + step 10 (the "and of 3").
-    //         Combined with the DNB_SNARE layer on step 8, this gives the
-    //         classic K . . . . . . . S . K . . . . . jungle structure.
-    // "std" = tech house four-on-the-floor: kicks every quarter (steps 0,4,8,12)
-    //         through bars 1-4, single hit at bar 5 step 0, then clear for the
-    //         drop. Plus a rolling intro hit at bar 1 step 2.
-    if (currentKit.kick === "dnb") {
-      if (barCount < 7 && (stepIn16 === 0 || stepIn16 === 10)) {
+    // "halftime" = kick every 2 beats (steps 0 and 8 — the 1 and the 3).
+    //              Sparser than 4-on-floor, gives space under the bassline.
+    // "std"      = tech house four-on-the-floor. Bars 1-4 every quarter,
+    //              single hit at bar 5 step 0, then clear for the drop.
+    //              Plus a rolling intro hit at bar 1 step 2.
+    if (currentKit.kick === "halftime") {
+      if (barCount < 7 && (stepIn16 === 0 || stepIn16 === 8)) {
         kickP.start();
         if (stepIn16 === 0) kickFlash = 1;
       }
@@ -887,14 +884,6 @@ async function startAudio() {
     // Snare on 2/4 (steps 4 and 12) — tech-house backbeat
     if (layers.includes("SNARE_DIF") && (stepIn16 === 4 || stepIn16 === 12) && !(barCount === 7 && stepIn16 >= 12)) {
       snareDifP.start();
-    }
-    // D&B snare on the 3 (step 8) — half-time backbeat that pairs with the dnb kick
-    if (layers.includes("DNB_SNARE") && stepIn16 === 8 && barCount < 7) {
-      snareDifP.start();
-    }
-    // D&B rim/wood hit layered on the 3 — extra crack on the snare for d&b punch
-    if (layers.includes("DNB_RIM") && stepIn16 === 8 && barCount < 7) {
-      woodP.start();
     }
     // Shakers — every 16th note until outro stop
     if (layers.includes("SHAKER1") && !(barCount === 7 && stepIn16 >= 9)) shaker1P.start();
