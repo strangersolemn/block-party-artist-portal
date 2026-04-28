@@ -362,15 +362,16 @@ const VOCAL_URLS = Array.from({length:16}, (_,i) => `https://ordinals.com/conten
 
 // Drum kit presets — switchable live. Each is a complete locked beat.
 // Audio chain (the BEAUTIFUL one) stays exactly the same; only sample selection varies.
+// kick: "std" = four-on-the-floor, "halftime" = ONE kick per bar on the 1 (d&b/dub feel).
 const DRUM_KITS = [
-  { id:"P01", label:"01 · Standard",      kick:"std", hat:"std", layers:[] },
-  { id:"P02", label:"02 · Breakbeat",     kick:"breakbeat", hat:"std", layers:[] },
-  { id:"P03", label:"03 · Shaker drive",  kick:"std", hat:"std", layers:["SHAKER1"] },
-  { id:"P04", label:"04 · Minimal",       kick:"std", hat:null,  layers:[] },
-  { id:"P05", label:"05 · Industrial",    kick:"std", hat:"std", layers:["WOOD","TAMB"] },
-  { id:"P06", label:"06 · Dif hat",       kick:"std", hat:"dif", layers:[] },
-  { id:"P07", label:"07 · Snare layer",   kick:"std", hat:"std", layers:["SNARE_DIF"] },
-  { id:"P08", label:"08 · Full kit",      kick:"breakbeat", hat:"dif", layers:["SHAKER2","TAMB","SNARE_DIF","WOOD"] },
+  { id:"P01", label:"01 · Standard",      kick:"std",      hat:"std", layers:[] },
+  { id:"P02", label:"02 · Half-time",     kick:"halftime", hat:"std", layers:[] },
+  { id:"P03", label:"03 · Shaker drive",  kick:"std",      hat:"std", layers:["SHAKER1"] },
+  { id:"P04", label:"04 · Minimal",       kick:"std",      hat:null,  layers:[] },
+  { id:"P05", label:"05 · Industrial",    kick:"std",      hat:"std", layers:["WOOD","TAMB"] },
+  { id:"P06", label:"06 · Dif hat",       kick:"std",      hat:"dif", layers:[] },
+  { id:"P07", label:"07 · Snare layer",   kick:"std",      hat:"std", layers:["SNARE_DIF"] },
+  { id:"P08", label:"08 · Full kit",      kick:"std",      hat:"dif", layers:["SHAKER2","TAMB","SNARE_DIF","WOOD"] },
 ];
 let currentKit = DRUM_KITS[0];
 
@@ -831,20 +832,22 @@ async function startAudio() {
     stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
 
     // ---- KICK ----
-    // Bars 1-4: four-on-the-floor. Bar 1 has an extra kick on step 2 (rolling intro).
-    // Bar 5: ONE kick at step 0 only. Bars 6-8: no kick.
-    // currentKit drives the variation.
-    const isFirstHalf = barCount < 4;
-    if (isFirstHalf) {
-      if (stepIn16 % 4 === 0) { kickP.start(); kickFlash = 1; }
-      // Breakbeat ghost hits on steps 7 and 11 (only for kit P02 / P08)
-      if (currentKit.kick === "breakbeat" && (stepIn16 === 7 || stepIn16 === 11)) {
-        kickP.start();
-      }
+    // "halftime" kit = ONE kick per bar on the 1 (step 0). D&B / dub feel —
+    //                  no four-on-floor, no extras, no rolling intro.
+    // "std" kit      = four-on-the-floor through bars 1-4 + a rolling intro
+    //                  hit at bar 1 step 2 + a single hit at bar 5 step 0.
+    if (currentKit.kick === "halftime") {
+      // Just the 1 of every bar across bars 1-7. Bar 8 keeps clear for the drop.
+      if (stepIn16 === 0 && barCount < 7) { kickP.start(); kickFlash = 1; }
     } else {
-      if (barCount === 4 && stepIn16 === 0) { kickP.start(); kickFlash = 1; }
+      const isFirstHalf = barCount < 4;
+      if (isFirstHalf) {
+        if (stepIn16 % 4 === 0) { kickP.start(); kickFlash = 1; }
+      } else {
+        if (barCount === 4 && stepIn16 === 0) { kickP.start(); kickFlash = 1; }
+      }
+      if (barCount === 0 && stepIn16 === 2) kickP.start();
     }
-    if (barCount === 0 && stepIn16 === 2) kickP.start();
 
     // ---- CLAP ----
     // Bar 8 steps 12-15: three claps at the end (the outro).
