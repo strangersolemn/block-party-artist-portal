@@ -490,9 +490,20 @@ let kickFlash = 0;
 let frameIdx = 0;
 let frameTimer = 0;
 let stepsSinceHat = 999;  // how many 16th-notes since last hat — drives dance pose
-let userCutoff = null;    // if set, overrides auto-sweep base freq
-let userReso   = null;    // if set, overrides auto resonance
-let userDrive  = null;    // if set, overrides auto-drive sweep (still gets makeup-gain compensation)
+// User-dial LIFTS — additive offsets on top of the always-running auto-sweep.
+// 0 = no lift. The auto-sweep (cutoff arc, reso arc, drive arrangement, and
+// per-bar LFO speed variations) ALWAYS runs underneath; these just boost the
+// whole thing. Knobs default to 0 so by default you hear the pure arrangement.
+let userCutoffLift = 0;   // additive Hz on top of auto-cutoff
+let userResoLift   = 0;   // additive Q on top of auto-reso
+let userDriveLift  = 0;   // additive distortion on top of auto-drive (range 0..0.30)
+
+// LFO phase accumulators — speed varies per bar so the squelch feels alive.
+// Phase is integrated continuously so changing speed never causes clicks.
+let cutoffLfoPhase = 0;
+let resoLfoPhase   = 0;
+const CUTOFF_LFO_SPEEDS = [0.08, 0.12, 0.20, 0.28, 0.45, 0.55, 0.18, 0.10]; // slow→fast→slow
+const RESO_LFO_SPEEDS   = [0.06, 0.30, 0.10, 0.42, 0.18, 0.25, 0.50, 0.12]; // independent jitter
 
 // Bass variation — subtle change every 2 bars for underground/dark feel.
 // On odd pairs (bars 3-4, 7-8, 11-12, 15-16): force one step to lowest octave root.
@@ -575,12 +586,15 @@ async function setFeatured(height) {
       </div>
     </div>
     <div class="fx">
-      <h4>ACID FX · LIVE KNOBS</h4>
-      <div class="fx-row"><label>cutoff</label><input type="range" id="fx-cutoff"    min="200" max="4000" step="10" value="800"><span class="val" id="fx-cutoff-val">800</span></div>
-      <div class="fx-row"><label>reso</label><input type="range" id="fx-reso"      min="1"   max="20"   step="0.1" value="6"><span class="val" id="fx-reso-val">6.0</span></div>
+      <h4>ACID FX · LIVE LIFTS</h4>
+      <div style="font-size:9px;color:#777;margin-bottom:8px;letter-spacing:0.5px">
+        AUTO-SWEEP RUNS UNDERNEATH · KNOBS LIFT ON TOP
+      </div>
+      <div class="fx-row"><label>cutoff +</label><input type="range" id="fx-cutoff"    min="0"   max="2500" step="10"  value="0"><span class="val" id="fx-cutoff-val">0</span></div>
+      <div class="fx-row"><label>reso +</label><input type="range" id="fx-reso"      min="0"   max="10"   step="0.1" value="0"><span class="val" id="fx-reso-val">0</span></div>
+      <div class="fx-row"><label>drive +</label><input type="range" id="fx-drive"     min="0"   max="30"   step="1"   value="0"><span class="val" id="fx-drive-val">0</span></div>
       <div class="fx-row"><label>delay</label><input type="range" id="fx-delay"     min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-delay-val">0</span></div>
       <div class="fx-row"><label>reverb</label><input type="range" id="fx-reverb"    min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-reverb-val">0</span></div>
-      <div class="fx-row"><label>drive</label><input type="range" id="fx-drive"     min="0"   max="100"  step="1"   value="15"><span class="val" id="fx-drive-val">15</span></div>
     </div>
   `;
   // Wire up knob listeners (fx nodes may not exist yet — applyFX checks)
@@ -638,13 +652,16 @@ function setDrive(amount) {
 }
 
 // ---- FX knob wiring ----
+// Cutoff/reso/drive knobs are LIFTS — they add to the auto-sweep, they don't
+// replace it. The step loop reads userCutoffLift/userResoLift/userDriveLift
+// every tick and applies them on top of the baked-in arrangement.
 function wireFXKnobs() {
   const bindings = [
-    ["fx-cutoff", (v) => { userCutoff = Number(v); if (filter) filter.frequency.setValueAtTime(userCutoff, Tone.now ? Tone.now() : 0); }],
-    ["fx-reso",   (v) => { userReso   = Number(v); if (filter) filter.Q.setValueAtTime(userReso, Tone.now ? Tone.now() : 0); }],
+    ["fx-cutoff", (v) => { userCutoffLift = Number(v); }],
+    ["fx-reso",   (v) => { userResoLift   = Number(v); }],
     ["fx-delay",  (v) => { if (delayFX) delayFX.wet.value = Number(v) / 100; }],
     ["fx-reverb", (v) => { if (reverbFX) reverbFX.wet.value = Number(v) / 100; }],
-    ["fx-drive",  (v) => { userDrive = Number(v) / 100; setDrive(userDrive); }],
+    ["fx-drive",  (v) => { userDriveLift  = Number(v) / 100; }],
   ];
   for (const [id, fn] of bindings) {
     const el = document.getElementById(id);
@@ -663,13 +680,11 @@ function applyFXFromKnobs() {
     const el = document.getElementById(id);
     return el ? Number(el.value) : def;
   };
-  userCutoff = getVal("fx-cutoff", null);
-  userReso   = getVal("fx-reso", null);
-  userDrive  = null;  // let auto-sweep run by default
-  if (filter)  { filter.frequency.setValueAtTime(userCutoff, Tone.now()); filter.Q.setValueAtTime(userReso, Tone.now()); }
+  userCutoffLift = getVal("fx-cutoff", 0);
+  userResoLift   = getVal("fx-reso", 0);
+  userDriveLift  = getVal("fx-drive", 0) / 100;
   if (delayFX) { delayFX.wet.value = getVal("fx-delay", 0) / 100; }
   if (reverbFX){ reverbFX.wet.value = getVal("fx-reverb", 0) / 100; }
-  // Drive: respect knob if user has touched it; otherwise leave to auto-sweep
 }
 
 async function startAudio() {
@@ -817,29 +832,50 @@ async function startAudio() {
     const pattern = patternForBarDeep(current.bassline, barCount, current.nonceHex);
     const step = pattern[stepIn16];
 
-    // ---- FILTER + DRIVE SWEEP (runs every step, even during rests) ----
-    // Classic 303 squelch: cutoff ramps 400 -> 3500 Hz across 8 bars
-    // with a continuous LFO wobble for that acid sizzle.
-    if (userCutoff === null) {
-      const progress = barCount / 7;
-      const baseCutoff = 400 + (progress * 3100);              // 400 -> 3500
-      const lfoMod = Math.sin(stepIdx * 0.25) * 350;            // ±350 Hz wobble
-      const cutoff = Math.max(200, Math.min(5000, baseCutoff + lfoMod));
-      filter.frequency.setValueAtTime(cutoff, Tone.now());
+    // ============ AUTO-SWEEP (Tier 1 — baked-in arrangement) ============
+    // Always runs, every step, even during bass rests. User dials add ON TOP.
+    //
+    // CUTOFF: arc 400 → 3500 Hz across 8 bars + variable-speed LFO wobble.
+    // RESO:   arc 4 → 10 across 8 bars + independent variable-speed LFO.
+    // DRIVE:  song-arc shape — build through bar 7, brief lull bar 8 first
+    //         half, then a HARDER peak on the bar 8 drop (steps 9-15).
+    const progress = barCount / 7;
+
+    // Advance LFO phases at the bar's chosen speed (continuous integration
+    // so changing speed at bar boundaries never causes audible clicks).
+    cutoffLfoPhase += CUTOFF_LFO_SPEEDS[barCount];
+    resoLfoPhase   += RESO_LFO_SPEEDS[barCount];
+
+    // CUTOFF — auto base arc + LFO wobble + user lift
+    const cutoffArc  = 400 + (progress * 3100);                  // 400 → 3500 Hz
+    const cutoffLfo  = Math.sin(cutoffLfoPhase) * 400;           // ±400 Hz wobble
+    const cutoffAuto = cutoffArc + cutoffLfo;
+    const cutoff     = Math.max(150, Math.min(6500, cutoffAuto + userCutoffLift));
+    filter.frequency.setValueAtTime(cutoff, Tone.now());
+
+    // RESO — auto base arc + LFO wobble + user lift
+    const resoArc  = 4 + (progress * 6);                          // 4 → 10
+    const resoLfo  = Math.sin(resoLfoPhase) * 1.8;                // ±1.8 wobble
+    const resoAuto = resoArc + resoLfo;
+    const reso     = Math.max(0.5, Math.min(22, resoAuto + userResoLift));
+    filter.Q.setValueAtTime(reso, Tone.now());
+
+    // DRIVE — song-arc with a deliberate lull and a harder drop peak.
+    let driveAuto;
+    if (barCount < 7) {
+      // Bars 1-7: linear build 0.10 → 0.50
+      const buildProgress = (barCount * 16 + stepIn16) / (7 * 16);
+      driveAuto = 0.10 + buildProgress * 0.40;
+    } else if (stepIn16 < 9) {
+      // Bar 8 first half (steps 0-8): drop down to 0.32 — short lull before the drop
+      driveAuto = 0.50 - (stepIn16 / 9) * 0.18;
+    } else {
+      // Bar 8 drop (steps 9-15): harder peak, climbs 0.32 → 0.65
+      driveAuto = 0.32 + ((stepIn16 - 9) / 6) * 0.33;
     }
-    if (userReso === null) {
-      const progress = barCount / 7;
-      const resonance = 4 + (progress * 6);                     // 4 -> 10 (more squelchy)
-      filter.Q.setValueAtTime(resonance, Tone.now());
-    }
-    // Drive sweep: 0.10 -> 0.55 across 8 bars, with a slow ±0.05 wobble.
-    // setDrive() also applies inverse makeup gain so loudness stays flat.
-    if (userDrive === null) {
-      const progress = barCount / 7;
-      const baseDrive = 0.10 + (progress * 0.45);               // 0.10 -> 0.55
-      const wobble    = Math.sin(stepIdx * 0.12) * 0.05;        // ±0.05
-      setDrive(baseDrive + wobble);
-    }
+    // Slow wobble on top so it's not a perfect ramp
+    driveAuto += Math.sin(stepIdx * 0.12) * 0.04;
+    setDrive(driveAuto + userDriveLift);
 
     if (bassAllowed && step.note) {
       const velocity = step.play ? 0.85 : 0.45;  // ghost notes quieter
@@ -855,6 +891,9 @@ function stopAudio() {
   audioStarted = false;
   frameIdx = 0; // frog returns to resting pose
   stepsSinceHat = 999;
+  // Reset LFO phases so each play starts from zero — keeps the squelch consistent
+  cutoffLfoPhase = 0;
+  resoLfoPhase   = 0;
   playBtn.textContent = "▶ PLAY ACID";
 }
 
