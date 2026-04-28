@@ -515,7 +515,8 @@ let stepIdx = 0;
 let kickFlash = 0;
 let frameIdx = 0;
 let frameTimer = 0;
-let stepsSinceHat = 999;  // how many 16th-notes since last hat — drives dance pose
+let stepsSinceHat  = 999;  // 16th-notes since last hat  — drives nod pose
+let stepsSinceClap = 999;  // 16th-notes since last clap — drives clap pose
 // Two PARALLEL bass chains — same MonoSynth, fed into two independent
 // filter+drive paths, summed back together. AUTO chain runs the baked-in
 // arrangement (LFO speed variation + drive arc). USER chain is fully
@@ -831,21 +832,23 @@ async function startAudio() {
 
     // ---- VISUALS — schedule on the audio clock so frog/step display stay synced ----
     // 3-frame sprite dance:
-    //   frame 2 fires on every step a CLAP actually plays (the big movement)
-    //   frame 1 fires on every step a HAT  actually plays (small nod)
-    //   frame 0 = rest at all other steps
-    // Gates on whether the sound ACTUALLY fires (not step positions), so:
-    //   - During the silent drop gap (bar 8 steps 9-11): frog rests.
-    //   - Kits with hat=null (P04 Minimal): frog doesn't pop on hat steps.
-    //   - When the drums stop, the dance stops with them.
+    //   frame 2 = clap pose (3rd sprite frame, the bigger movement)
+    //   frame 1 = hat nod   (2nd sprite frame)
+    //   frame 0 = rest
+    // Each pose is HELD for 2 steps (~245ms at 123 BPM) so it's clearly visible.
+    // Gates on whether the sound ACTUALLY plays — when the drums stop, the
+    // dance stops with them (silent drop gap, hat=null kits, after stop).
     const clapFires = (barCount === 7 && stepIn16 >= 12) ||
                       (stepIn16 === 4 || stepIn16 === 12);
     const hatFires  = currentKit.hat && stepIn16 % 4 === 2 &&
                       !(barCount === 7 && stepIn16 >= 12);
+    if (clapFires) stepsSinceClap = 0; else stepsSinceClap++;
+    if (hatFires)  stepsSinceHat  = 0; else stepsSinceHat++;
     Tone.Draw.schedule(() => {
-      if      (clapFires) frameIdx = 2;
-      else if (hatFires)  frameIdx = 1;
-      else                frameIdx = 0;
+      // Clap pose takes priority and holds for 2 steps; hat nod 2 steps too.
+      if      (stepsSinceClap < 2) frameIdx = 2;
+      else if (stepsSinceHat  < 2) frameIdx = 1;
+      else                         frameIdx = 0;
       stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
     }, time);
 
@@ -956,7 +959,8 @@ function stopAudio() {
   if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
   audioStarted = false;
   frameIdx = 0;
-  stepsSinceHat = 999;
+  stepsSinceHat  = 999;
+  stepsSinceClap = 999;
   // Reset LFO phases so each play starts from zero
   cutoffLfoPhase = 0;
   resoLfoPhase   = 0;
