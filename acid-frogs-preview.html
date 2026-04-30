@@ -967,13 +967,20 @@ async function startAudio() {
     }
 
     // ---- BASS (303) ----
-    // Two 8-bar riffs per loop. Riff 0 = original bassline; riff 1 = the V2
-    // variation (one extra note + one note shifted down a semitone). Each
-    // riff still gets the full drop / outro arrangement (kick build, drop,
-    // tension, outro claps + ACID hit) — only the bassline notes change.
+    // 16-bar loop = two 8-bar riffs. Riff A (bars 1-8) uses `bassline`,
+    // Riff B (bars 9-16) uses `bassline2` (the V2 variation). Drums and
+    // arrangement (kick build, drop, tension, outro) stay locked to the
+    // 8-bar shape — only the bassline notes swap.
+    //
+    // Bar swap: bars 3↔11 and 7↔15 are crossed so the 16-bar groove has
+    // more variation. Default would be A A A A A A A A B B B B B B B B;
+    // after swap it's    A A B A A A B A B B A B B B A B.
     const bassAllowed = !(barCount === 7 && stepIn16 >= 9);
-    const riffCount   = Math.floor(stepIdx / 128) % 2;
-    const activeBass  = riffCount === 0 ? current.bassline : (current.bassline2 || current.bassline);
+    const globalBarIdx = Math.floor(stepIdx / 16) % 16;
+    let useRiffB = globalBarIdx >= 8;
+    if (globalBarIdx === 2 || globalBarIdx === 6)  useRiffB = true;   // bars 3, 7  → B
+    if (globalBarIdx === 10 || globalBarIdx === 14) useRiffB = false; // bars 11, 15 → A
+    const activeBass  = useRiffB ? (current.bassline2 || current.bassline) : current.bassline;
     const pattern = patternForBarDeep(activeBass, barCount, current.nonceHex);
     const step = pattern[stepIn16];
 
