@@ -490,25 +490,16 @@ async function setFeatured(height) {
   const ts = block.timestamp || block.time || block.median_time || block.mediantime || 0;
   const date = new Date(ts * 1000);
   const dateStr = isNaN(date.getTime()) ? "—" : date.toISOString().slice(0,16).replace("T"," ");
-  // Build per-layer load status
-  const layerStatus = ["body","mouth","eyes","clothing","head","smoke"]
-    .filter(k => k !== "smoke" || traits.smoke.slot > 0)
-    .map(k => {
-      const ok = !!sprites[k];
-      const slot = traits[k] ? traits[k].slot : 1;
-      return `<div style="color:${ok ? '#9f9' : '#f66'}">${ok ? '✓' : '✗'} ${k}(${slot}) ${ok ? '' : 'FAILED'}</div>`;
-    }).join("");
 
+  // Public/clean version: no merkleroot/nonce/vocal-index dump, no sprite-load
+  // debug, no drum-kit picker. Drums and vocals rotate automatically per frog
+  // every time you press RANDOM 1337 BLOCK — txid-derived, all on-chain.
   infoEl.innerHTML = `
     <div class="kv">
       <div class="k">block</div><div>#${height}</div>
       <div class="k">date</div><div>${dateStr} UTC</div>
-      <div class="k">difficulty</div><div>${block.difficulty}</div>
-      <div class="k">merkleroot</div><div style="font-size:10px">${merkle.slice(0,24)}…</div>
-      <div class="k">nonce</div><div>0x${nonceHex}</div>
       <div class="k">bass notes</div><div style="font-size:10px">${bassline.filter(s => s.note).map(s => s.note).join(" · ")}</div>
-      <div class="k">kit (auto)</div><div style="font-size:10px;color:#9f9">${currentKit.label}</div>
-      <div class="k">vocal #</div><div style="font-size:10px">${vocalIdx + 1}/16</div>
+      <div class="k">drum kit</div><div style="font-size:10px;color:#9f9">${currentKit.label}</div>
     </div>
     <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px">
       <div><span class="tier-${traits.color.tier.toUpperCase()}">${traits.color.name.toUpperCase()}</span> frog · ${traits.color.tier}</div>
@@ -517,19 +508,10 @@ async function setFeatured(height) {
       <div>smoke: ${traits.smoke.slot === 0 ? "none" : traits.smoke.slot}</div>
       <div>background ${traits.bg.slot}/8</div>
     </div>
-    <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px;font-size:11px">
-      <b>Sprite load status:</b><br>${layerStatus}
-    </div>
-    <div class="fx" style="margin-bottom:14px">
-      <h4>DRUM KIT · SWITCH LIVE</h4>
-      <div id="kit-picker" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px">
-        ${DRUM_KITS.map(k => `<button class="kit-btn" data-kit-id="${k.id}" style="padding:8px;border-radius:8px;border:1px solid ${k.id === currentKit.id ? '#9f9' : '#333'};background:${k.id === currentKit.id ? 'rgba(113,255,94,0.15)' : 'transparent'};color:#fff;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:0.5px;text-align:left">${k.label}</button>`).join('')}
-      </div>
-    </div>
     <div class="fx">
-      <h4>ACID FX · USER CHAIN</h4>
+      <h4>ACID FX · LIVE</h4>
       <div style="font-size:9px;color:#777;margin-bottom:8px;letter-spacing:0.5px">
-        AUTO 303 SQUELCH ARRANGEMENT RUNS IN PARALLEL · THESE KNOBS = SECOND BASS VOICE
+        AUTO 303 SQUELCH RUNS UNDERNEATH · THESE DIALS LAYER A SECOND VOICE
       </div>
       <div class="fx-row"><label>cutoff</label><input type="range" id="fx-cutoff"   min="200" max="4500" step="10"  value="1000"><span class="val" id="fx-cutoff-val">1000</span></div>
       <div class="fx-row"><label>reso</label><input type="range" id="fx-reso"     min="0.5" max="18"   step="0.1" value="5"><span class="val" id="fx-reso-val">5</span></div>
@@ -538,24 +520,8 @@ async function setFeatured(height) {
       <div class="fx-row"><label>reverb</label><input type="range" id="fx-reverb"  min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-reverb-val">0</span></div>
     </div>
   `;
-  // Wire up knob listeners (fx nodes may not exist yet — applyFX checks)
+  // Wire up FX knob listeners (no kit picker on this version)
   wireFXKnobs();
-
-  // Wire up kit picker buttons
-  document.querySelectorAll(".kit-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.kitId;
-      const kit = DRUM_KITS.find(k => k.id === id);
-      if (kit) {
-        currentKit = kit;
-        document.querySelectorAll(".kit-btn").forEach(b => {
-          const active = b.dataset.kitId === id;
-          b.style.borderColor = active ? "#9f9" : "#333";
-          b.style.background = active ? "rgba(113,255,94,0.15)" : "transparent";
-        });
-      }
-    });
-  });
 
   // Step display: mark steps by the block's own bassline
   stepsEl.innerHTML = "";
