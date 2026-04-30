@@ -342,6 +342,65 @@ function lowerOctave(noteStr) {
   return m[1] + (oct - 1);
 }
 
+// ---- Chromatic note <-> MIDI helpers (used by generateBasslineV2) ----
+// 12 notes per octave: c c# d d# e f f# g g# a a# b. Shifting "down one space"
+// in this table = down 1 semitone.
+const NOTE_SEMITONES = {
+  c:0, "c#":1, db:1, d:2, "d#":3, eb:3, e:4, f:5, "f#":6, gb:6,
+  g:7, "g#":8, ab:8, a:9, "a#":10, bb:10, b:11
+};
+const NOTE_NAMES = ["c","c#","d","d#","e","f","f#","g","g#","a","a#","b"];
+function noteToMidi(noteStr) {
+  if (!noteStr) return null;
+  const m = noteStr.match(/^([a-g][b#]?)(\d+)$/i);
+  if (!m) return null;
+  const sem = NOTE_SEMITONES[m[1].toLowerCase()];
+  if (sem === undefined) return null;
+  return (parseInt(m[2], 10) + 1) * 12 + sem;
+}
+function midiToNote(midi) {
+  if (midi == null || midi < 0) return null;
+  const oct = Math.floor(midi / 12) - 1;
+  return NOTE_NAMES[((midi % 12) + 12) % 12] + oct;
+}
+function shiftSemitone(noteStr, delta) {
+  const midi = noteToMidi(noteStr);
+  if (midi === null) return noteStr;
+  return midiToNote(midi + delta) || noteStr;
+}
+
+// ---- Second-riff bassline variation ----
+// Each frog plays TWO 8-bar riffs in sequence. Riff 1 = the original
+// bassline. Riff 2 = the same pattern with two small mutations:
+//   1. ONE rest step gets filled with a new low note.
+//   2. ONE existing note is shifted DOWN by 1 semitone (one space in the
+//      12-note chromatic scale).
+// Both choices are derived from merkleroot bytes 24..27 so the second
+// riff is unique-but-deterministic per frog.
+function generateBasslineV2(original, merkleHex) {
+  const m = (merkleHex || "").replace(/^0x/, "").padEnd(64, "0");
+  const v2 = original.map(s => ({ ...s }));
+
+  // 1) Fill one rest step with a low note (txid-derived which rest + which note).
+  const restSteps = [];
+  for (let i = 0; i < v2.length; i++) if (v2[i].note === null) restSteps.push(i);
+  if (restSteps.length > 0) {
+    const addStep = restSteps[parseInt(m.substr(48, 2), 16) % restSteps.length];
+    const noteIdx = parseInt(m.substr(50, 2), 16) % BASS_LOW.length;
+    v2[addStep] = { note: BASS_LOW[noteIdx], play: true };
+  }
+
+  // 2) Shift one existing note down 1 semitone (txid-derived which note).
+  const noteSteps = [];
+  for (let i = 0; i < v2.length; i++) if (v2[i].note !== null) noteSteps.push(i);
+  if (noteSteps.length > 0) {
+    const shiftStep = noteSteps[parseInt(m.substr(52, 2), 16) % noteSteps.length];
+    v2[shiftStep] = { ...v2[shiftStep], note: shiftSemitone(v2[shiftStep].note, -1) };
+  }
+
+  return v2;
+}
+
 const TONE_URL  = "https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0";
 const KICK_URL  = "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0";
 const CLAP_URL  = "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0";
@@ -575,6 +634,7 @@ async function setFeatured(height) {
   const sprites = await loadFrogSprites(traits);
   const bassline = generateBasslineFromBlock(merkle);
   const slideMask = generateSlideMask(merkle);
+  const bassline2 = generateBasslineV2(bassline, merkle);
 
   // Per-frog drum kit: txid byte picks 1 of 8 kits → every frog feels different
   const kitIdx = parseInt(merkle.substr(0, 2), 16) % DRUM_KITS.length;
@@ -585,7 +645,7 @@ async function setFeatured(height) {
 
   mainBG.src = bgPath(traits.bg.slot);
 
-  current = { height, block, merkle, nonceHex, traits, sprites, bassline, slideMask, vocalIdx };
+  current = { height, block, merkle, nonceHex, traits, sprites, bassline, bassline2, slideMask, vocalIdx };
 
   const ts = block.timestamp || block.time || block.median_time || block.mediantime || 0;
   const date = new Date(ts * 1000);
@@ -606,7 +666,8 @@ async function setFeatured(height) {
       <div class="k">difficulty</div><div>${block.difficulty}</div>
       <div class="k">merkleroot</div><div style="font-size:10px">${merkle.slice(0,24)}…</div>
       <div class="k">nonce</div><div>0x${nonceHex}</div>
-      <div class="k">bass notes</div><div style="font-size:10px">${bassline.filter(s => s.note).map(s => s.note).join(" · ")}</div>
+      <div class="k">riff a</div><div style="font-size:10px">${bassline.filter(s => s.note).map(s => s.note).join(" · ")}</div>
+      <div class="k">riff b</div><div style="font-size:10px">${bassline2.filter(s => s.note).map(s => s.note).join(" · ")}</div>
       <div class="k">kit (auto)</div><div style="font-size:10px;color:#9f9">${currentKit.label}</div>
       <div class="k">vocal #</div><div style="font-size:10px">${vocalIdx + 1}/16</div>
     </div>
@@ -906,8 +967,14 @@ async function startAudio() {
     }
 
     // ---- BASS (303) ----
+    // Two 8-bar riffs per loop. Riff 0 = original bassline; riff 1 = the V2
+    // variation (one extra note + one note shifted down a semitone). Each
+    // riff still gets the full drop / outro arrangement (kick build, drop,
+    // tension, outro claps + ACID hit) — only the bassline notes change.
     const bassAllowed = !(barCount === 7 && stepIn16 >= 9);
-    const pattern = patternForBarDeep(current.bassline, barCount, current.nonceHex);
+    const riffCount   = Math.floor(stepIdx / 128) % 2;
+    const activeBass  = riffCount === 0 ? current.bassline : (current.bassline2 || current.bassline);
+    const pattern = patternForBarDeep(activeBass, barCount, current.nonceHex);
     const step = pattern[stepIn16];
 
     // ============ AUTO CHAIN — baked-in 303 squelch arrangement ============
