@@ -830,27 +830,29 @@ async function startAudio() {
     const barCount = Math.floor(stepIdx / 16) % 8;
     const localStep = stepIdx;  // capture for the visual closure
 
-    // ---- VISUALS — schedule on the audio clock so frog/step display stay synced ----
-    // 3-frame sprite dance:
-    //   frame 2 = clap pose (3rd sprite frame, the bigger movement)
-    //   frame 1 = hat nod   (2nd sprite frame)
-    //   frame 0 = rest
-    // Each pose is HELD for 2 steps (~245ms at 123 BPM) so it's clearly visible.
-    // Gates on whether the sound ACTUALLY plays — when the drums stop, the
-    // dance stops with them (silent drop gap, hat=null kits, after stop).
+    // ---- VISUALS — set frameIdx directly; requestAnimationFrame picks it up ----
+    // 3-frame sprite dance: frame 2 = clap pose, frame 1 = hat nod, frame 0 = rest.
+    // Each pose held for 2 steps (~245ms at 123 BPM) so it's visible.
+    // Gated on whether the sound actually plays — drums stop → dance stops.
+    // (Setting frameIdx directly here is fine; the RAF render loop reads it
+    // every frame anyway. We don't need Tone.Draw.schedule for sub-frame
+    // visual sync — and avoiding it sidesteps an iOS Safari edge case.)
     const clapFires = (barCount === 7 && stepIn16 >= 12) ||
                       (stepIn16 === 4 || stepIn16 === 12);
     const hatFires  = currentKit.hat && stepIn16 % 4 === 2 &&
                       !(barCount === 7 && stepIn16 >= 12);
     if (clapFires) stepsSinceClap = 0; else stepsSinceClap++;
     if (hatFires)  stepsSinceHat  = 0; else stepsSinceHat++;
-    Tone.Draw.schedule(() => {
-      // Clap pose takes priority and holds for 2 steps; hat nod 2 steps too.
-      if      (stepsSinceClap < 2) frameIdx = 2;
-      else if (stepsSinceHat  < 2) frameIdx = 1;
-      else                         frameIdx = 0;
-      stepsEl.querySelectorAll(".step").forEach((el, i) => el.classList.toggle("active", i === stepIn16));
-    }, time);
+    if      (stepsSinceClap < 2) frameIdx = 2;
+    else if (stepsSinceHat  < 2) frameIdx = 1;
+    else                         frameIdx = 0;
+    // Step display highlight — also fine on the JS thread.
+    if (stepsEl) {
+      const stepEls = stepsEl.querySelectorAll(".step");
+      for (let i = 0; i < stepEls.length; i++) {
+        stepEls[i].classList.toggle("active", i === stepIn16);
+      }
+    }
 
     // ---- KICK ----
     if (currentKit.kick === "halftime") {
