@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acid Frogs · Chain Sequencer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --acid: #9f9;
+    --acidglow: rgba(153,255,153,0.4);
+    --gold: #ffd700;
+    --pink: #ff88ff;
+    --cyan: #88ffff;
+    --bg: #000;
+    --mono: "Courier New", ui-monospace, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--acid);font-family:var(--mono);min-height:100vh}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
+  h1{font-size:36px;letter-spacing:6px;margin:0 0 6px;text-transform:uppercase;text-shadow:0 0 14px var(--acidglow)}
+  .sub{font-size:12px;opacity:.7;margin-bottom:16px;letter-spacing:2px}
+  .lore{font-size:12px;opacity:.9;line-height:1.7;border:1px solid var(--acid);padding:14px;margin:16px 0;background:rgba(0,30,0,0.3)}
+  .lore b{color:#fff}
+  .lore code{background:rgba(153,255,153,0.1);padding:1px 4px;border-radius:2px}
+  .featured{border:2px solid var(--acid);padding:18px;margin:16px 0;background:rgba(0,40,0,0.4);display:grid;grid-template-columns:420px 1fr;gap:24px;align-items:start}
+  .frog-box{position:relative;width:400px;height:400px;background:#000;overflow:hidden}
+  .frog-box canvas,.frog-box img{position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated}
+  .frog-box .bg-layer{z-index:0}
+  .frog-box .frog-canvas{z-index:2;background:transparent}
+  .info{font-size:12px;line-height:1.6}
+  .kv{display:grid;grid-template-columns:100px 1fr;gap:5px 12px;margin-bottom:10px}
+  .kv .k{opacity:.55}
+  .btn{background:transparent;color:var(--acid);border:1px solid var(--acid);padding:8px 16px;font-family:var(--mono);font-size:11px;letter-spacing:2px;cursor:pointer;text-transform:uppercase;margin:4px 2px}
+  .btn:hover{background:var(--acid);color:#000}
+  .steps{display:flex;gap:3px;margin:10px 0;justify-content:center;flex-wrap:nowrap}
+  .step{width:18px;height:20px;background:#111;border:1px solid #222;transition:background .05s}
+  .step.root{background:#050}
+  .step.octave{background:#080}
+  .step.slide{background:#0b0}
+  .step.active{background:#fff!important;box-shadow:0 0 8px var(--acid)}
+  .fx{border-top:1px solid #333;padding-top:10px;margin-top:10px}
+  .fx h4{font-size:11px;letter-spacing:2px;margin:0 0 8px;color:#fff;opacity:.9}
+  .fx-row{display:grid;grid-template-columns:80px 1fr 44px;gap:8px;align-items:center;margin-bottom:6px}
+  .fx-row label{font-size:11px;opacity:.75;text-transform:uppercase;letter-spacing:1px}
+  .fx-row input[type=range]{
+    -webkit-appearance:none;width:100%;height:3px;background:#222;outline:none;border-radius:2px
+  }
+  .fx-row input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;background:var(--acid);border-radius:50%;cursor:pointer;box-shadow:0 0 6px var(--acid)
+  }
+  .fx-row input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;background:var(--acid);border-radius:50%;cursor:pointer;box-shadow:0 0 6px var(--acid);border:none
+  }
+  .fx-row .val{font-size:10px;opacity:.6;text-align:right;font-variant-numeric:tabular-nums}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px}
+  .card{border:1px solid var(--acid);padding:10px;background:rgba(0,30,0,0.2);cursor:pointer;transition:all .15s;position:relative}
+  .card:hover{background:rgba(0,60,0,0.4);transform:translateY(-2px);box-shadow:0 0 20px var(--acidglow)}
+  .card .frog-box{width:100%;aspect-ratio:1/1;height:auto;position:relative}
+  .card .meta{font-size:10px;opacity:.7;margin-top:6px;line-height:1.4}
+  .tier-LEGENDARY{color:var(--gold)!important}
+  .tier-RARE{color:var(--pink)!important}
+  .tier-UNCOMMON{color:var(--cyan)!important}
+  .tier-COMMON{color:var(--acid)!important}
+  .diff-display{font-size:18px;color:#fff;letter-spacing:1px;margin-bottom:10px}
+  .diff-display .match{color:var(--gold);text-shadow:0 0 8px var(--gold)}
+  @media (max-width:900px){.featured{grid-template-columns:1fr}.frog-box{width:100%;max-width:400px;height:auto;aspect-ratio:1/1;margin:0 auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Acid Frogs · Chain Sequencer</h1>
+  <div class="sub">CHAIN MULTIPLE FROGS INTO A SONG · LIKE THE PATTERN MODE ON A KORG ELECTRIBE</div>
+  <div style="font-size:12px;opacity:.7;margin:8px 0 20px;letter-spacing:1px">
+    Add frogs to the chain · set how many 8-bar phrases each plays · hit ▶ CHAIN PLAY · the frogs swap in order, looping forever.<br>
+    Tip: chain frogs with the same drum kit for a smooth song. Different kits = jolts at every transition (intentional, but fun to mix and match too).
+  </div>
+
+  <div class="featured">
+    <div>
+      <div class="frog-box" id="mainFrog">
+        <img class="bg-layer" id="mainBG" src="">
+        <canvas class="frog-canvas" id="mainCanvas" width="500" height="500"></canvas>
+      </div>
+      <div class="steps" id="steps"></div>
+      <div style="text-align:center">
+        <button class="btn" id="playBtn">▶ PLAY ACID</button>
+        <button class="btn" id="nextBtn">⟳ RANDOM 1337 BLOCK</button>
+      </div>
+    </div>
+    <div class="info">
+      <div id="info">loading block data…</div>
+    </div>
+  </div>
+
+  <div class="lore" style="margin-top:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <b>CHAIN SEQUENCER</b>
+        <span style="opacity:.6;margin-left:10px;font-size:11px">1 phrase = 8 bars (~15 sec)</span>
+      </div>
+      <div>
+        <button class="btn" id="chainPlayBtn" style="background:rgba(113,255,94,0.15);border-color:#9f9">▶ CHAIN PLAY</button>
+        <button class="btn" id="chainAddBtn">+ ADD FROG</button>
+        <button class="btn" id="chainClearBtn" style="opacity:.5">CLEAR</button>
+      </div>
+    </div>
+    <div id="chain-slots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:8px;min-height:120px;border:1px dashed #333;padding:10px;border-radius:4px;background:rgba(0,0,0,0.3)">
+      <div id="chain-empty-msg" style="grid-column:1/-1;text-align:center;opacity:.5;font-size:12px;padding:20px 0">
+        Empty chain · click <b>+ ADD FROG</b> to roll a random 1337 block and start chaining
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==============================================================
+//   Acid Frogs Preview — uses repo-local AVIF sprites + real 1337-epoch block data
+// ==============================================================
+
+const EPOCH_START = 941472;
+const EPOCH_END = 943487;
+
+const traitFolders = {
+  body:     { count: 1,  color: true  },
+  mouth:    { count: 2,  color: false },
+  eyes:     { count: 27, color: true  },
+  clothing: { count: 21, color: false },
+  head:     { count: 48, color: false },
+  smoke:    { count: 2,  color: false },
+};
+
+// Real filename patterns discovered in the repo — URL-encode to handle spaces.
+function spritePath(kind, slot) {
+  let path;
+  switch (kind) {
+    case "body":  path = "Body_sprites/1body-sprite.avif"; break;
+    case "mouth": path = `Mouth_sprites/${slot}Mouth-sprite.avif`; break;
+    case "eyes":  path = `Eyes_sprites/${slot}eyes new.avif`; break;
+    case "clothing": {
+      const prefix = slot >= 19 ? "Brand" : "brand";
+      path = `Clothing_sprites/${slot}${prefix} new clothing.avif`;
+      break;
+    }
+    case "head":
+      path = slot <= 45
+        ? `Head_sprites/brandnewhead${slot}.avif`
+        : `Head_sprites/${slot}Brandnewhead.avif`;
+      break;
+    case "smoke": path = `smoke_sprites/${slot}smoke.avif`; break;
+  }
+  // Encode each path segment + prepend ../ since mockup lives in /lego-mockups/
+  return "../" + path.split("/").map(encodeURIComponent).join("/");
+}
+
+const colorVariants = [
+  { name: "Green",  filter: "none",                                  weight: 70, tier: "common" },
+  { name: "Blue",   filter: "hue-rotate(92deg) saturate(166%)",      weight: 10, tier: "uncommon" },
+  { name: "Red",    filter: "hue-rotate(239deg) saturate(200%)",     weight: 8,  tier: "uncommon" },
+  { name: "Pink",   filter: "hue-rotate(197deg) saturate(200%)",     weight: 7,  tier: "rare" },
+  { name: "Purple", filter: "hue-rotate(158deg) saturate(198%)",     weight: 5,  tier: "legendary" },
+];
+
+// Weight 70+10+8+7+5 = 100. Scale to 256 for clean merkleroot-byte mapping:
+// Green 179 / Blue 26 / Red 20 / Pink 18 / Purple 13 = 256
+const colorWeights256 = [
+  { ...colorVariants[0], w: 179 },
+  { ...colorVariants[1], w: 26 },
+  { ...colorVariants[2], w: 20 },
+  { ...colorVariants[3], w: 18 },
+  { ...colorVariants[4], w: 13 },
+];
+
+// Note pools — all dark minor territory (C / Eb phrygian feel)
+const BASS_LOW  = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1","e1","ab2","a2","bb2"];
+const BASS_MID  = ["c3","eb3","f3","g3","bb3","ab3","db3","d3"];
+const BASS_HIGH = ["eb4","g4","f4","c4","bb3","ab4","d4","db4"];
+
+// Generate a PER-BLOCK bassline. RHYTHM and NOTES are both derived from merkleroot.
+// One byte of merkleroot per step. The byte determines:
+//   - high nibble (4 bits) → rhythm state: rest / ghost / low / mid / high / accent
+//   - low nibble  (4 bits) → note index within that state's pool
+//
+// Result: every frog has a fundamentally different pattern structure.
+// Distribution (from 16 possible rhythm values):
+//   5/16 rest     (~31%)   silence
+//   3/16 ghost    (~19%)   lowered-velocity low note
+//   5/16 low      (~31%)   normal low bass note
+//   2/16 mid      (~12%)   mid stab
+//   1/16 high     (~6%)    high acid stab
+function generateBasslineFromBlock(merkleHex) {
+  const m = (merkleHex || "").replace(/^0x/, "").padEnd(32, "0");
+  const out = [];
+  for (let i = 0; i < 16; i++) {
+    const byte = parseInt(m.substr(i * 2, 2), 16);
+    const rhythmBits = byte >> 4;    // 0..15
+    const noteBits   = byte & 0x0F;  // 0..15
+
+    let slot;
+    if      (rhythmBits < 5)  slot = "rest";   // 0-4
+    else if (rhythmBits < 8)  slot = "ghost";  // 5-7
+    else if (rhythmBits < 13) slot = "low";    // 8-12
+    else if (rhythmBits < 15) slot = "mid";    // 13-14
+    else                      slot = "high";   // 15
+
+    if (slot === "rest") {
+      out.push({ note: null, play: true });
+      continue;
+    }
+    const pool =
+      slot === "high" ? BASS_HIGH :
+      slot === "mid"  ? BASS_MID  :
+      BASS_LOW; // low + ghost share the low pool
+    const note = pool[noteBits % pool.length];
+    out.push({ note, play: slot !== "ghost" });
+  }
+  return out;
+}
+
+// Preview/demo pattern — "Sinister Walk" from strangersolemn's 50-pattern library.
+// Shown before any block is loaded. Every real block generates its own pattern.
+const PREVIEW_PATTERN = [
+  { note: 'c2',  play: true  }, { note: null,  play: true  },
+  { note: 'b1',  play: false }, { note: 'bb1', play: true  },
+  { note: null,  play: false }, { note: 'eb4', play: true  },
+  { note: 'a1',  play: true  }, { note: null,  play: true  },
+  { note: 'ab1', play: false }, { note: null,  play: false },
+  { note: 'g1',  play: true  }, { note: 'c3',  play: true  },
+  { note: null,  play: true  }, { note: 'gb1', play: false },
+  { note: null,  play: false }, { note: null,  play: false },
+];
+// Generate a 16-step SLIDE MASK (which bass steps glide from the previous
+// note). Derived from merkleroot bytes 16-23 — sparse, txid-unique per frog.
+// Roughly 1-3 slides per 16 steps, never two in a row (so the glide always
+// has a fresh target note to lock onto).
+function generateSlideMask(merkleHex) {
+  const m = (merkleHex || "").replace(/^0x/, "").padEnd(64, "0");
+  const mask = new Array(16).fill(false);
+  // 8 bytes = 8 candidate slide positions (every other step)
+  for (let i = 0; i < 8; i++) {
+    const byte = parseInt(m.substr(32 + i * 2, 2), 16);
+    // ~25% probability per candidate → ~2 slides per 16 steps on average
+    if ((byte & 0x0F) >= 12) {
+      const stepPos = i * 2 + 1;        // odd steps only — feels syncopated
+      // Avoid back-to-back slides
+      if (!mask[stepPos - 1] && !mask[stepPos + 1]) mask[stepPos] = true;
+    }
+  }
+  return mask;
+}
+
+// Drop a note one octave (for underground variation). Returns null if can't drop further.
+function lowerOctave(noteStr) {
+  if (!noteStr) return null;
+  const m = noteStr.match(/^([a-g][b#]?)(\d+)$/i);
+  if (!m) return noteStr;
+  const oct = parseInt(m[2], 10);
+  if (oct <= 0) return noteStr;
+  return m[1] + (oct - 1);
+}
+
+// ---- Chromatic note <-> MIDI helpers (used by generateBasslineV2) ----
+// 12 notes per octave: c c# d d# e f f# g g# a a# b. Shifting "down one space"
+// in this table = down 1 semitone.
+const NOTE_SEMITONES = {
+  c:0, "c#":1, db:1, d:2, "d#":3, eb:3, e:4, f:5, "f#":6, gb:6,
+  g:7, "g#":8, ab:8, a:9, "a#":10, bb:10, b:11
+};
+const NOTE_NAMES = ["c","c#","d","d#","e","f","f#","g","g#","a","a#","b"];
+function noteToMidi(noteStr) {
+  if (!noteStr) return null;
+  const m = noteStr.match(/^([a-g][b#]?)(\d+)$/i);
+  if (!m) return null;
+  const sem = NOTE_SEMITONES[m[1].toLowerCase()];
+  if (sem === undefined) return null;
+  return (parseInt(m[2], 10) + 1) * 12 + sem;
+}
+function midiToNote(midi) {
+  if (midi == null || midi < 0) return null;
+  const oct = Math.floor(midi / 12) - 1;
+  return NOTE_NAMES[((midi % 12) + 12) % 12] + oct;
+}
+function shiftSemitone(noteStr, delta) {
+  const midi = noteToMidi(noteStr);
+  if (midi === null) return noteStr;
+  return midiToNote(midi + delta) || noteStr;
+}
+
+// ---- Second-riff bassline variation ----
+// Each frog plays TWO 8-bar riffs in sequence. Riff 1 = the original
+// bassline. Riff 2 = the same pattern with two small mutations:
+//   1. ONE rest step gets filled with a new low note.
+//   2. ONE existing note is shifted DOWN by 1 semitone (one space in the
+//      12-note chromatic scale).
+// Both choices are derived from merkleroot bytes 24..27 so the second
+// riff is unique-but-deterministic per frog.
+function generateBasslineV2(original, merkleHex) {
+  const m = (merkleHex || "").replace(/^0x/, "").padEnd(64, "0");
+  const v2 = original.map(s => ({ ...s }));
+
+  // 1) Fill one rest step with a low note (txid-derived which rest + which note).
+  const restSteps = [];
+  for (let i = 0; i < v2.length; i++) if (v2[i].note === null) restSteps.push(i);
+  if (restSteps.length > 0) {
+    const addStep = restSteps[parseInt(m.substr(48, 2), 16) % restSteps.length];
+    const noteIdx = parseInt(m.substr(50, 2), 16) % BASS_LOW.length;
+    v2[addStep] = { note: BASS_LOW[noteIdx], play: true };
+  }
+
+  // 2) Shift one existing note down 1 semitone (txid-derived which note).
+  const noteSteps = [];
+  for (let i = 0; i < v2.length; i++) if (v2[i].note !== null) noteSteps.push(i);
+  if (noteSteps.length > 0) {
+    const shiftStep = noteSteps[parseInt(m.substr(52, 2), 16) % noteSteps.length];
+    v2[shiftStep] = { ...v2[shiftStep], note: shiftSemitone(v2[shiftStep].note, -1) };
+  }
+
+  return v2;
+}
+
+const TONE_URL  = "https://ordinals.com/content/04813d7748d918bd8a3069cb1823ebc9586f0ce16cd6a97a784581ec38d13062i0";
+const KICK_URL  = "https://ordinals.com/content/73f8110caa1f84e0ea79fc654d43cdc7f6f2be88110938997f0d1351146a1f52i0";
+const CLAP_URL  = "https://ordinals.com/content/edb9b5d508556b2b104d390c9c712a712d4643156c669ba73393597ce2e76ae2i0";
+const HAT_URL   = "https://ordinals.com/content/83407a1c9637e53e76e3d4de711b971f557e7876ad96b9b520a8202109521ba1i0";
+const FINAL_URL = "https://ordinals.com/content/cfe7e84e28512591c0057ccc41ee2269a8cce4b3561e4d7e1b884b31daadf9c2i0";
+
+// Extra percussion samples (can be swapped via drum-kit toggle)
+const HAT_DIF_URL   = "https://ordinals.com/content/544460a9c39fbe6307c3bf3c88eb43eb4711f21266c32308d5ee14182d9fabeai0";
+const SNARE_DIF_URL = "https://ordinals.com/content/c0da354edd8cace5b39e8e4a711d61cc9caee1de9a950f76e062b1330c25211ai0";
+const TAMB_URL      = "https://ordinals.com/content/8b5cf2d44507fc0ac9020373b51b3c0a1382ee3c8b1e1ec835253ded99543b9ci0";
+const WOOD_URL      = "https://ordinals.com/content/75a4d1f19f98433fac91c5b048c139ae8309b385fb5346167ab1eb1aa8a55540i0";
+const SHAKER1_URL   = "https://ordinals.com/content/809f6e1f0d9ece8c63af98b644c8c0767608b8de8dca4174d0057d134e861529i0";
+const SHAKER2_URL   = "https://ordinals.com/content/ccaa4e6f8f862fffa9a20adc446f2e0c12bb091c40bb0fee7740fc0ba30a40cei0";
+
+// 16 ACID vocal samples — one fires at the drop (bar 8 step 12), txid-derived choice.
+const VOCAL_BASE = "0a79cf2b3f6742e020fbc758f08306685b6b4c483b3ba15ecc6e1ff0bcdccb24";
+const VOCAL_URLS = Array.from({length:16}, (_,i) => `https://ordinals.com/content/${VOCAL_BASE}i${i}`);
+
+// Drum kit presets — switchable live. Each is a complete locked beat.
+// Audio chain (the BEAUTIFUL one) stays exactly the same; only sample selection varies.
+// kick: "std"      = four-on-the-floor (tech house). Every quarter note.
+//       "halftime" = kick every 2 beats (the 1 and the 3 → steps 0 and 8). Sparser.
+const DRUM_KITS = [
+  { id:"P01", label:"01 · Tech-house",    kick:"std",      hat:"std", layers:[] },
+  { id:"P02", label:"02 · Half-time",     kick:"halftime", hat:"std", layers:[] },
+  { id:"P03", label:"03 · Shaker drive",  kick:"std",      hat:"std", layers:["SHAKER1"] },
+  { id:"P04", label:"04 · Minimal",       kick:"std",      hat:null,  layers:[] },
+  { id:"P05", label:"05 · Industrial",    kick:"std",      hat:"std", layers:["WOOD","TAMB"] },
+  { id:"P06", label:"06 · Dif hat",       kick:"std",      hat:"dif", layers:[] },
+  { id:"P07", label:"07 · Snare layer",   kick:"std",      hat:"std", layers:["SNARE_DIF"] },
+  { id:"P08", label:"08 · Full kit",      kick:"std",      hat:"dif", layers:["SHAKER2","TAMB","SNARE_DIF","WOOD"] },
+];
+let currentKit = DRUM_KITS[0];
+
+// -------------------------- pure helpers --------------------------
+function pickWeighted(table, byteVal) {
+  let cum = 0;
+  for (const t of table) {
+    cum += t.w;
+    if (byteVal < cum) return t;
+  }
+  return table[table.length - 1];
+}
+function pickByMod(table, byteVal) {
+  return table[byteVal % table.length];
+}
+// Returns the 16-step bass pattern for a given bar, with 2-bar variations.
+// "Underground dark" rule: every 2 bars, drop one note an octave lower.
+// Which step is picked varies from the block nonce.
+function patternForBarDeep(basePattern, barCount, nonceHex) {
+  const p = basePattern.map(x => ({...x}));
+  const stepA = parseInt(nonceHex[2], 16) % 16;  // variation swap step #1
+  const stepB = parseInt(nonceHex[3], 16) % 16;  // variation swap step #2
+  const pairIdx = Math.floor(barCount / 2);      // 0..3 across the 8-bar loop
+
+  if (pairIdx % 2 === 1 && p[stepA].note) {
+    p[stepA] = { ...p[stepA], note: lowerOctave(p[stepA].note) };
+  }
+  if (pairIdx >= 2 && pairIdx % 2 === 0 && p[stepB].note && stepB !== stepA) {
+    p[stepB] = { ...p[stepB], note: lowerOctave(p[stepB].note) };
+  }
+  return p;
+}
+function loadImg(url) {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = (e) => {
+      console.warn("[acid-frogs] failed to load image:", url);
+      res(null);
+    };
+    img.src = url;
+  });
+}
+async function fetchBlock(height) {
+  const res = await fetch("https://ordinals.com/r/blockinfo/" + height);
+  return res.json();
+}
+
+// -------------------------- trait assignment --------------------------
+function pickTraits(merkleHex) {
+  const m = merkleHex.replace(/^0x/, "");
+  const b = (i) => parseInt(m.substr(i * 2, 2), 16);
+  const colorPick = pickWeighted(colorWeights256, b(0));
+  return {
+    color:    colorPick,
+    head:     { slot: (b(1) % traitFolders.head.count) + 1 },
+    eyes:     { slot: (b(2) % traitFolders.eyes.count) + 1 },
+    clothing: { slot: (b(3) % traitFolders.clothing.count) + 1 },
+    mouth:    { slot: (b(4) % traitFolders.mouth.count) + 1 },
+    smoke:    { slot: b(5) < 200 ? 0 : (b(5) % traitFolders.smoke.count) + 1 }, // most frogs no smoke
+    bg:       { slot: (b(6) % 8) + 1 }, // 8 BG variants
+    body:     { slot: 1 }, // only one body
+  };
+}
+
+function bgPath(slot) {
+  return `../BG/${slot}BG.${slot <= 5 ? "JPG" : "jpg"}`;
+}
+
+// -------------------------- canvas compositor --------------------------
+function drawFrame(ctx, sprites, traits, frameIndex) {
+  const W = 500, H = 500;
+  ctx.clearRect(0, 0, W, H);
+  const frameX = frameIndex * W; // each sprite is 1500x500 = 3 frames
+  const drawLayer = (img, applyColorFilter) => {
+    if (!img) return;
+    if (applyColorFilter && traits.color.filter !== "none") {
+      const tmp = document.createElement("canvas");
+      tmp.width = W; tmp.height = H;
+      const tctx = tmp.getContext("2d");
+      tctx.drawImage(img, frameX, 0, W, H, 0, 0, W, H);
+      tctx.filter = traits.color.filter;
+      tctx.globalCompositeOperation = "source-atop";
+      tctx.drawImage(tmp, 0, 0);
+      ctx.drawImage(tmp, 0, 0);
+    } else {
+      ctx.drawImage(img, frameX, 0, W, H, 0, 0, W, H);
+    }
+  };
+  drawLayer(sprites.body,     true);
+  drawLayer(sprites.mouth,    false);
+  drawLayer(sprites.eyes,     true);
+  drawLayer(sprites.clothing, false);
+  drawLayer(sprites.head,     false);
+  if (sprites.smoke && traits.smoke.slot > 0) drawLayer(sprites.smoke, false);
+}
+
+async function loadFrogSprites(traits) {
+  const out = {};
+  const paths = {
+    body:     spritePath("body",     traits.body.slot),
+    mouth:    spritePath("mouth",    traits.mouth.slot),
+    eyes:     spritePath("eyes",     traits.eyes.slot),
+    clothing: spritePath("clothing", traits.clothing.slot),
+    head:     spritePath("head",     traits.head.slot),
+  };
+  for (const [k, p] of Object.entries(paths)) {
+    out[k] = await loadImg(p);
+  }
+  out.smoke = traits.smoke.slot > 0 ? await loadImg(spritePath("smoke", traits.smoke.slot)) : null;
+  const loaded = Object.values(out).filter(Boolean).length;
+  const total = Object.keys(out).length - (traits.smoke.slot === 0 ? 1 : 0);
+  console.log(`[acid-frogs] loaded ${loaded}/${total} sprites`, paths);
+  out._debug = { loaded, total };
+  return out;
+}
+
+// -------------------------- featured frog + audio --------------------------
+const mainCanvas = document.getElementById("mainCanvas");
+const mainCtx = mainCanvas.getContext("2d");
+const mainBG = document.getElementById("mainBG");
+const playBtn = document.getElementById("playBtn");
+const nextBtn = document.getElementById("nextBtn");
+const infoEl = document.getElementById("info");
+const stepsEl = document.getElementById("steps");
+
+let current = null;   // current featured frog state
+let audioStarted = false;
+let toneLoaded = false;
+let synth, kickP, clapP, hatP, finalP, delayFX, reverbFX;
+let hatDifP, snareDifP, tambP, woodP, shaker1P, shaker2P;
+let vocalsP = [];  // 16 ACID vocal players, one fires at the drop
+// Two parallel bass chains: AUTO (baked-in squelch arrangement) + USER (manual)
+let filterAuto, distAuto, makeupAuto;
+let filterUser, distUser, makeupUser;
+let masterLimiter;  // brick-wall safety on the master out
+let stepTimer = null;     // legacy — kept for any old code paths, no longer used
+let scheduleId = null;    // Tone.Transport scheduleRepeat ID for clean cancel
+let stepIdx = 0;
+let kickFlash = 0;
+let frameIdx = 0;
+let frameTimer = 0;
+let stepsSinceHat  = 999;  // 16th-notes since last hat  — drives nod pose
+let stepsSinceClap = 999;  // 16th-notes since last clap — drives clap pose
+// Two PARALLEL bass chains — same MonoSynth, fed into two independent
+// filter+drive paths, summed back together. AUTO chain runs the baked-in
+// arrangement (LFO speed variation + drive arc). USER chain is fully
+// manual — knobs set its values directly, no auto-sweep on this path.
+// Two distinct squelches layered on the same bassline.
+let userCutoff = 1000;    // user-chain filter cutoff (Hz)
+let userReso   = 5;       // user-chain filter Q
+let userDrive  = 0.15;    // user-chain distortion amount (0..1)
+
+// LFO phase accumulators — speed varies per bar so the squelch feels alive.
+// Phase is integrated continuously so changing speed never causes clicks.
+let cutoffLfoPhase = 0;
+let resoLfoPhase   = 0;
+const CUTOFF_LFO_SPEEDS = [0.08, 0.12, 0.20, 0.28, 0.45, 0.55, 0.18, 0.10]; // slow→fast→slow
+const RESO_LFO_SPEEDS   = [0.06, 0.30, 0.10, 0.42, 0.18, 0.25, 0.50, 0.12]; // independent jitter
+
+// Auto-chain CUTOFF + RESO arcs as 9 keyframes (start of each bar + end of bar 7).
+// Real up-down movement, not monotonic ramps. Tuned to push acid character —
+// reso climbs to 13 by bar 6 (peak squelch), dips for the lull, jumps back for drop.
+const CUTOFF_ARC = [400, 1100,  700, 2200, 1500, 3300, 1800, 2400, 4500]; // Hz per bar boundary
+const RESO_ARC   = [3,    6,    4,    9,    5,   11,    7,    9,   13];   // Q  per bar boundary
+function lerpArc(arc, barCount, stepIn16) {
+  const a = arc[barCount];
+  const b = arc[Math.min(arc.length - 1, barCount + 1)];
+  const t = stepIn16 / 16;
+  return a + (b - a) * t;
+}
+
+// Bass variation — subtle change every 2 bars for underground/dark feel.
+// On odd pairs (bars 3-4, 7-8, 11-12, 15-16): force one step to lowest octave root.
+// On later pairs (4+): also modify a second step. Minimal — just 1-2 notes.
+function patternForBar(basePattern, barCount, nonceHex) {
+  const p = basePattern.slice();
+  const stepA = parseInt(nonceHex[2], 16) % 16;  // dark-swap step #1
+  const stepB = parseInt(nonceHex[3], 16) % 16;  // dark-swap step #2
+  const pairIdx = Math.floor(barCount / 2);      // 0..7 across the 16-bar loop
+
+  // Every other pair: drop stepA to root (value 1 = lowest playable, darker)
+  if (pairIdx % 2 === 1 && p[stepA] > 0) {
+    p[stepA] = 1;
+  }
+  // From pair 4 onwards, alternate in stepB on the even pairs too
+  if (pairIdx >= 4 && pairIdx % 2 === 0 && p[stepB] > 0 && stepB !== stepA) {
+    p[stepB] = 1;
+  }
+  return p;
+}
+
+async function setFeatured(height) {
+  infoEl.textContent = "fetching block " + height + "…";
+  const block = await fetchBlock(height);
+  const merkle = (block.merkle_root || block.merkleroot || "").replace(/^0x/, "");
+  const nonceHex = Number(block.nonce).toString(16).padStart(8, "0");
+
+  const traits = pickTraits(merkle);
+  const sprites = await loadFrogSprites(traits);
+  const bassline = generateBasslineFromBlock(merkle);
+  const slideMask = generateSlideMask(merkle);
+  const bassline2 = generateBasslineV2(bassline, merkle);
+
+  // Per-frog drum kit: txid byte picks 1 of 8 kits → every frog feels different
+  const kitIdx = parseInt(merkle.substr(0, 2), 16) % DRUM_KITS.length;
+  currentKit = DRUM_KITS[kitIdx];
+
+  // Per-frog vocal: txid byte picks 1 of 16 ACID vocal samples
+  const vocalIdx = parseInt(merkle.substr(2, 2), 16) % 16;
+
+  mainBG.src = bgPath(traits.bg.slot);
+
+  current = { height, block, merkle, nonceHex, traits, sprites, bassline, bassline2, slideMask, vocalIdx };
+
+  const ts = block.timestamp || block.time || block.median_time || block.mediantime || 0;
+  const date = new Date(ts * 1000);
+  const dateStr = isNaN(date.getTime()) ? "—" : date.toISOString().slice(0,16).replace("T"," ");
+
+  // Public/clean version: no merkleroot/nonce/vocal-index dump, no sprite-load
+  // debug, no drum-kit picker. Drums and vocals rotate automatically per frog
+  // every time you press RANDOM 1337 BLOCK — txid-derived, all on-chain.
+  infoEl.innerHTML = `
+    <div class="kv">
+      <div class="k">block</div><div>#${height}</div>
+      <div class="k">date</div><div>${dateStr} UTC</div>
+      <div class="k">riff a</div><div style="font-size:10px">${bassline.filter(s => s.note).map(s => s.note).join(" · ")}</div>
+      <div class="k">riff b</div><div style="font-size:10px">${bassline2.filter(s => s.note).map(s => s.note).join(" · ")}</div>
+      <div class="k">drum kit</div><div style="font-size:10px;color:#9f9">${currentKit.label}</div>
+    </div>
+    <div style="border-top:1px solid #333;padding-top:10px;margin-top:10px">
+      <div><span class="tier-${traits.color.tier.toUpperCase()}">${traits.color.name.toUpperCase()}</span> frog · ${traits.color.tier}</div>
+      <div>head ${traits.head.slot}/48 · eyes ${traits.eyes.slot}/27</div>
+      <div>clothing ${traits.clothing.slot}/21 · mouth ${traits.mouth.slot}/2</div>
+      <div>smoke: ${traits.smoke.slot === 0 ? "none" : traits.smoke.slot}</div>
+      <div>background ${traits.bg.slot}/8</div>
+    </div>
+    <div class="fx">
+      <h4>ACID FX · LIVE</h4>
+      <div style="font-size:9px;color:#777;margin-bottom:8px;letter-spacing:0.5px">
+        AUTO 303 SQUELCH RUNS UNDERNEATH · THESE DIALS LAYER A SECOND VOICE
+      </div>
+      <div class="fx-row"><label>cutoff</label><input type="range" id="fx-cutoff"   min="200" max="4500" step="10"  value="1000"><span class="val" id="fx-cutoff-val">1000</span></div>
+      <div class="fx-row"><label>reso</label><input type="range" id="fx-reso"     min="0.5" max="18"   step="0.1" value="5"><span class="val" id="fx-reso-val">5</span></div>
+      <div class="fx-row"><label>drive</label><input type="range" id="fx-drive"    min="0"   max="60"   step="1"   value="15"><span class="val" id="fx-drive-val">15</span></div>
+      <div class="fx-row"><label>delay</label><input type="range" id="fx-delay"    min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-delay-val">0</span></div>
+      <div class="fx-row"><label>reverb</label><input type="range" id="fx-reverb"  min="0"   max="100"  step="1"   value="0"><span class="val" id="fx-reverb-val">0</span></div>
+    </div>
+  `;
+  // Wire up FX knob listeners (no kit picker on this version)
+  wireFXKnobs();
+
+  // Step display: mark steps by the block's own bassline
+  stepsEl.innerHTML = "";
+  bassline.forEach((s, i) => {
+    const el = document.createElement("div");
+    let cls = "step";
+    if (s.note) cls += s.play ? " root" : " octave";  // 'octave' style = ghost (dimmer)
+    el.className = cls;
+    stepsEl.appendChild(el);
+  });
+}
+
+function animate() {
+  if (current) {
+    drawFrame(mainCtx, current.sprites, current.traits, frameIdx);
+  }
+  kickFlash *= 0.85;
+  requestAnimationFrame(animate);
+}
+
+// Frog animation is DRIVEN BY THE AUDIO SEQUENCER — frameIdx advances inside the
+// 16th-note step timer (only when audio is playing). When audio is stopped, frog
+// stays on frame 0. See stepTimer callback below.
+
+// Drive helpers — each chain (auto + user) has its own makeup gain so that
+// when distortion goes up, the chain's level drops inversely. With both
+// chains summing to ~unity, perceived loudness stays flat regardless of drive.
+function makeupFor(driveAmount) {
+  const a = Math.max(0, Math.min(1, driveAmount));
+  // Halved compared to single-chain version because two parallel paths sum:
+  // baseline of 0.5 per chain × ~unity perceived loudness compensation.
+  return 0.5 / (1 + a * 1.5);
+}
+function setAutoDrive(amount, time) {
+  const a = Math.max(0, Math.min(1, amount));
+  const t = time !== undefined ? time : (Tone.now ? Tone.now() : 0);
+  if (distAuto)   distAuto.distortion = a;
+  if (makeupAuto) makeupAuto.gain.setValueAtTime(makeupFor(a), t);
+}
+function setUserChain(cutoff, reso, drive, time) {
+  userCutoff = cutoff; userReso = reso; userDrive = drive;
+  const t = time !== undefined ? time : (Tone.now ? Tone.now() : 0);
+  if (filterUser) {
+    filterUser.frequency.setValueAtTime(cutoff, t);
+    filterUser.Q.setValueAtTime(reso, t);
+  }
+  if (distUser)   distUser.distortion = drive;
+  if (makeupUser) makeupUser.gain.setValueAtTime(makeupFor(drive), t);
+}
+
+// ---- FX knob wiring ----
+// Cutoff/reso/drive knobs control the USER chain DIRECTLY. The auto chain
+// keeps running its baked-in squelch arrangement in parallel underneath.
+function wireFXKnobs() {
+  const bindings = [
+    ["fx-cutoff", (v) => setUserChain(Number(v), userReso, userDrive)],
+    ["fx-reso",   (v) => setUserChain(userCutoff, Number(v), userDrive)],
+    ["fx-delay",  (v) => { if (delayFX) delayFX.wet.value = Number(v) / 100; }],
+    ["fx-reverb", (v) => { if (reverbFX) reverbFX.wet.value = Number(v) / 100; }],
+    ["fx-drive",  (v) => setUserChain(userCutoff, userReso, Number(v) / 100)],
+  ];
+  for (const [id, fn] of bindings) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const labelEl = document.getElementById(id + "-val");
+    if (el._acidWired) continue;
+    el._acidWired = true;
+    el.addEventListener("input", () => {
+      fn(el.value);
+      if (labelEl) labelEl.textContent = el.value;
+    });
+  }
+}
+function applyFXFromKnobs() {
+  const getVal = (id, def) => {
+    const el = document.getElementById(id);
+    return el ? Number(el.value) : def;
+  };
+  setUserChain(
+    getVal("fx-cutoff", 1000),
+    getVal("fx-reso", 5),
+    getVal("fx-drive", 15) / 100
+  );
+  if (delayFX) { delayFX.wet.value = getVal("fx-delay", 0) / 100; }
+  if (reverbFX){ reverbFX.wet.value = getVal("fx-reverb", 0) / 100; }
+}
+
+async function startAudio() {
+  if (!current) return;
+  if (audioStarted) return;
+  audioStarted = true;
+  playBtn.textContent = "■ STOP";
+
+  if (!toneLoaded) {
+    await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = TONE_URL; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+    toneLoaded = true;
+  }
+  await Tone.start();
+  Tone.Transport.bpm.value = 123;
+
+  kickP  = new Tone.Player({ url: KICK_URL,  volume: -4  }).toDestination();
+  clapP  = new Tone.Player({ url: CLAP_URL,  volume: -6  }).toDestination();
+  hatP   = new Tone.Player({ url: HAT_URL,   volume: -14 }).toDestination();
+  finalP = new Tone.Player({ url: FINAL_URL, volume: 4   }).toDestination(); // +6dB from prior -2dB = ~doubled
+
+  // Extra percussion players for kit toggling
+  hatDifP   = new Tone.Player({ url: HAT_DIF_URL,   volume: -14 }).toDestination();
+  snareDifP = new Tone.Player({ url: SNARE_DIF_URL, volume: -8  }).toDestination();
+  tambP     = new Tone.Player({ url: TAMB_URL,      volume: -16 }).toDestination();
+  woodP     = new Tone.Player({ url: WOOD_URL,      volume: -10 }).toDestination();
+  shaker1P  = new Tone.Player({ url: SHAKER1_URL,   volume: -18 }).toDestination();
+  shaker2P  = new Tone.Player({ url: SHAKER2_URL,   volume: -18 }).toDestination();
+
+  // 16 ACID vocal players — load all once, the txid picks which one fires at the drop.
+  vocalsP = VOCAL_URLS.map(url => new Tone.Player({ url, volume: -2 }).toDestination());
+
+  // 303 chain — TWO parallel filter/drive paths on the same MonoSynth, summed:
+  //
+  //   MonoSynth ─┬─[ filterAuto → distAuto → makeupAuto ]─┐
+  //              │                                         ├─→ delay → reverb → limiter → out
+  //              └─[ filterUser → distUser → makeupUser ]─┘
+  //
+  // Each path has its own makeup gain (-6 dB) so when the two paths sum, the
+  // perceived loudness stays at unity. Limiter at the end is a brick-wall safety.
+  filterAuto = new Tone.Filter({ frequency: 400, type: "lowpass", Q: 3 });
+  distAuto   = new Tone.Distortion(0.15);
+  makeupAuto = new Tone.Gain(0.5);
+
+  filterUser = new Tone.Filter({ frequency: userCutoff, type: "lowpass", Q: userReso });
+  distUser   = new Tone.Distortion(userDrive);
+  makeupUser = new Tone.Gain(0.5);
+
+  delayFX       = new Tone.FeedbackDelay({ delayTime: "8n", feedback: 0.5, wet: 0 });
+  reverbFX      = new Tone.Reverb({ decay: 3, wet: 0 });
+  masterLimiter = new Tone.Limiter(-1);
+  await reverbFX.generate();
+
+  synth = new Tone.MonoSynth({
+    oscillator: { type: "sawtooth" },
+    envelope:       { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 },
+    filterEnvelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 0.3, baseFrequency: 200, octaves: 3 },
+    portamento: 0,  // glide time — set per-note for 303-style slides
+  });
+  synth.volume.value = -10;
+
+  // Wire both parallel chains: synth fans out to both filters, both feed into
+  // the shared delay → reverb → limiter master bus.
+  synth.fan(filterAuto, filterUser);
+  filterAuto.chain(distAuto, makeupAuto, delayFX);
+  filterUser.chain(distUser, makeupUser, delayFX);
+  delayFX.chain(reverbFX, masterLimiter, Tone.Destination);
+
+  // Apply any knob values the user set before pressing play
+  applyFXFromKnobs();
+
+  await Tone.loaded();
+
+  // Schedule a 16th-note step on Tone.Transport. Tone uses the Web Audio clock
+  // which is sample-accurate and immune to setInterval/setTimeout throttling
+  // (the iOS Safari bug that was making the music slower / drifting on phones).
+  // The callback receives `time` = the precise audio-context time at which the
+  // event fires. ALL audio events use that time so the timing stays locked.
+  // Visuals are wrapped in Tone.Draw.schedule so they fire on the same beat.
+  stepIdx = 0;
+  Tone.Transport.position = 0;
+  scheduleId = Tone.Transport.scheduleRepeat((time) => {
+    const stepIn16 = stepIdx % 16;
+    const barCount = Math.floor(stepIdx / 16) % 8;
+    const localStep = stepIdx;  // capture for the visual closure
+
+    // ---- VISUALS — set frameIdx directly; requestAnimationFrame picks it up ----
+    // 3-frame sprite dance: frame 2 = clap pose, frame 1 = hat nod, frame 0 = rest.
+    // Each pose held for 2 steps (~245ms at 123 BPM) so it's visible.
+    // Gated on whether the sound actually plays — drums stop → dance stops.
+    // (Setting frameIdx directly here is fine; the RAF render loop reads it
+    // every frame anyway. We don't need Tone.Draw.schedule for sub-frame
+    // visual sync — and avoiding it sidesteps an iOS Safari edge case.)
+    const clapFires = (barCount === 7 && stepIn16 >= 12) ||
+                      (stepIn16 === 4 || stepIn16 === 12);
+    const hatFires  = currentKit.hat && stepIn16 % 4 === 2 &&
+                      !(barCount === 7 && stepIn16 >= 12);
+    if (clapFires) stepsSinceClap = 0; else stepsSinceClap++;
+    if (hatFires)  stepsSinceHat  = 0; else stepsSinceHat++;
+    if      (stepsSinceClap < 2) frameIdx = 2;
+    else if (stepsSinceHat  < 2) frameIdx = 1;
+    else                         frameIdx = 0;
+    // Step display highlight — also fine on the JS thread.
+    if (stepsEl) {
+      const stepEls = stepsEl.querySelectorAll(".step");
+      for (let i = 0; i < stepEls.length; i++) {
+        stepEls[i].classList.toggle("active", i === stepIn16);
+      }
+    }
+
+    // ---- KICK ----
+    if (currentKit.kick === "halftime") {
+      if (barCount < 7 && (stepIn16 === 0 || stepIn16 === 8)) {
+        kickP.start(time);
+        if (stepIn16 === 0) kickFlash = 1;
+      }
+    } else {
+      const isFirstHalf = barCount < 4;
+      if (isFirstHalf) {
+        if (stepIn16 % 4 === 0) { kickP.start(time); kickFlash = 1; }
+      } else {
+        if (barCount === 4 && stepIn16 === 0) { kickP.start(time); kickFlash = 1; }
+      }
+      if (barCount === 0 && stepIn16 === 2) kickP.start(time);
+    }
+
+    // ---- CLAP ----
+    if (barCount === 7 && stepIn16 >= 12) {
+      clapP.start(time);
+    } else if (stepIn16 === 4 || stepIn16 === 12) {
+      clapP.start(time);
+    }
+
+    // ---- HAT ----
+    if (currentKit.hat && stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) {
+      if (currentKit.hat === "dif") hatDifP.start(time);
+      else hatP.start(time);
+    }
+
+    // ---- FINAL HIT ----
+    if (barCount === 7 && stepIn16 === 12) finalP.start(time);
+
+    // ---- ACID VOCAL DROP ----
+    if (barCount === 7 && stepIn16 === 12 && current && vocalsP[current.vocalIdx]) {
+      try { vocalsP[current.vocalIdx].start(time); } catch (e) {}
+    }
+
+    // ---- OPTIONAL PERCUSSION LAYERS ----
+    const layers = currentKit.layers || [];
+    if (layers.includes("SNARE_DIF") && (stepIn16 === 4 || stepIn16 === 12) && !(barCount === 7 && stepIn16 >= 12)) {
+      snareDifP.start(time);
+    }
+    if (layers.includes("SHAKER1") && !(barCount === 7 && stepIn16 >= 9)) shaker1P.start(time);
+    if (layers.includes("SHAKER2") && !(barCount === 7 && stepIn16 >= 9)) shaker2P.start(time);
+    if (layers.includes("TAMB") && stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) {
+      tambP.start(time);
+    }
+    if (layers.includes("WOOD") && stepIn16 === 0 && (barCount === 0 || barCount === 4)) {
+      woodP.start(time);
+    }
+
+    // ---- BASS (303) ----
+    // 16-bar loop = two 8-bar riffs. Riff A (bars 1-8) uses `bassline`,
+    // Riff B (bars 9-16) uses `bassline2` (the V2 variation). Drums and
+    // arrangement (kick build, drop, tension, outro) stay locked to the
+    // 8-bar shape — only the bassline notes swap.
+    //
+    // Bar swap: bars 3↔11 and 7↔15 are crossed so the 16-bar groove has
+    // more variation. Default would be A A A A A A A A B B B B B B B B;
+    // after swap it's    A A B A A A B A B B A B B B A B.
+    //
+    // CHAIN MODE: when chain is active, the globalBarIdx counter is RELATIVE
+    // to the chain slot's start step — each slot begins fresh at globalBarIdx 0
+    // so every slot starts on the A-bias half of the riff-swap pattern.
+    // CHAIN ADVANCE: at every 8-bar boundary inside a chain slot, tick the
+    // chain — when the slot has played enough phrases, swap to the next frog.
+    const bassAllowed = !(barCount === 7 && stepIn16 >= 9);
+    const refStepIdx  = chainMode ? (stepIdx - chainStartStep) : stepIdx;
+    if (chainMode && stepIdx > chainStartStep && (stepIdx - chainStartStep) % 128 === 0) {
+      tickChain();
+    }
+    const globalBarIdx = Math.floor(refStepIdx / 16) % 16;
+    let useRiffB = globalBarIdx >= 8;
+    if (globalBarIdx === 2 || globalBarIdx === 6)  useRiffB = true;   // bars 3, 7  → B
+    if (globalBarIdx === 10 || globalBarIdx === 14) useRiffB = false; // bars 11, 15 → A
+    const activeBass  = useRiffB ? (current.bassline2 || current.bassline) : current.bassline;
+    const pattern = patternForBarDeep(activeBass, barCount, current.nonceHex);
+    const step = pattern[stepIn16];
+
+    // ============ AUTO CHAIN — baked-in 303 squelch arrangement ============
+    cutoffLfoPhase += CUTOFF_LFO_SPEEDS[barCount];
+    resoLfoPhase   += RESO_LFO_SPEEDS[barCount];
+
+    const cutoffArc  = lerpArc(CUTOFF_ARC, barCount, stepIn16);
+    const cutoffLfo  = Math.sin(cutoffLfoPhase) * 350;
+    const cutoffAuto = Math.max(150, Math.min(6500, cutoffArc + cutoffLfo));
+    filterAuto.frequency.setValueAtTime(cutoffAuto, time);
+
+    const resoArc  = lerpArc(RESO_ARC, barCount, stepIn16);
+    const resoLfo  = Math.sin(resoLfoPhase) * 1.8;
+    const resoAuto = Math.max(0.5, Math.min(22, resoArc + resoLfo));
+    filterAuto.Q.setValueAtTime(resoAuto, time);
+
+    let driveAuto;
+    if (barCount < 7) {
+      const buildProgress = (barCount * 16 + stepIn16) / (7 * 16);
+      driveAuto = 0.10 + buildProgress * 0.40;                      // build
+    } else if (stepIn16 < 9) {
+      driveAuto = 0.50 - (stepIn16 / 9) * 0.18;                     // lull
+    } else {
+      driveAuto = 0.32 + ((stepIn16 - 9) / 6) * 0.33;               // harder drop
+    }
+    driveAuto += Math.sin(localStep * 0.12) * 0.04;
+    setAutoDrive(driveAuto, time);
+
+    if (bassAllowed && step.note) {
+      const velocity = step.play ? 0.85 : 0.45;
+      const isSlide = step.play && current.slideMask && current.slideMask[stepIn16];
+      synth.portamento = isSlide ? 0.06 : 0;
+      synth.triggerAttackRelease(step.note, "16n", time, velocity);
+    }
+
+    stepIdx++;
+  }, "16n");
+
+  // Kick the Transport. Position was zeroed above so we start clean.
+  Tone.Transport.start();
+}
+
+function stopAudio() {
+  // Cancel the Transport-scheduled step callback and stop the Transport.
+  if (scheduleId !== null) {
+    try { Tone.Transport.clear(scheduleId); } catch (e) {}
+    scheduleId = null;
+  }
+  try { Tone.Transport.stop(); Tone.Transport.position = 0; } catch (e) {}
+  // Legacy interval guard (in case anything still holds a stepTimer).
+  if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
+  audioStarted = false;
+  frameIdx = 0;
+  stepsSinceHat  = 999;
+  stepsSinceClap = 999;
+  // Reset LFO phases so each play starts from zero
+  cutoffLfoPhase = 0;
+  resoLfoPhase   = 0;
+  playBtn.textContent = "▶ PLAY ACID";
+}
+
+playBtn.addEventListener("click", () => audioStarted ? stopAudio() : startAudio());
+mainCanvas.addEventListener("click", () => audioStarted ? stopAudio() : startAudio());
+nextBtn.addEventListener("click", async () => {
+  if (audioStarted) stopAudio();
+  const h = EPOCH_START + Math.floor(Math.random() * (EPOCH_END - EPOCH_START + 1));
+  await setFeatured(h);
+});
+
+// ============================================================================
+// CHAIN SEQUENCER — pattern-mode song builder
+// ============================================================================
+// chain = [{ height, plays, block, merkle, traits, sprites, bassline,
+//            bassline2, slideMask, vocalIdx, kit }, ...]
+// Each slot caches its full frog data so swapping mid-song is instant.
+// 1 "play" = one 8-bar phrase (= 128 steps at 16th-note resolution).
+// Default slot plays = 2 (= one full 16-bar A+B loop).
+// chainMode toggles whether the step loop advances the chain or not.
+// =============================================================================
+const chain = [];
+let chainMode = false;
+let chainSlot = 0;          // index of slot currently playing
+let chainPhrasesDone = 0;   // 8-bar phrases completed in this slot
+let chainStartStep = 0;     // stepIdx when current slot started — used to reset
+                            // riff-swap globalBarIdx so each slot opens A-bias
+
+const chainSlotsEl   = document.getElementById("chain-slots");
+const chainEmptyMsg  = document.getElementById("chain-empty-msg");
+const chainPlayBtn   = document.getElementById("chainPlayBtn");
+const chainAddBtn    = document.getElementById("chainAddBtn");
+const chainClearBtn  = document.getElementById("chainClearBtn");
+
+// Roll a random 1337-epoch block, fetch + cache everything we need to swap into.
+async function buildChainEntry(height, plays = 2) {
+  const block = await fetchBlock(height);
+  const merkle = (block.merkle_root || block.merkleroot || "").replace(/^0x/, "");
+  const nonceHex = Number(block.nonce).toString(16).padStart(8, "0");
+  const traits = pickTraits(merkle);
+  const sprites = await loadFrogSprites(traits);
+  const bassline = generateBasslineFromBlock(merkle);
+  const slideMask = generateSlideMask(merkle);
+  const bassline2 = generateBasslineV2(bassline, merkle);
+  const kitIdx = parseInt(merkle.substr(0, 2), 16) % DRUM_KITS.length;
+  const kit = DRUM_KITS[kitIdx];
+  const vocalIdx = parseInt(merkle.substr(2, 2), 16) % 16;
+  return { height, plays, block, merkle, nonceHex, traits, sprites,
+           bassline, bassline2, slideMask, vocalIdx, kit };
+}
+
+function renderChain() {
+  if (chainEmptyMsg) chainEmptyMsg.style.display = chain.length ? "none" : "";
+  // Wipe everything except the empty msg
+  [...chainSlotsEl.children].forEach(c => { if (c !== chainEmptyMsg) c.remove(); });
+  chain.forEach((entry, idx) => {
+    const isActive = chainMode && idx === chainSlot;
+    const card = document.createElement("div");
+    card.style.cssText = `
+      border:1px solid ${isActive ? '#9f9' : '#333'};
+      background:${isActive ? 'rgba(113,255,94,0.12)' : 'rgba(0,40,0,0.25)'};
+      border-radius:6px;padding:8px;font-size:11px;
+      display:flex;flex-direction:column;gap:6px;cursor:pointer;
+      box-shadow:${isActive ? '0 0 12px rgba(113,255,94,0.4)' : 'none'};
+      transition:all .15s;
+    `;
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="opacity:.6">#${idx + 1}</span>
+        <span style="font-size:9px;opacity:.5">block ${entry.height}</span>
+      </div>
+      <div class="frog-box" style="width:100%;aspect-ratio:1/1;height:auto;position:relative;background:#000;border-radius:3px;overflow:hidden">
+        <img class="bg-layer" src="${bgPath(entry.traits.bg.slot)}" style="position:absolute;inset:0;width:100%;height:100%;z-index:0">
+        <canvas class="frog-canvas" width="500" height="500" style="position:absolute;inset:0;width:100%;height:100%;background:transparent;z-index:2"></canvas>
+      </div>
+      <div style="font-size:10px;line-height:1.4">
+        <span class="tier-${entry.traits.color.tier.toUpperCase()}">${entry.traits.color.name}</span><br>
+        <span style="opacity:.7">${entry.kit.label.replace(/^\d+\s·\s/, '')}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+        <button data-act="dec" data-idx="${idx}" style="flex:0 0 24px;padding:2px;background:transparent;border:1px solid #444;color:#9f9;cursor:pointer;border-radius:3px">−</button>
+        <span style="font-weight:bold;color:#9f9">×${entry.plays}</span>
+        <button data-act="inc" data-idx="${idx}" style="flex:0 0 24px;padding:2px;background:transparent;border:1px solid #444;color:#9f9;cursor:pointer;border-radius:3px">+</button>
+        <button data-act="del" data-idx="${idx}" style="flex:0 0 24px;padding:2px;background:transparent;border:1px solid #844;color:#f88;cursor:pointer;border-radius:3px">×</button>
+      </div>
+    `;
+    chainSlotsEl.appendChild(card);
+    // Render frog into the card's canvas
+    const cv = card.querySelector(".frog-canvas");
+    drawFrame(cv.getContext("2d"), entry.sprites, entry.traits, 0);
+    // Click on card body (not buttons) jumps audio to this slot
+    card.addEventListener("click", (ev) => {
+      if (ev.target.tagName === "BUTTON") return;
+      jumpToChainSlot(idx);
+    });
+  });
+  // Wire up the +/-/× buttons via event delegation
+  chainSlotsEl.querySelectorAll("button[data-act]").forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const i = +btn.dataset.idx;
+      const act = btn.dataset.act;
+      if (act === "inc") chain[i].plays = Math.min(8, chain[i].plays + 1);
+      if (act === "dec") chain[i].plays = Math.max(1, chain[i].plays - 1);
+      if (act === "del") {
+        chain.splice(i, 1);
+        if (chainSlot >= chain.length) chainSlot = 0;
+      }
+      renderChain();
+    });
+  });
+}
+
+async function addRandomChainSlot() {
+  const h = EPOCH_START + Math.floor(Math.random() * (EPOCH_END - EPOCH_START + 1));
+  const entry = await buildChainEntry(h);
+  chain.push(entry);
+  renderChain();
+}
+
+async function jumpToChainSlot(idx) {
+  if (idx < 0 || idx >= chain.length) return;
+  chainSlot = idx;
+  chainPhrasesDone = 0;
+  chainStartStep = stepIdx;
+  swapToChainSlotFrog();
+  renderChain();
+}
+
+// Swap the active frog to the one in chain[chainSlot] WITHOUT touching audio.
+// Audio engine reads `current.bassline`/`bassline2`/`slideMask`/`vocalIdx`/
+// `currentKit` every step, so this is instant and seamless.
+function swapToChainSlotFrog() {
+  const entry = chain[chainSlot];
+  if (!entry) return;
+  current = {
+    height: entry.height, block: entry.block, merkle: entry.merkle,
+    nonceHex: entry.nonceHex, traits: entry.traits, sprites: entry.sprites,
+    bassline: entry.bassline, bassline2: entry.bassline2,
+    slideMask: entry.slideMask, vocalIdx: entry.vocalIdx,
+  };
+  currentKit = entry.kit;
+  mainBG.src = bgPath(entry.traits.bg.slot);
+  // Update the info panel light-touch (no full rebuild — keep FX dials state)
+  const summary = `<div class="kv">
+    <div class="k">chain</div><div>slot ${chainSlot + 1}/${chain.length} · ${chainPhrasesDone}/${entry.plays} phrases</div>
+    <div class="k">block</div><div>#${entry.height}</div>
+    <div class="k">drum kit</div><div style="color:#9f9">${entry.kit.label}</div>
+    <div class="k">riff a</div><div style="font-size:10px">${entry.bassline.filter(s => s.note).map(s => s.note).join(' · ')}</div>
+    <div class="k">riff b</div><div style="font-size:10px">${entry.bassline2.filter(s => s.note).map(s => s.note).join(' · ')}</div>
+  </div>`;
+  if (infoEl) infoEl.innerHTML = summary;
+}
+
+// Step boundary handler: called every time stepIdx % 128 === 0, i.e. every
+// 8-bar phrase. Advances the chain when the current slot has played its
+// allotted number of phrases.
+function tickChain() {
+  if (!chainMode || chain.length === 0) return;
+  chainPhrasesDone++;
+  const entry = chain[chainSlot];
+  if (chainPhrasesDone >= entry.plays) {
+    chainPhrasesDone = 0;
+    chainSlot = (chainSlot + 1) % chain.length;
+    chainStartStep = stepIdx;   // new slot starts fresh at globalBarIdx 0
+    swapToChainSlotFrog();
+    renderChain();
+  }
+}
+
+// Buttons
+chainAddBtn.addEventListener("click", addRandomChainSlot);
+chainClearBtn.addEventListener("click", () => {
+  chain.length = 0;
+  chainSlot = 0;
+  chainPhrasesDone = 0;
+  chainMode = false;
+  chainPlayBtn.textContent = "▶ CHAIN PLAY";
+  renderChain();
+});
+chainPlayBtn.addEventListener("click", async () => {
+  if (chain.length === 0) return;
+  if (!chainMode) {
+    chainMode = true;
+    chainSlot = 0;
+    chainPhrasesDone = 0;
+    chainStartStep = stepIdx;   // baseline so slot 0 starts at globalBarIdx 0
+    swapToChainSlotFrog();
+    renderChain();
+    chainPlayBtn.textContent = "⏸ CHAIN STOP";
+    if (!audioStarted) await startAudio();
+  } else {
+    chainMode = false;
+    chainPlayBtn.textContent = "▶ CHAIN PLAY";
+    renderChain();
+  }
+});
+
+// Standard buttons
+playBtn.addEventListener("click", () => audioStarted ? stopAudio() : startAudio());
+mainCanvas.addEventListener("click", () => audioStarted ? stopAudio() : startAudio());
+nextBtn.addEventListener("click", async () => {
+  if (audioStarted) stopAudio();
+  chainMode = false;
+  chainPlayBtn.textContent = "▶ CHAIN PLAY";
+  const h = EPOCH_START + Math.floor(Math.random() * (EPOCH_END - EPOCH_START + 1));
+  await setFeatured(h);
+});
+
+// -------------------------- init --------------------------
+(async () => {
+  await setFeatured(942000);
+  animate();
+  // Seed the chain with 4 starter slots so people can hit CHAIN PLAY immediately
+  for (let i = 0; i < 4; i++) await addRandomChainSlot();
+})();
+</script>
+</body>
+</html>
