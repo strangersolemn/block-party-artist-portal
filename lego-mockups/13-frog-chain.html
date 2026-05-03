@@ -96,7 +96,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div>
         <b>CHAIN SEQUENCER</b>
-        <span style="opacity:.6;margin-left:10px;font-size:11px">1 phrase = 8 bars (~15 sec)</span>
+        <span style="opacity:.6;margin-left:10px;font-size:11px">1 phrase = 8 bars (~15 sec) · all demo frogs use Tech-house drums</span>
       </div>
       <div>
         <button class="btn" id="chainPlayBtn" style="background:rgba(113,255,94,0.15);border-color:#9f9">▶ CHAIN PLAY</button>
@@ -104,6 +104,7 @@
         <button class="btn" id="chainClearBtn" style="opacity:.5">CLEAR</button>
       </div>
     </div>
+    <div id="chain-status" style="font-size:11px;color:#9f9;margin-bottom:8px;letter-spacing:0.5px;min-height:14px"></div>
     <div id="chain-slots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:8px;min-height:120px;border:1px dashed #333;padding:10px;border-radius:4px;background:rgba(0,0,0,0.3)">
       <div id="chain-empty-msg" style="grid-column:1/-1;text-align:center;opacity:.5;font-size:12px;padding:20px 0">
         Empty chain · click <b>+ ADD FROG</b> to roll a random 1337 block and start chaining
@@ -967,6 +968,10 @@ const chainAddBtn    = document.getElementById("chainAddBtn");
 const chainClearBtn  = document.getElementById("chainClearBtn");
 
 // Roll a random 1337-epoch block, fetch + cache everything we need to swap into.
+// DEMO MODE: every chain frog uses the Tech-house kit (P01) so the song stays
+// smooth across slot transitions. In production this would derive from the
+// merkleroot like elsewhere — easy swap, just remove the override below.
+const DEMO_FORCE_KIT_ID = "P01"; // Tech-house — change to null to revert to per-frog auto-pick
 async function buildChainEntry(height, plays = 2) {
   const block = await fetchBlock(height);
   const merkle = (block.merkle_root || block.merkleroot || "").replace(/^0x/, "");
@@ -976,8 +981,9 @@ async function buildChainEntry(height, plays = 2) {
   const bassline = generateBasslineFromBlock(merkle);
   const slideMask = generateSlideMask(merkle);
   const bassline2 = generateBasslineV2(bassline, merkle);
-  const kitIdx = parseInt(merkle.substr(0, 2), 16) % DRUM_KITS.length;
-  const kit = DRUM_KITS[kitIdx];
+  const kit = DEMO_FORCE_KIT_ID
+    ? (DRUM_KITS.find(k => k.id === DEMO_FORCE_KIT_ID) || DRUM_KITS[0])
+    : DRUM_KITS[parseInt(merkle.substr(0, 2), 16) % DRUM_KITS.length];
   const vocalIdx = parseInt(merkle.substr(2, 2), 16) % 16;
   return { height, plays, block, merkle, nonceHex, traits, sprites,
            bassline, bassline2, slideMask, vocalIdx, kit };
@@ -1064,6 +1070,12 @@ async function jumpToChainSlot(idx) {
 // Swap the active frog to the one in chain[chainSlot] WITHOUT touching audio.
 // Audio engine reads `current.bassline`/`bassline2`/`slideMask`/`vocalIdx`/
 // `currentKit` every step, so this is instant and seamless.
+//
+// IMPORTANT: do NOT touch infoEl.innerHTML here. setFeatured() builds the full
+// info panel (with FX dials) once on init — wiping it would kill the cutoff /
+// reso / drive / delay / reverb sliders mid-song. We only mutate `current`,
+// `currentKit`, and the bg image. The chain UI's active-slot glow + the small
+// chain-status badge below show the user which frog is playing.
 function swapToChainSlotFrog() {
   const entry = chain[chainSlot];
   if (!entry) return;
@@ -1075,15 +1087,20 @@ function swapToChainSlotFrog() {
   };
   currentKit = entry.kit;
   mainBG.src = bgPath(entry.traits.bg.slot);
-  // Update the info panel light-touch (no full rebuild — keep FX dials state)
-  const summary = `<div class="kv">
-    <div class="k">chain</div><div>slot ${chainSlot + 1}/${chain.length} · ${chainPhrasesDone}/${entry.plays} phrases</div>
-    <div class="k">block</div><div>#${entry.height}</div>
-    <div class="k">drum kit</div><div style="color:#9f9">${entry.kit.label}</div>
-    <div class="k">riff a</div><div style="font-size:10px">${entry.bassline.filter(s => s.note).map(s => s.note).join(' · ')}</div>
-    <div class="k">riff b</div><div style="font-size:10px">${entry.bassline2.filter(s => s.note).map(s => s.note).join(' · ')}</div>
-  </div>`;
-  if (infoEl) infoEl.innerHTML = summary;
+  updateChainStatus();
+}
+
+// Tiny status line above the chain UI — separate from infoEl so the FX dials
+// inside infoEl stay alive forever.
+function updateChainStatus() {
+  const el = document.getElementById("chain-status");
+  if (!el) return;
+  const entry = chain[chainSlot];
+  if (!chainMode || !entry) {
+    el.textContent = "";
+    return;
+  }
+  el.innerHTML = `▶ now playing: <b>slot ${chainSlot + 1}/${chain.length}</b> · block #${entry.height} · phrase ${chainPhrasesDone + 1}/${entry.plays}`;
 }
 
 // Step boundary handler: called every time stepIdx % 128 === 0, i.e. every
@@ -1099,6 +1116,8 @@ function tickChain() {
     chainStartStep = stepIdx;   // new slot starts fresh at globalBarIdx 0
     swapToChainSlotFrog();
     renderChain();
+  } else {
+    updateChainStatus();
   }
 }
 
@@ -1118,7 +1137,7 @@ chainPlayBtn.addEventListener("click", async () => {
     chainMode = true;
     chainSlot = 0;
     chainPhrasesDone = 0;
-    chainStartStep = stepIdx;   // baseline so slot 0 starts at globalBarIdx 0
+    chainStartStep = stepIdx;
     swapToChainSlotFrog();
     renderChain();
     chainPlayBtn.textContent = "⏸ CHAIN STOP";
@@ -1127,6 +1146,7 @@ chainPlayBtn.addEventListener("click", async () => {
     chainMode = false;
     chainPlayBtn.textContent = "▶ CHAIN PLAY";
     renderChain();
+    updateChainStatus();
   }
 });
 
