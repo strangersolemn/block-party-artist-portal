@@ -2,6 +2,8 @@
 
 End-to-end validation that the parent + child + Nexus + recursive-ownership architecture works on Bitcoin mainnet **before committing the real production parent inscription.**
 
+No Bitcoin node required — uses a web-based inscriber.
+
 ## What this tests
 
 | Behaviour | Test |
@@ -18,127 +20,184 @@ End-to-end validation that the parent + child + Nexus + recursive-ownership arch
 
 The parent has a built-in test report at the bottom: `TEST · self:ok · /r:ok · nexus:ok · wallet:ok · children:ok · owners:ok · play:ok`
 
-## Files
+## Files (download from GitHub Pages)
 
-| File | Size | Purpose |
+| File | Size | Direct download URL |
 |---|---|---|
-| `mock-parent.html` | ~17 KB | The test parent inscription. Splash + studio + Nexus + squad + playback. |
-| `mock-delegate.html` | ~1.8 KB | Template for child inscriptions. Self-rendering coloured shape derived from its own inscription ID. |
-| `INSCRIBE_TEST.md` | this | Procedure |
+| `mock-parent.html` | ~17 KB | https://strangersolemn.github.io/block-party-artist-portal/inscription-test/mock-parent.html |
+| `mock-delegate.html` | ~1.8 KB | https://strangersolemn.github.io/block-party-artist-portal/inscription-test/mock-delegate.html |
 
-Both are static HTML, no external resources beyond the inscribed Nexus module.
+Right-click → "Save As" both files to your computer (or `curl` them down).
 
 ## Cost
 
-At sub-1 sat/vB:
+At sub-1 sat/vB current fees:
 
-| Step | Approx cost |
+| Step | Approx |
 |---|---|
-| Parent inscription (~17 KB) | ~£0.40 |
-| 5 mock-delegate inscriptions (~1.8 KB each) | ~£0.20 |
-| Mainnet test fees + dust | ~£3-5 |
+| Parent (~17 KB) | ~£0.40 fee |
+| 5 children (~1.8 KB each) | ~£0.20 fee |
+| Inscriber service fee + dust | ~£3-5 |
 | **Total** | **~£5** |
-
-Cheaper than a coffee. End-to-end mainnet validation that protects the production parent inscription.
 
 ## Procedure
 
-### 1. Open your ord wallet
+### STEP 1 — Sanity-check the UI in your browser first (no chain needed)
 
-```bash
-ord --bitcoin-data-dir /path/to/.bitcoin --data-dir /path/to/ord wallet balance
+Open this URL on your laptop:
+
+```
+https://strangersolemn.github.io/block-party-artist-portal/inscription-test/mock-parent.html
 ```
 
-Confirm you have at least ~50,000 sats in the wallet to cover everything with headroom.
+What you should see:
+1. Spinning logo + ENTER STUDIO button
+2. Click ENTER STUDIO → studio panel opens
+3. Click **DEMO** → 5 coloured circles appear in YOUR SQUAD
+4. Click any circle → it pulses gold + plays a beep
+5. Bottom of screen shows: `TEST · self:pending · /r:ok · nexus:pending · wallet:pending · children:pending · owners:pending · play:ok`
 
-### 2. Inscribe the parent
+If that all works → UI is good. The `pending` ones become `ok` only after inscribing on mainnet (because the URL has to be `ordinals.com/content/{id}` for self-discovery to work).
+
+### STEP 2 — Save the two files locally
+
+In your browser, right-click each link below and choose "Save Link As" (or "Download Linked File"):
+
+- mock-parent.html → https://strangersolemn.github.io/block-party-artist-portal/inscription-test/mock-parent.html
+- mock-delegate.html → https://strangersolemn.github.io/block-party-artist-portal/inscription-test/mock-delegate.html
+
+Or via terminal:
 
 ```bash
-ord wallet inscribe --fee-rate 1 --file inscription-test/mock-parent.html
+curl -O https://strangersolemn.github.io/block-party-artist-portal/inscription-test/mock-parent.html
+curl -O https://strangersolemn.github.io/block-party-artist-portal/inscription-test/mock-delegate.html
 ```
 
-Wait for confirmation (typically one block, ~10 min). Record the inscription ID — call it `PARENT_ID`. It looks like `abc123...i0`.
+### STEP 3 — Inscribe the parent
 
-### 3. View the parent on ordinals.com
+Pick any web inscriber. The flow is the same for all of them:
+
+| Inscriber | URL | Notes |
+|---|---|---|
+| **inscribe.dev** | https://inscribe.dev | BlockForge's recommended tool. Supports parent inscription field + brotli compression. |
+| **Mscribe Blockpad** | https://blockpad.mscribe.io | What you've used before. |
+| **Ord.io** | https://ord.io/inscribe | Clean UI, supports parent field. |
+| **Ordinalsbot** | https://ordinalsbot.com | Mature service, has API. |
+| **Unisat inscribe** | https://unisat.io/inscribe | Direct from the Unisat extension. |
+
+**On the inscriber:**
+1. Connect your wallet (Xverse / UniSat / Leather)
+2. Upload `mock-parent.html`
+3. **Leave the parent field BLANK** for the parent itself
+4. (Optional) tick "Brotli compression" if available — saves a few sats
+5. Set fee rate to current low (1 sat/vB or whatever is showing)
+6. Confirm + sign in your wallet
+
+Wait ~10 minutes for confirmation.
+
+**📝 COPY THE INSCRIPTION ID** from the inscriber's confirmation page (or check the inscriber's "My Inscriptions" tab). It looks like `abc123def456...i0`. **Call this `PARENT_ID`.**
+
+### STEP 4 — Verify the parent works on chain
+
+In your browser, open:
 
 ```
 https://ordinals.com/content/{PARENT_ID}
 ```
 
-You should see the rotating logo splash. Click ENTER STUDIO. The test report at the bottom should show:
-- `self:ok` (URL contains the inscription ID)
-- `/r:ok` (recursive endpoint reachable)
+Replace `{PARENT_ID}` with what you copied. (Wait a few minutes after confirmation for ordinals.com's indexer to catch up.)
 
-Click DEMO to verify the squad UI works with mock data. Click any child → it should beep and pulse.
-
-### 4. Inscribe 5 children as delegates of the parent
-
-For each child, run:
-
-```bash
-ord wallet inscribe \
-  --fee-rate 1 \
-  --parent {PARENT_ID} \
-  --file inscription-test/mock-delegate.html
-```
-
-Or use a YAML batch (faster, atomic, all in one mempool submission):
-
-```yaml
-# inscriptions-batch.yaml
-mode: same-sat
-parent: <PARENT_ID>
-inscriptions:
-  - file: inscription-test/mock-delegate.html
-  - file: inscription-test/mock-delegate.html
-  - file: inscription-test/mock-delegate.html
-  - file: inscription-test/mock-delegate.html
-  - file: inscription-test/mock-delegate.html
-```
-
-```bash
-ord wallet inscribe --fee-rate 1 --batch inscriptions-batch.yaml
-```
-
-Wait for confirmations. Each child gets a unique inscription ID and renders a different coloured shape based on that ID.
-
-### 5. Send some children to a different wallet
-
-Pick 2 of the 5 children and send them to a different wallet address (e.g., a fresh Xverse wallet). This sets up the cross-wallet ownership test.
-
-```bash
-ord wallet send --fee-rate 1 {DEST_ADDRESS} {CHILD_ID}
-```
-
-### 6. Test ownership lookup from each wallet
-
-In a browser:
-
-1. Open `https://ordinals.com/content/{PARENT_ID}` again
-2. Click ENTER STUDIO → CONNECT WALLET (your origin wallet)
-3. Wait for the scan: `scanned 5/5 · 3 owned`
-4. The 3 children in your origin wallet appear in the squad
-5. Click each — should beep with different pitches based on hue
-
-Switch wallets:
-
-1. Disconnect, click CONNECT WALLET, choose the destination wallet
-2. Squad should now show the 2 children that were sent there
-3. Different children visible from a different wallet → ownership lookup proven
-
-### 7. Confirm the test report
-
-Bottom of the studio should read:
+Click ENTER STUDIO. The bottom test report should now read:
 
 ```
-TEST · self:ok · /r:ok · nexus:ok · wallet:ok · children:ok · owners:ok · play:ok
+TEST · self:ok · /r:ok · nexus:pending · wallet:pending · children:pending · owners:pending · play:pending
 ```
 
-All 7 ok = entire architecture validated.
+`self:ok` = the parent successfully read its own inscription ID from the URL. ✓
 
-## What this proves
+Now click CONNECT WALLET (with Xverse / UniSat / Leather installed):
+- Approve the popup
+- Should show: `▣ Xverse · bc1pxyz…1234`
+- Test report updates: `nexus:ok · wallet:ok`
 
-If all tests pass:
+Squad will say "no children of this parent yet" because we haven't inscribed any. That's expected. Continue to step 5.
+
+### STEP 5 — Inscribe 5 children of the parent
+
+Same web inscriber as before, but **this time set the parent inscription field**:
+
+For each of the 5 children:
+1. Upload `mock-delegate.html`
+2. **Set parent inscription ID to your `PARENT_ID`** (this is the critical bit — without it, the children won't be linked to the parent)
+3. Confirm + sign
+
+If your inscriber supports batch upload, drop `mock-delegate.html` 5 times in one go. Otherwise repeat the single-inscription flow 5 times.
+
+**📝 COPY ALL 5 INSCRIPTION IDS** — call them `CHILD_1` through `CHILD_5`.
+
+Wait ~10-30 minutes for all confirmations.
+
+### STEP 6 — Verify children on the parent
+
+Refresh `https://ordinals.com/content/{PARENT_ID}` (hard reload: Ctrl/Cmd-Shift-R).
+
+Click ENTER STUDIO → CONNECT WALLET → Xverse.
+
+Now the studio should:
+- Page through `/r/children/{PARENT_ID}/0`
+- Find the 5 inscriptions you just made
+- Check ownership of each → all 5 owned by your wallet
+- Show 5 coloured circles in YOUR SQUAD
+
+Test report:
+
+```
+TEST · self:ok · /r:ok · nexus:ok · wallet:ok · children:ok · owners:ok · play:pending
+```
+
+Click any circle → it pulses gold + beeps. → `play:ok`. **All 7 green = architecture validated.** 🎉
+
+### STEP 7 — Cross-wallet ownership test (the critical one)
+
+Get a destination address. Easy options:
+- Open Xverse on your phone or another browser → copy your **ordinals address** (starts with `bc1p…`)
+- Or use a friend's wallet
+- Or generate a second address in the same wallet via Xverse's "Add account"
+
+Send 2 of the 5 children to that destination. Most wallets and inscribers have a "send" or "transfer" feature for inscriptions:
+
+**Via Xverse:**
+1. Open the wallet → Ordinals tab
+2. Find one of your child inscriptions
+3. Tap → Send
+4. Enter destination address
+5. Confirm
+
+**Via Unisat:**
+1. Wallet → Inscriptions
+2. Pick a child → Transfer
+3. Enter destination address
+4. Confirm
+
+Repeat for a second child. Wait one block (~10 min).
+
+### STEP 8 — Final test: each wallet sees only its own children
+
+**Test A — origin wallet (the one that inscribed):**
+1. Refresh `https://ordinals.com/content/{PARENT_ID}`
+2. ENTER STUDIO → CONNECT WALLET (your origin wallet)
+3. Squad scans 5/5 → shows **3 owned** (the ones you didn't send)
+
+**Test B — destination wallet:**
+1. Click DISCONNECT
+2. CONNECT WALLET → choose the destination wallet
+3. Squad scans 5/5 → shows **2 owned** (the ones you sent)
+
+**If both wallets see the right number → ownership lookup works → entire architecture proven on mainnet.** Total spend: about £2-5.
+
+## What success means for the real launch
+
+If steps 1-8 all pass:
 
 - ✅ Recursive parent/child structure works on Bitcoin mainnet
 - ✅ Nexus loads from inscription and connects wallets read-only
@@ -148,14 +207,15 @@ If all tests pass:
 - ✅ Click-to-play renders audio inside an inscription
 - ✅ The whole stack survives if the website goes away — works directly on `ordinals.com/content/{id}`
 
-We can then commit to the real production parent (with the full algorithm + assets) and large-scale child inscriptions with confidence.
+You can then commit to the real production parent (with the full algorithm + assets) and large-scale child inscriptions with confidence.
 
 ## Failure modes to watch for
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `nexus:fail` | Pinned inscription ID changed or unreachable | Verify `5cf27ef513…` still resolves on ordinals.com |
-| `children:fail` | No children inscribed yet, or parent ID wrong | Check `/r/children/{parent}/0` directly |
+| `children:fail` | Children inscribed without parent field set | Re-inscribe with parent ID; old ones can't be linked retroactively |
 | `owners:fail` | All children have null `address` (unconfirmed transfers?) | Wait for next block confirmation |
 | `wallet:fail` | No supported wallet extension installed | Install Xverse |
 | Squad shows 0 owned | Wallet you connected doesn't actually own any test children | Check on ordinals.com that the child's owner address matches |
+| "no children of this parent yet" after step 5 | Children were inscribed but parent field was blank | Most common failure. Re-do step 5 with parent field filled in. |
