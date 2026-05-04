@@ -1,6 +1,6 @@
-# Acid Frogs · Inscription Architecture Test
+# Inscription Architecture Test
 
-End-to-end validation that the parent + child + Nexus + recursive-ownership architecture works on Bitcoin mainnet **before committing the real ~£175 master parent + 10K delegates.**
+End-to-end validation that the parent + child + Nexus + recursive-ownership architecture works on Bitcoin mainnet **before committing the real production parent inscription.**
 
 ## What this tests
 
@@ -22,7 +22,7 @@ The parent has a built-in test report at the bottom: `TEST · self:ok · /r:ok �
 
 | File | Size | Purpose |
 |---|---|---|
-| `mock-parent.html` | ~16 KB | The test parent inscription. Splash + studio + Nexus + squad + playback. |
+| `mock-parent.html` | ~17 KB | The test parent inscription. Splash + studio + Nexus + squad + playback. |
 | `mock-delegate.html` | ~1.8 KB | Template for child inscriptions. Self-rendering coloured shape derived from its own inscription ID. |
 | `INSCRIBE_TEST.md` | this | Procedure |
 
@@ -34,12 +34,12 @@ At sub-1 sat/vB:
 
 | Step | Approx cost |
 |---|---|
-| Parent inscription (~16 KB) | ~£0.40 |
+| Parent inscription (~17 KB) | ~£0.40 |
 | 5 mock-delegate inscriptions (~1.8 KB each) | ~£0.20 |
 | Mainnet test fees + dust | ~£3-5 |
 | **Total** | **~£5** |
 
-Cheaper than a coffee. End-to-end mainnet validation that protects the £175+ real parent inscription.
+Cheaper than a coffee. End-to-end mainnet validation that protects the production parent inscription.
 
 ## Procedure
 
@@ -69,11 +69,11 @@ You should see the rotating logo splash. Click ENTER STUDIO. The test report at 
 - `self:ok` (URL contains the inscription ID)
 - `/r:ok` (recursive endpoint reachable)
 
-Click DEMO to verify the squad UI works with mock data. Click any frog → it should beep and pulse.
+Click DEMO to verify the squad UI works with mock data. Click any child → it should beep and pulse.
 
-### 4. Inscribe 5 delegates as children of the parent
+### 4. Inscribe 5 children as delegates of the parent
 
-For each delegate, run:
+For each child, run:
 
 ```bash
 ord wallet inscribe \
@@ -100,14 +100,14 @@ inscriptions:
 ord wallet inscribe --fee-rate 1 --batch inscriptions-batch.yaml
 ```
 
-Wait for confirmations. Each delegate gets a unique inscription ID and renders a different coloured shape based on that ID.
+Wait for confirmations. Each child gets a unique inscription ID and renders a different coloured shape based on that ID.
 
-### 5. Send delegates to a different wallet
+### 5. Send some children to a different wallet
 
-Pick 2 of the 5 delegates and send them to a different wallet address (e.g., a fresh Xverse wallet). This sets up the cross-wallet ownership test.
+Pick 2 of the 5 children and send them to a different wallet address (e.g., a fresh Xverse wallet). This sets up the cross-wallet ownership test.
 
 ```bash
-ord wallet send --fee-rate 1 {DEST_ADDRESS} {DELEGATE_ID}
+ord wallet send --fee-rate 1 {DEST_ADDRESS} {CHILD_ID}
 ```
 
 ### 6. Test ownership lookup from each wallet
@@ -117,14 +117,14 @@ In a browser:
 1. Open `https://ordinals.com/content/{PARENT_ID}` again
 2. Click ENTER STUDIO → CONNECT WALLET (your origin wallet)
 3. Wait for the scan: `scanned 5/5 · 3 owned`
-4. The 3 frogs in your origin wallet appear in the squad
+4. The 3 children in your origin wallet appear in the squad
 5. Click each — should beep with different pitches based on hue
 
 Switch wallets:
 
 1. Disconnect, click CONNECT WALLET, choose the destination wallet
-2. Squad should now show the 2 delegates that were sent there
-3. Different frogs visible from a different wallet → ownership lookup proven
+2. Squad should now show the 2 children that were sent there
+3. Different children visible from a different wallet → ownership lookup proven
 
 ### 7. Confirm the test report
 
@@ -148,14 +148,14 @@ If all tests pass:
 - ✅ Click-to-play renders audio inside an inscription
 - ✅ The whole stack survives if the website goes away — works directly on `ordinals.com/content/{id}`
 
-We can then commit to the real master parent (4 MB algorithm + sprite sheets + audio) and 10K delegates with confidence.
+We can then commit to the real production parent (with the full algorithm + assets) and large-scale child inscriptions with confidence.
 
 ## Failure modes to watch for
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `nexus:fail` | Pinned inscription ID changed or unreachable | Verify `5cf27ef513…` still resolves on ordinals.com |
-| `children:fail` | No delegates inscribed yet, or parent ID wrong | Check `/r/children/{parent}/0` directly |
+| `children:fail` | No children inscribed yet, or parent ID wrong | Check `/r/children/{parent}/0` directly |
 | `owners:fail` | All children have null `address` (unconfirmed transfers?) | Wait for next block confirmation |
 | `wallet:fail` | No supported wallet extension installed | Install Xverse |
-| Squad shows 0 owned | Wallet you connected doesn't actually own any test delegates | Check on ordinals.com that the delegate's owner address matches |
+| Squad shows 0 owned | Wallet you connected doesn't actually own any test children | Check on ordinals.com that the child's owner address matches |

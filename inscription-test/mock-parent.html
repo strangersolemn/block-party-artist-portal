@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Acid Frogs · Test Parent</title>
+<title>Inscription Test · Parent</title>
 <style>
-  :root { --acid:#9f9; --gold:#ffd700; --pink:#ff88ff; --bg:#000; }
+  :root { --c1:#9f9; --c2:#ffd700; --c3:#ff88ff; --bg:#000; }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--acid);font-family:"Courier New",ui-monospace,monospace;overflow:hidden}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--c1);font-family:"Courier New",ui-monospace,monospace;overflow:hidden}
   /* ============ SPLASH ============ */
   #splash{
     position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -18,29 +18,29 @@
   #logo .ring{transform-origin:50% 50%;animation:logoSpin 12s linear infinite}
   #logo .ring2{animation:logoSpin 18s linear infinite reverse}
   @keyframes logoSpin{to{transform:rotate(360deg)}}
-  h1.title{font-size:40px;letter-spacing:8px;margin:0;text-shadow:0 0 14px rgba(153,255,153,0.7)}
+  h1.title{font-size:36px;letter-spacing:8px;margin:0;text-shadow:0 0 14px rgba(153,255,153,0.7)}
   .sub{font-size:11px;letter-spacing:3px;opacity:.7}
   .btn{
-    background:transparent;color:var(--acid);border:1px solid var(--acid);
+    background:transparent;color:var(--c1);border:1px solid var(--c1);
     padding:14px 32px;font:inherit;font-size:14px;letter-spacing:3px;cursor:pointer;
     text-transform:uppercase;transition:all .15s
   }
-  .btn:hover{background:var(--acid);color:#000;box-shadow:0 0 24px var(--acid)}
+  .btn:hover{background:var(--c1);color:#000;box-shadow:0 0 24px var(--c1)}
   .btn:disabled{opacity:.4;cursor:default}
-  .btn:disabled:hover{background:transparent;color:var(--acid);box-shadow:none}
+  .btn:disabled:hover{background:transparent;color:var(--c1);box-shadow:none}
   /* ============ STUDIO ============ */
   #studio{position:fixed;inset:0;display:none;flex-direction:column;padding:18px;gap:16px}
   #studio.on{display:flex}
   .studio-header{
     display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
-    border-bottom:1px solid var(--acid);padding-bottom:12px
+    border-bottom:1px solid var(--c1);padding-bottom:12px
   }
   .studio-header h2{margin:0;font-size:18px;letter-spacing:4px}
   .wallet-area{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px}
   #wallet-status{color:#888;letter-spacing:1px}
   .squad-section{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px}
   .section-title{font-size:11px;letter-spacing:3px;opacity:.7}
-  #squad-summary{font-size:11px;color:var(--acid);min-height:14px}
+  #squad-summary{font-size:11px;color:var(--c1);min-height:14px}
   #squad-grid{
     display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;
     padding:10px;border:1px dashed #333;border-radius:4px;background:rgba(0,40,0,0.2);
@@ -49,19 +49,19 @@
   .squad-empty{
     grid-column:1/-1;text-align:center;opacity:.5;font-size:12px;padding:30px 0
   }
-  .frog-card{
+  .child-card{
     border:1px solid #333;border-radius:6px;padding:8px;cursor:pointer;
     background:rgba(0,30,0,0.2);transition:all .12s;
     display:flex;flex-direction:column;gap:6px;align-items:center
   }
-  .frog-card:hover{border-color:var(--acid);transform:translateY(-2px);box-shadow:0 0 12px rgba(153,255,153,0.3)}
-  .frog-card.playing{border-color:var(--gold);box-shadow:0 0 18px rgba(255,215,0,0.7);animation:frogPulse .4s infinite alternate}
-  @keyframes frogPulse{to{box-shadow:0 0 28px rgba(255,215,0,1.0)}}
-  .frog-shape{width:80px;height:80px;border-radius:50%;background:#333;border:2px solid rgba(255,255,255,0.2)}
-  .frog-id{font-size:9px;opacity:.7;letter-spacing:.5px;font-family:monospace;word-break:break-all;text-align:center}
+  .child-card:hover{border-color:var(--c1);transform:translateY(-2px);box-shadow:0 0 12px rgba(153,255,153,0.3)}
+  .child-card.playing{border-color:var(--c2);box-shadow:0 0 18px rgba(255,215,0,0.7);animation:childPulse .4s infinite alternate}
+  @keyframes childPulse{to{box-shadow:0 0 28px rgba(255,215,0,1.0)}}
+  .child-shape{width:80px;height:80px;border-radius:50%;background:#333;border:2px solid rgba(255,255,255,0.2)}
+  .child-id{font-size:9px;opacity:.7;letter-spacing:.5px;font-family:monospace;word-break:break-all;text-align:center}
   /* mini test report */
   #report{font-size:10px;letter-spacing:1px;opacity:.7;border-top:1px solid #333;padding-top:8px}
-  #report .ok{color:var(--acid)} #report .bad{color:#f88} #report .pending{color:var(--gold)}
+  #report .ok{color:var(--c1)} #report .bad{color:#f88} #report .pending{color:var(--c2)}
 </style>
 </head>
 <body>
@@ -69,7 +69,7 @@
 <!-- ============ SPLASH ============ -->
 <div id="splash">
   <svg id="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-    <!-- outer ring with notches (cypherpunk vibe) -->
+    <!-- outer ring with notches -->
     <g class="ring">
       <circle cx="100" cy="100" r="86" fill="none" stroke="#9f9" stroke-width="2"/>
       <circle cx="100" cy="14" r="3" fill="#9f9"/>
@@ -77,19 +77,19 @@
       <circle cx="14" cy="100" r="3" fill="#9f9"/>
       <circle cx="186" cy="100" r="3" fill="#9f9"/>
     </g>
-    <!-- inner ring (counter-spinning) -->
+    <!-- inner triangle (counter-spinning) -->
     <g class="ring2">
       <polygon points="100,40 160,140 40,140" fill="none" stroke="#ffd700" stroke-width="2"/>
     </g>
-    <!-- centre logo: stylised frog face with two eyes -->
-    <circle cx="100" cy="100" r="38" fill="#000" stroke="#9f9" stroke-width="2"/>
-    <circle cx="86" cy="92" r="6" fill="#9f9"/>
-    <circle cx="114" cy="92" r="6" fill="#9f9"/>
-    <path d="M82,114 Q100,124 118,114" stroke="#9f9" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- centre: abstract block -->
+    <rect x="76" y="76" width="48" height="48" fill="#000" stroke="#9f9" stroke-width="2" rx="4"/>
+    <rect x="86" y="86" width="28" height="28" fill="none" stroke="#9f9" stroke-width="1"/>
+    <line x1="86" y1="100" x2="114" y2="100" stroke="#9f9" stroke-width="1"/>
+    <line x1="100" y1="86" x2="100" y2="114" stroke="#9f9" stroke-width="1"/>
   </svg>
   <div>
-    <h1 class="title">ACID FROGS</h1>
-    <div class="sub">TEST PARENT · INSCRIPTION TEST</div>
+    <h1 class="title">INSCRIPTION TEST</h1>
+    <div class="sub">PARENT · ARCHITECTURE VALIDATION</div>
   </div>
   <button class="btn" id="enterBtn">▶ ENTER STUDIO</button>
   <div class="sub" style="opacity:.5;font-size:9px">on-chain · self-contained · no third-party</div>
@@ -122,8 +122,9 @@
 
 <script>
 // ============================================================================
-// MOCK PARENT — minimal Acid Frogs studio for testing the inscription
-// architecture before committing the real parent. Tests:
+// MOCK PARENT — minimal studio for testing the parent/child + Nexus +
+// recursive-ownership inscription architecture before committing a real
+// production parent. Tests:
 //   1. Splash → studio click-through
 //   2. Nexus wallet connect (read-only) loaded via dynamic import from inscription
 //   3. Self-discovery via location.pathname (this parent's own inscription ID)
@@ -134,7 +135,7 @@
 // server is up.
 // ============================================================================
 
-// Pinned Nexus inscription. Same one BlockForge uses. Pinned to specific iN
+// Pinned Nexus inscription. Same module BlockForge uses. Pinned to specific iN
 // (NOT /at/-1) so a future Nexus re-inscription can't silently change us.
 const NEXUS_NWC_INSCRIPTION = "/content/5cf27ef513315123556fc4823ef44146bca8cb6e288e588efc206243e6e49573i0";
 
@@ -250,7 +251,7 @@ connectBtn.addEventListener("click", async () => {
     }
     if (!state || !state.address) throw new Error("connect failed for all candidates");
     walletAddr = state.address;
-    walletEl.innerHTML = `<span style="color:var(--acid)">▣</span> ${picked} · ${shortAddr(walletAddr)}`;
+    walletEl.innerHTML = `<span style="color:var(--c1)">▣</span> ${picked} · ${shortAddr(walletAddr)}`;
     connectBtn.textContent = "DISCONNECT";
     test.walletConnect = "ok"; reportStatus();
     fetchSquad();
@@ -269,7 +270,7 @@ function shortAddr(a) { return a ? a.slice(0,6) + "…" + a.slice(-4) : "—"; }
 async function fetchSquad() {
   if (!walletAddr) return;
   if (!SELF_ID) {
-    summaryEl.innerHTML = '<span style="color:var(--gold)">SELF_ID unknown — running outside an inscription. Use DEMO to test the UI.</span>';
+    summaryEl.innerHTML = '<span style="color:var(--c2)">SELF_ID unknown — running outside an inscription. Use DEMO to test the UI.</span>';
     return;
   }
   summaryEl.textContent = "discovering children…";
@@ -322,16 +323,16 @@ async function fetchSquad() {
   }
 }
 
-// Demo mode — populate with 5 fake frogs without any wallet
+// Demo mode — populate with 5 fake children without any wallet
 demoBtn.addEventListener("click", () => {
   walletAddr = "demo-address";
-  walletEl.innerHTML = '<span style="color:var(--gold)">▣</span> DEMO MODE · 5 mock frogs';
+  walletEl.innerHTML = '<span style="color:var(--c2)">▣</span> DEMO MODE · 5 mock children';
   squad = [];
   for (let i = 0; i < 5; i++) {
     const fakeId = "mock" + i.toString(16).padStart(4, "0") + "deadbeef".repeat(7) + "i0";
     squad.push({ id: fakeId, hue: hashHue(fakeId) });
   }
-  summaryEl.textContent = "demo squad · 5 mock frogs";
+  summaryEl.textContent = "demo squad · 5 mock children";
   renderSquad();
 });
 
@@ -345,25 +346,25 @@ function hashHue(id) {
 function renderSquad() {
   emptyEl.style.display = squad.length ? "none" : "";
   [...gridEl.children].forEach(c => { if (c !== emptyEl) c.remove(); });
-  squad.forEach((frog) => {
+  squad.forEach((child) => {
     const card = document.createElement("div");
-    card.className = "frog-card";
+    card.className = "child-card";
     card.innerHTML = `
-      <div class="frog-shape" style="background:hsl(${frog.hue},70%,50%);box-shadow:0 0 14px hsl(${frog.hue},80%,55%)"></div>
-      <div class="frog-id">${frog.id.slice(0, 8)}…${frog.id.slice(-6)}</div>
+      <div class="child-shape" style="background:hsl(${child.hue},70%,50%);box-shadow:0 0 14px hsl(${child.hue},80%,55%)"></div>
+      <div class="child-id">${child.id.slice(0, 8)}…${child.id.slice(-6)}</div>
     `;
-    card.addEventListener("click", () => playFrog(card, frog));
+    card.addEventListener("click", () => playChild(card, child));
     gridEl.appendChild(card);
   });
 }
 
 // ============================================================================
-// "Playback" — minimal AudioContext beep tuned by frog's hue.
+// "Playback" — minimal AudioContext beep tuned by the child's hue.
 // Just to prove the architecture supports playback, no Tone.js required.
 // ============================================================================
-function playFrog(card, frog) {
+function playChild(card, child) {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const freq = 110 + (frog.hue / 360) * 880; // hue → 110..990 Hz
+  const freq = 110 + (child.hue / 360) * 880; // hue → 110..990 Hz
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
   o.type = "sawtooth";
