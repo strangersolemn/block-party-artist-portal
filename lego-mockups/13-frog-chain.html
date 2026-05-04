@@ -64,6 +64,12 @@
   .diff-display{font-size:18px;color:#fff;letter-spacing:1px;margin-bottom:10px}
   .diff-display .match{color:var(--gold);text-shadow:0 0 8px var(--gold)}
   @media (max-width:900px){.featured{grid-template-columns:1fr}.frog-box{width:100%;max-width:400px;height:auto;aspect-ratio:1/1;margin:0 auto}}
+  /* Queued chain slot — flashes gold to indicate "I'm next at end of this loop" */
+  @keyframes chainQueueFlash {
+    0%, 100% { border-color: var(--gold) !important; box-shadow: 0 0 14px rgba(255,215,0,0.45) !important; }
+    50%      { border-color: #fff8c0   !important; box-shadow: 0 0 22px rgba(255,215,0,0.85) !important; }
+  }
+  .chain-queued { animation: chainQueueFlash 0.55s infinite ease-in-out; }
 </style>
 </head>
 <body>
@@ -71,8 +77,10 @@
   <h1>Acid Frogs · Chain Sequencer</h1>
   <div class="sub">CHAIN MULTIPLE FROGS INTO A SONG · LIKE THE PATTERN MODE ON A KORG ELECTRIBE</div>
   <div style="font-size:12px;opacity:.7;margin:8px 0 20px;letter-spacing:1px">
-    Add frogs to the chain · set how many 8-bar phrases each plays · hit ▶ CHAIN PLAY · the frogs swap in order, looping forever.<br>
-    Tip: chain frogs with the same drum kit for a smooth song. Different kits = jolts at every transition (intentional, but fun to mix and match too).
+    Two ways to play:<br>
+    · <b>AUTO</b> — hit ▶ CHAIN PLAY and frogs swap in order, looping forever (each slot plays for its ×N count of full 16-bar loops).<br>
+    · <b>MANUAL</b> — click any slot during playback to queue it. Slot flashes gold = "playing next". Swap happens at the end of the current 16-bar loop, never mid-pattern.<br>
+    All swaps land cleanly on the loop boundary, never mid-pattern. FX dials stay live across all swaps.
   </div>
 
   <div class="featured">
@@ -96,7 +104,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div>
         <b>CHAIN SEQUENCER</b>
-        <span style="opacity:.6;margin-left:10px;font-size:11px">1 phrase = 8 bars (~15 sec) · all demo frogs use Tech-house drums</span>
+        <span style="opacity:.6;margin-left:10px;font-size:11px">1 loop = 16 bars (~31 sec) · click a slot to queue it for end-of-loop · all demo frogs use Tech-house drums</span>
       </div>
       <div>
         <button class="btn" id="chainPlayBtn" style="background:rgba(113,255,94,0.15);border-color:#9f9">▶ CHAIN PLAY</button>
@@ -862,12 +870,13 @@ async function startAudio() {
     // CHAIN MODE: when chain is active, the globalBarIdx counter is RELATIVE
     // to the chain slot's start step — each slot begins fresh at globalBarIdx 0
     // so every slot starts on the A-bias half of the riff-swap pattern.
-    // CHAIN ADVANCE: at every 8-bar boundary inside a chain slot, tick the
-    // chain — when the slot has played enough phrases, swap to the next frog.
+    // LOOP BOUNDARY: at every 16-bar (256-step) boundary from the current
+    // slot's start, run tickChainLoop() — handles both the user's manual
+    // queue and the auto-advance. Always fires when the chain has entries.
     const bassAllowed = !(barCount === 7 && stepIn16 >= 9);
-    const refStepIdx  = chainMode ? (stepIdx - chainStartStep) : stepIdx;
-    if (chainMode && stepIdx > chainStartStep && (stepIdx - chainStartStep) % 128 === 0) {
-      tickChain();
+    const refStepIdx  = (chainMode || chain.length > 0) ? (stepIdx - chainStartStep) : stepIdx;
+    if (chain.length > 0 && stepIdx > chainStartStep && (stepIdx - chainStartStep) % STEPS_PER_LOOP === 0) {
+      tickChainLoop();
     }
     const globalBarIdx = Math.floor(refStepIdx / 16) % 16;
     let useRiffB = globalBarIdx >= 8;
@@ -957,9 +966,12 @@ nextBtn.addEventListener("click", async () => {
 const chain = [];
 let chainMode = false;
 let chainSlot = 0;          // index of slot currently playing
-let chainPhrasesDone = 0;   // 8-bar phrases completed in this slot
-let chainStartStep = 0;     // stepIdx when current slot started — used to reset
-                            // riff-swap globalBarIdx so each slot opens A-bias
+let chainPhrasesDone = 0;   // 16-bar loops completed in this slot
+let chainStartStep = 0;     // stepIdx when current slot started
+let chainQueued = null;     // index of slot queued by user click — flashes gold
+                            // and takes effect at the next loop boundary
+
+const STEPS_PER_LOOP = 256;  // 16 bars × 16 sixteenths = one full A+B loop
 
 const chainSlotsEl   = document.getElementById("chain-slots");
 const chainEmptyMsg  = document.getElementById("chain-empty-msg");
@@ -972,7 +984,7 @@ const chainClearBtn  = document.getElementById("chainClearBtn");
 // smooth across slot transitions. In production this would derive from the
 // merkleroot like elsewhere — easy swap, just remove the override below.
 const DEMO_FORCE_KIT_ID = "P01"; // Tech-house — change to null to revert to per-frog auto-pick
-async function buildChainEntry(height, plays = 2) {
+async function buildChainEntry(height, plays = 1) {
   const block = await fetchBlock(height);
   const merkle = (block.merkle_root || block.merkleroot || "").replace(/^0x/, "");
   const nonceHex = Number(block.nonce).toString(16).padStart(8, "0");
@@ -994,8 +1006,10 @@ function renderChain() {
   // Wipe everything except the empty msg
   [...chainSlotsEl.children].forEach(c => { if (c !== chainEmptyMsg) c.remove(); });
   chain.forEach((entry, idx) => {
-    const isActive = chainMode && idx === chainSlot;
+    const isActive = idx === chainSlot && (chainMode || audioStarted);
+    const isQueued = idx === chainQueued && idx !== chainSlot;
     const card = document.createElement("div");
+    card.className = isQueued ? "chain-queued" : "";
     card.style.cssText = `
       border:1px solid ${isActive ? '#9f9' : '#333'};
       background:${isActive ? 'rgba(113,255,94,0.12)' : 'rgba(0,40,0,0.25)'};
@@ -1028,10 +1042,11 @@ function renderChain() {
     // Render frog into the card's canvas
     const cv = card.querySelector(".frog-canvas");
     drawFrame(cv.getContext("2d"), entry.sprites, entry.traits, 0);
-    // Click on card body (not buttons) jumps audio to this slot
+    // Click on card body (not buttons) QUEUES this slot for the next loop
+    // boundary. The flashing class shows "playing next" until the swap fires.
     card.addEventListener("click", (ev) => {
       if (ev.target.tagName === "BUTTON") return;
-      jumpToChainSlot(idx);
+      queueChainSlot(idx);
     });
   });
   // Wire up the +/-/× buttons via event delegation
@@ -1058,13 +1073,19 @@ async function addRandomChainSlot() {
   renderChain();
 }
 
-async function jumpToChainSlot(idx) {
+// Click a slot → queue it for next loop boundary. Slot flashes gold to
+// indicate "playing next". The actual swap happens inside tickChainLoop()
+// when the current 16-bar loop completes — never mid-pattern.
+function queueChainSlot(idx) {
   if (idx < 0 || idx >= chain.length) return;
-  chainSlot = idx;
-  chainPhrasesDone = 0;
-  chainStartStep = stepIdx;
-  swapToChainSlotFrog();
+  if (idx === chainSlot) {
+    // Clicking the currently-playing slot just clears any pending queue
+    chainQueued = null;
+  } else {
+    chainQueued = idx;
+  }
   renderChain();
+  updateChainStatus();
 }
 
 // Swap the active frog to the one in chain[chainSlot] WITHOUT touching audio.
@@ -1096,24 +1117,44 @@ function updateChainStatus() {
   const el = document.getElementById("chain-status");
   if (!el) return;
   const entry = chain[chainSlot];
-  if (!chainMode || !entry) {
-    el.textContent = "";
-    return;
+  if (!entry) { el.textContent = ""; return; }
+  let line = "";
+  if (chainMode || chainQueued !== null) {
+    line = `▶ now playing: <b>slot ${chainSlot + 1}/${chain.length}</b> · block #${entry.height}`;
+    if (chainMode) line += ` · loop ${chainPhrasesDone + 1}/${entry.plays}`;
   }
-  el.innerHTML = `▶ now playing: <b>slot ${chainSlot + 1}/${chain.length}</b> · block #${entry.height} · phrase ${chainPhrasesDone + 1}/${entry.plays}`;
+  if (chainQueued !== null && chainQueued !== chainSlot) {
+    const q = chain[chainQueued];
+    line += ` · <span style="color:var(--gold)">⏭ queued: slot ${chainQueued + 1} (#${q.height}) — swap at end of loop</span>`;
+  }
+  el.innerHTML = line;
 }
 
-// Step boundary handler: called every time stepIdx % 128 === 0, i.e. every
-// 8-bar phrase. Advances the chain when the current slot has played its
-// allotted number of phrases.
-function tickChain() {
-  if (!chainMode || chain.length === 0) return;
+// Loop-boundary handler: called every STEPS_PER_LOOP (256 = 16 bars) from
+// when the current slot started. ALWAYS fires (regardless of chainMode) so
+// manual queue swaps work even without auto-play. Order of operations:
+//   1. If a slot is queued by user click → swap to it (manual takes priority)
+//   2. Else if chainMode auto-play → increment plays counter, advance if done
+function tickChainLoop() {
+  if (chain.length === 0) return;
+  // 1) Manual queue takes priority — user click overrides auto-advance
+  if (chainQueued !== null && chainQueued !== chainSlot) {
+    chainSlot = chainQueued;
+    chainQueued = null;
+    chainPhrasesDone = 0;
+    chainStartStep = stepIdx;
+    swapToChainSlotFrog();
+    renderChain();
+    return;
+  }
+  // 2) Auto-advance only when chainMode is on
+  if (!chainMode) return;
   chainPhrasesDone++;
   const entry = chain[chainSlot];
   if (chainPhrasesDone >= entry.plays) {
     chainPhrasesDone = 0;
     chainSlot = (chainSlot + 1) % chain.length;
-    chainStartStep = stepIdx;   // new slot starts fresh at globalBarIdx 0
+    chainStartStep = stepIdx;
     swapToChainSlotFrog();
     renderChain();
   } else {
@@ -1127,9 +1168,11 @@ chainClearBtn.addEventListener("click", () => {
   chain.length = 0;
   chainSlot = 0;
   chainPhrasesDone = 0;
+  chainQueued = null;
   chainMode = false;
   chainPlayBtn.textContent = "▶ CHAIN PLAY";
   renderChain();
+  updateChainStatus();
 });
 chainPlayBtn.addEventListener("click", async () => {
   if (chain.length === 0) return;
@@ -1137,12 +1180,16 @@ chainPlayBtn.addEventListener("click", async () => {
     chainMode = true;
     chainSlot = 0;
     chainPhrasesDone = 0;
+    chainQueued = null;
     chainStartStep = stepIdx;
     swapToChainSlotFrog();
     renderChain();
+    updateChainStatus();
     chainPlayBtn.textContent = "⏸ CHAIN STOP";
     if (!audioStarted) await startAudio();
   } else {
+    // Stopping auto-play. Don't kill audio — the user might still be
+    // clicking slots manually. Just stop the auto-advance.
     chainMode = false;
     chainPlayBtn.textContent = "▶ CHAIN PLAY";
     renderChain();
