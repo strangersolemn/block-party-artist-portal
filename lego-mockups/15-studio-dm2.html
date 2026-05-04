@@ -333,49 +333,109 @@ html,body{
 .tiny.bad:hover{border-color:rgba(255,80,80,0.6)}
 .plays-count{color:var(--led);text-shadow:var(--led-glow);font-weight:700;font-size:11px}
 
-/* =================== FX RACK =================== */
-.fx-rack{
+/* =================== FEATURED FROG STAGE =================== */
+.featured{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  grid-template-columns:minmax(280px, 360px) 1fr;
   gap:14px;
+  margin-bottom:14px;
 }
-.fx-cell{
-  background:#0c0d0f;
+.frog-stage{
+  background:#0a0b0d;
   border:1px solid var(--border);
-  border-radius:8px;padding:12px;
-  box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);
+  border-radius:10px;
+  padding:14px;
+  display:flex;flex-direction:column;gap:10px;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,0.6);
 }
-.fx-cell .lab{
-  font-size:9px;letter-spacing:2px;color:var(--text-faint);
-  text-transform:uppercase;margin-bottom:8px;
+.frog-canvas-wrap{
+  width:100%;aspect-ratio:1/1;
+  background:radial-gradient(circle at 50% 45%, #1a1b1d 0%, #050506 80%);
+  border-radius:8px;
+  border:1px solid rgba(0,0,0,0.6);
+  box-shadow:inset 0 2px 8px rgba(0,0,0,0.7);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
 }
-.fx-cell input[type=range]{
+.frog-blob{
+  width:62%;height:62%;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #555 0%, #2a2c30 60%, #1a1b1d 100%);
+  border:2px solid rgba(255,255,255,0.08);
+  box-shadow:inset 0 4px 12px rgba(0,0,0,0.5), 0 0 30px rgba(255,167,40,0.15);
+  transition:all .25s;
+}
+.frog-blob.active{
+  background:radial-gradient(circle at 35% 30%, hsl(var(--frog-hue,140), 70%, 65%) 0%, hsl(var(--frog-hue,140), 60%, 45%) 60%, hsl(var(--frog-hue,140), 70%, 25%) 100%);
+  box-shadow:inset 0 4px 12px rgba(0,0,0,0.4), 0 0 60px hsl(var(--frog-hue,140), 80%, 50%);
+  animation:frogBreathe 1.6s ease-in-out infinite;
+}
+@keyframes frogBreathe{
+  50%{transform:scale(1.04)}
+}
+.frog-meta{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:10px;color:var(--text-faint);letter-spacing:1px;
+  font-family:"SF Mono",monospace;
+}
+.frog-controls{display:flex;gap:6px}
+.frog-controls .act{flex:1}
+
+/* =================== INFO + FX PANEL (right of frog) =================== */
+.info-panel{
+  background:var(--panel-flat);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:14px;
+  display:flex;flex-direction:column;gap:10px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.info-rows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:10px;letter-spacing:.5px}
+.info-rows .k{color:var(--text-faint);text-transform:uppercase}
+.info-rows .v{color:var(--text);font-family:"SF Mono",monospace}
+.info-rows .v.led{color:var(--led);text-shadow:var(--led-glow)}
+
+.fx-rows{
+  display:flex;flex-direction:column;gap:8px;
+  border-top:1px solid var(--border);padding-top:10px;
+}
+.fx-row{
+  display:grid;grid-template-columns:60px 1fr 50px;
+  gap:10px;align-items:center;
+}
+.fx-row .lab{
+  font-size:9px;letter-spacing:1.5px;color:var(--text-faint);
+  text-transform:uppercase;
+}
+.fx-row input[type=range]{
   -webkit-appearance:none;appearance:none;
-  width:100%;height:4px;border-radius:2px;
+  width:100%;height:3px;border-radius:2px;
   background:#0a0b0d;
   border:1px solid rgba(0,0,0,0.6);
   box-shadow:inset 0 1px 2px rgba(0,0,0,0.6);
   outline:none;
 }
-.fx-cell input[type=range]::-webkit-slider-thumb{
+.fx-row input[type=range]::-webkit-slider-thumb{
   -webkit-appearance:none;appearance:none;
-  width:18px;height:18px;border-radius:50%;
+  width:16px;height:16px;border-radius:50%;
   background:linear-gradient(180deg, #404245 0%, #1c1d1f 100%);
   border:1px solid var(--led);
   box-shadow:0 0 6px rgba(255,167,40,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
   cursor:pointer;
 }
-.fx-cell input[type=range]::-moz-range-thumb{
-  width:18px;height:18px;border-radius:50%;
+.fx-row input[type=range]::-moz-range-thumb{
+  width:16px;height:16px;border-radius:50%;
   background:linear-gradient(180deg, #404245 0%, #1c1d1f 100%);
   border:1px solid var(--led);
   box-shadow:0 0 6px rgba(255,167,40,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
   cursor:pointer;
 }
-.fx-cell .val{
-  margin-top:6px;font-size:10px;
-  color:var(--led);text-shadow:var(--led-glow);
-  font-family:"SF Mono",monospace;letter-spacing:1px;
+.fx-row .val{
+  font-size:10px;color:var(--led);text-shadow:var(--led-glow);
+  font-family:"SF Mono",monospace;text-align:right;letter-spacing:.5px;
+}
+
+@media (max-width:760px){
+  .featured{grid-template-columns:1fr}
 }
 
 /* =================== BOTTOM TEST REPORT =================== */
@@ -436,6 +496,40 @@ html,body{
       </div>
     </div>
 
+    <!-- ============== FEATURED FROG + FX (cyberpunk-style layout, DM2 skin) ============== -->
+    <div class="featured">
+      <div class="frog-stage">
+        <div class="frog-canvas-wrap">
+          <div class="frog-blob" id="frog-blob"></div>
+        </div>
+        <div class="frog-meta">
+          <span id="frog-id">— · no frog loaded</span>
+          <span id="frog-kit" style="color:var(--led);text-shadow:var(--led-glow)">TECH-HOUSE</span>
+        </div>
+        <div class="frog-controls">
+          <button class="act primary" id="featuredPlayBtn">▶ PLAY</button>
+          <button class="act" id="featuredNextBtn">⟳ NEXT</button>
+        </div>
+      </div>
+
+      <div class="info-panel">
+        <div class="info-rows">
+          <div class="k">block</div>      <div class="v" id="info-block">—</div>
+          <div class="k">riff a</div>     <div class="v led" id="info-riffa">—</div>
+          <div class="k">riff b</div>     <div class="v led" id="info-riffb">—</div>
+          <div class="k">colour</div>     <div class="v" id="info-colour">—</div>
+        </div>
+
+        <div class="fx-rows">
+          <div class="fx-row"><div class="lab">CUTOFF</div><input type="range" min="200" max="4500" value="1000" id="fx-cutoff"><div class="val" id="fx-cutoff-val">1000</div></div>
+          <div class="fx-row"><div class="lab">RESO</div>  <input type="range" min="0.5" max="18" step="0.1" value="5" id="fx-reso"><div class="val" id="fx-reso-val">5.0</div></div>
+          <div class="fx-row"><div class="lab">DRIVE</div> <input type="range" min="0" max="60" value="15" id="fx-drive"><div class="val" id="fx-drive-val">15</div></div>
+          <div class="fx-row"><div class="lab">DELAY</div> <input type="range" min="0" max="100" value="0" id="fx-delay"><div class="val" id="fx-delay-val">0</div></div>
+          <div class="fx-row"><div class="lab">REVERB</div><input type="range" min="0" max="100" value="0" id="fx-reverb"><div class="val" id="fx-reverb-val">0</div></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ============== SQUAD ============== -->
     <div class="section">
       <div class="section-head">
@@ -473,43 +567,6 @@ html,body{
       </div>
     </div>
 
-    <!-- ============== FX RACK ============== -->
-    <div class="section">
-      <div class="section-head">
-        <div>
-          <div class="section-title">FX</div>
-          <div class="section-meta">user voice — runs in parallel with the auto squelch</div>
-        </div>
-      </div>
-      <div class="fx-rack">
-        <div class="fx-cell">
-          <div class="lab">CUTOFF</div>
-          <input type="range" min="200" max="4500" value="1000" id="fx-cutoff">
-          <div class="val" id="fx-cutoff-val">1000 Hz</div>
-        </div>
-        <div class="fx-cell">
-          <div class="lab">RESO</div>
-          <input type="range" min="0.5" max="18" step="0.1" value="5" id="fx-reso">
-          <div class="val" id="fx-reso-val">5.0</div>
-        </div>
-        <div class="fx-cell">
-          <div class="lab">DRIVE</div>
-          <input type="range" min="0" max="60" value="15" id="fx-drive">
-          <div class="val" id="fx-drive-val">15</div>
-        </div>
-        <div class="fx-cell">
-          <div class="lab">DELAY</div>
-          <input type="range" min="0" max="100" value="0" id="fx-delay">
-          <div class="val" id="fx-delay-val">0</div>
-        </div>
-        <div class="fx-cell">
-          <div class="lab">REVERB</div>
-          <input type="range" min="0" max="100" value="0" id="fx-reverb">
-          <div class="val" id="fx-reverb-val">0</div>
-        </div>
-      </div>
-    </div>
-
     <div class="test-report" id="test-report">
       AESTHETIC TEST · just the visual shell · audio engine + nexus wiring identical to mockup 14
     </div>
@@ -526,6 +583,15 @@ html,body{
 // ============================================================================
 
 const playBtn        = document.getElementById("playBtn");
+const featuredPlayBtn = document.getElementById("featuredPlayBtn");
+const featuredNextBtn = document.getElementById("featuredNextBtn");
+const frogBlob       = document.getElementById("frog-blob");
+const frogId         = document.getElementById("frog-id");
+const frogKit        = document.getElementById("frog-kit");
+const infoBlock      = document.getElementById("info-block");
+const infoRiffA      = document.getElementById("info-riffa");
+const infoRiffB      = document.getElementById("info-riffb");
+const infoColour     = document.getElementById("info-colour");
 const connectBtn     = document.getElementById("connectBtn");
 const demoBtn        = document.getElementById("demoBtn");
 const refreshBtn     = document.getElementById("refreshBtn");
@@ -624,6 +690,45 @@ let squad = [];
 let chain = [];
 let activeSlot = -1;
 let queuedSlot = -1;
+let currentFrog = null; // the frog showing in the featured visualizer
+
+// Pull a fresh demo frog into the featured stage
+function loadFeaturedFrog(frog) {
+  currentFrog = frog;
+  if (!frog) {
+    frogBlob.classList.remove("active");
+    frogBlob.style.removeProperty("--frog-hue");
+    frogId.textContent = "— · no frog loaded";
+    infoBlock.textContent = "—";
+    infoRiffA.textContent = "—";
+    infoRiffB.textContent = "—";
+    infoColour.textContent = "—";
+    return;
+  }
+  frogBlob.classList.toggle("active", isPlaying || chainPlaying);
+  frogBlob.style.setProperty("--frog-hue", frog.hue);
+  frogId.textContent = frog.id.slice(0, 8) + "…" + frog.id.slice(-4);
+  infoBlock.textContent = "#" + (940000 + Math.abs(hashOf(frog.id)) % 2016);
+  infoRiffA.textContent = mockNotes(frog.hue, 0);
+  infoRiffB.textContent = mockNotes(frog.hue, 1);
+  infoColour.textContent = colourName(frog.hue);
+}
+function hashOf(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))&0xfffff;return h;}
+function mockNotes(hue, riff){
+  const pool = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1"];
+  const out = [];
+  for (let i = 0; i < 4 + (riff?1:0); i++) out.push(pool[(hue + i*7 + riff*3) % pool.length]);
+  return out.join(" · ");
+}
+function colourName(hue){
+  if (hue < 30 || hue >= 330) return "RED";
+  if (hue < 60) return "ORANGE";
+  if (hue < 90) return "YELLOW";
+  if (hue < 170) return "GREEN";
+  if (hue < 210) return "CYAN";
+  if (hue < 270) return "BLUE";
+  return "PINK";
+}
 
 // Demo-mode squad: 8 random colored frogs
 function genDemoSquad() {
@@ -647,7 +752,11 @@ function renderSquad() {
       <div class="squad-shape" style="background:hsl(${frog.hue},65%,52%);box-shadow:inset 0 2px 4px rgba(0,0,0,0.5), 0 0 12px hsl(${frog.hue},80%,55%)"></div>
       <div class="squad-id">${frog.id.slice(0,6)}…${frog.id.slice(-4)}</div>
     `;
-    card.addEventListener("click", () => addToChain(frog));
+    card.addEventListener("click", () => {
+      // Click loads the frog into the featured player AND adds to the chain.
+      loadFeaturedFrog(frog);
+      addToChain(frog);
+    });
     squadGrid.appendChild(card);
   });
   readoutSquad.textContent = squad.length ? squad.length + " · LOADED" : "— · —";
@@ -751,6 +860,22 @@ connectBtn.addEventListener("click", () => {
 playBtn.addEventListener("click", () => {
   isPlaying = !isPlaying;
   playBtn.classList.toggle("playing", isPlaying);
+  if (currentFrog) frogBlob.classList.toggle("active", isPlaying || chainPlaying);
+});
+
+featuredPlayBtn.addEventListener("click", () => {
+  if (!currentFrog && squad.length) loadFeaturedFrog(squad[0]);
+  isPlaying = !isPlaying;
+  featuredPlayBtn.textContent = isPlaying ? "⏸ STOP" : "▶ PLAY";
+  playBtn.classList.toggle("playing", isPlaying);
+  if (currentFrog) frogBlob.classList.toggle("active", isPlaying || chainPlaying);
+});
+
+featuredNextBtn.addEventListener("click", () => {
+  if (!squad.length) { genDemoSquad(); renderSquad(); }
+  // Pick a random squad member
+  const f = squad[Math.floor(Math.random() * squad.length)];
+  loadFeaturedFrog(f);
 });
 
 chainPlayBtn.addEventListener("click", () => {
@@ -760,9 +885,19 @@ chainPlayBtn.addEventListener("click", () => {
     chainPlayBtn.textContent = "⏸ STOP";
     activeSlot = queuedSlot >= 0 ? queuedSlot : 0;
     queuedSlot = -1;
+    // Mirror the active chain frog in the featured visualizer
+    if (chain[activeSlot]) loadFeaturedFrog(chain[activeSlot]);
+    isPlaying = true;
+    playBtn.classList.add("playing");
+    featuredPlayBtn.textContent = "⏸ STOP";
+    if (currentFrog) frogBlob.classList.add("active");
   } else {
     chainPlayBtn.textContent = "▶ CHAIN PLAY";
     activeSlot = -1;
+    isPlaying = false;
+    playBtn.classList.remove("playing");
+    featuredPlayBtn.textContent = "▶ PLAY";
+    frogBlob.classList.remove("active");
   }
   renderChain();
   updateReadouts();
