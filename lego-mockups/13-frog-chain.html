@@ -93,10 +93,10 @@
   <h1>Acid Frogs · Chain Sequencer</h1>
   <div class="sub">CHAIN MULTIPLE FROGS INTO A SONG · LIKE THE PATTERN MODE ON A KORG ELECTRIBE</div>
   <div style="font-size:12px;opacity:.7;margin:8px 0 20px;letter-spacing:1px">
-    Two ways to play:<br>
-    · <b>AUTO</b> — hit ▶ CHAIN PLAY and frogs swap in order, looping forever (each slot plays for its ×N count of full 16-bar loops).<br>
-    · <b>MANUAL</b> — click any slot during playback to queue it. Slot flashes gold = "playing next". Swap happens at the end of the current 16-bar loop, never mid-pattern.<br>
-    All swaps land cleanly on the loop boundary, never mid-pattern. FX dials stay live across all swaps.
+    Three modes:<br>
+    · <b>AUTO</b> — hit ▶ CHAIN PLAY and frogs auto-advance every 8 bars (~15 sec). Each slot plays for its ×N count of 8-bar phrases.<br>
+    · <b>MANUAL</b> — click any slot during playback. Slot flashes gold = "playing next". Swap fires at the next 8-bar phrase boundary (right after the ACID hit lands).<br>
+    · <b>JUST LOOPING</b> — no auto, no click → current frog keeps repeating its 16-bar A+B loop forever. FX dials stay live across all swaps.
   </div>
 
   <div class="featured">
@@ -120,7 +120,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div>
         <b>CHAIN SEQUENCER</b>
-        <span style="opacity:.6;margin-left:10px;font-size:11px">1 loop = 16 bars (~31 sec) · click a slot to queue it for end-of-loop · all demo frogs use Tech-house drums</span>
+        <span style="opacity:.6;margin-left:10px;font-size:11px">1 phrase = 8 bars (~15 sec) · click a slot to queue it for next phrase · all demo frogs use Tech-house drums</span>
       </div>
       <div>
         <button class="btn" id="chainPlayBtn" style="background:rgba(113,255,94,0.15);border-color:#9f9">▶ CHAIN PLAY</button>
@@ -987,7 +987,13 @@ let chainStartStep = 0;     // stepIdx when current slot started
 let chainQueued = null;     // index of slot queued by user click — flashes gold
                             // and takes effect at the next loop boundary
 
-const STEPS_PER_LOOP = 256;  // 16 bars × 16 sixteenths = one full A+B loop
+// Swap boundary unit: 8 bars (one phrase). Lands AFTER the first ACID hit
+// (which fires at bar 8 step 12) so the current frog's drop is heard cleanly
+// before any swap. The natural music loop is 16 bars (A+B with the riff swap
+// pattern) — when no swap is pending, the frog keeps looping that 16-bar
+// cycle forever. Auto-mode advances every 8 bars (plays × 8); manual queue
+// swaps at the next 8-bar boundary.
+const STEPS_PER_LOOP = 128;  // 8 bars × 16 sixteenths = one phrase
 
 const chainSlotsEl   = document.getElementById("chain-slots");
 const chainEmptyMsg  = document.getElementById("chain-empty-msg");
@@ -1168,11 +1174,11 @@ function updateChainStatus() {
   let line = "";
   if (chainMode || chainQueued !== null) {
     line = `▶ now playing: <b>slot ${chainSlot + 1}/${chain.length}</b> · block #${entry.height}`;
-    if (chainMode) line += ` · loop ${chainPhrasesDone + 1}/${entry.plays}`;
+    if (chainMode) line += ` · phrase ${chainPhrasesDone + 1}/${entry.plays}`;
   }
   if (chainQueued !== null && chainQueued !== chainSlot) {
     const q = chain[chainQueued];
-    line += ` · <span style="color:var(--gold)">⏭ queued: slot ${chainQueued + 1} (#${q.height}) — swap at end of loop</span>`;
+    line += ` · <span style="color:var(--gold)">⏭ queued: slot ${chainQueued + 1} (#${q.height}) — swap at next 8-bar phrase</span>`;
   }
   el.innerHTML = line;
 }
