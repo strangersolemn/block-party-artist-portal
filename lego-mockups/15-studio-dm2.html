@@ -107,6 +107,18 @@ html,body{
   color:var(--led);text-shadow:var(--led-glow);
   line-height:1;
 }
+.bpm-readout{cursor:ns-resize;user-select:none;transition:background .12s}
+.bpm-readout:hover{background:#0f1012}
+.bpm-readout.dragging{background:#1a1c1f;border-color:var(--led)}
+.bpm-readout input.val{
+  background:transparent;border:none;outline:none;
+  width:60px;padding:0;margin:0;
+  font-family:"SF Mono","Menlo",monospace;
+  font-size:14px;font-weight:600;
+  color:var(--led-bright);
+  text-shadow:var(--led-glow);
+  text-align:left;
+}
 
 /* Tab buttons */
 .tabs{display:flex;gap:6px;flex-wrap:wrap}
@@ -392,7 +404,10 @@ html,body{
   <div class="transport">
     <div class="play-btn" id="playBtn"><div class="triangle"></div></div>
     <div class="readouts">
-      <div class="readout"><div class="lab">BPM</div><div class="val">123.0</div></div>
+      <div class="readout bpm-readout" id="bpm-readout" title="Click to edit · drag up/down to nudge">
+        <div class="lab">BPM</div>
+        <div class="val" id="bpm-val">123</div>
+      </div>
       <div class="readout"><div class="lab">SQUAD</div><div class="val" id="readout-squad">— · —</div></div>
       <div class="readout"><div class="lab">SLOT</div><div class="val" id="readout-slot">— / —</div></div>
     </div>
@@ -401,7 +416,6 @@ html,body{
       <button class="tab active">STUDIO</button>
       <button class="tab">CHAIN</button>
       <button class="tab">FX</button>
-      <button class="tab">SONG</button>
     </div>
   </div>
 
@@ -527,6 +541,81 @@ const chainPlayBtn   = document.getElementById("chainPlayBtn");
 const chainClearBtn  = document.getElementById("chainClearBtn");
 const readoutSquad   = document.getElementById("readout-squad");
 const readoutSlot    = document.getElementById("readout-slot");
+const bpmReadout     = document.getElementById("bpm-readout");
+const bpmVal         = document.getElementById("bpm-val");
+
+// ============================================================================
+// BPM control — click to type a value, drag up/down to nudge.
+// Range 80-180 (sensible tech-house / D&B / disco range).
+// In production this drives Tone.Transport.bpm.value; in this mockup it's
+// just visual.
+// ============================================================================
+let bpm = 123;
+const BPM_MIN = 80, BPM_MAX = 180;
+
+function setBPM(n) {
+  n = Math.max(BPM_MIN, Math.min(BPM_MAX, Math.round(n)));
+  bpm = n;
+  bpmVal.textContent = n;
+  // In production this would also call: Tone.Transport.bpm.value = n
+}
+
+// Click → editable input
+bpmReadout.addEventListener("click", (ev) => {
+  if (ev.target.tagName === "INPUT") return;
+  if (bpmReadout._dragging) return; // suppress click-after-drag
+  const input = document.createElement("input");
+  input.type = "number"; input.min = BPM_MIN; input.max = BPM_MAX;
+  input.value = bpm; input.className = "val";
+  input.id = "bpm-val";
+  bpmVal.replaceWith(input);
+  input.focus(); input.select();
+  const commit = () => {
+    setBPM(parseFloat(input.value) || bpm);
+    const span = document.createElement("div");
+    span.className = "val"; span.id = "bpm-val"; span.textContent = bpm;
+    input.replaceWith(span);
+  };
+  input.addEventListener("blur", commit);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+    if (e.key === "Escape") { input.value = bpm; input.blur(); }
+  });
+});
+
+// Drag up/down to nudge BPM
+let dragStartY = null, dragStartBPM = null;
+bpmReadout.addEventListener("pointerdown", (ev) => {
+  if (ev.target.tagName === "INPUT") return;
+  dragStartY = ev.clientY; dragStartBPM = bpm;
+  bpmReadout._dragMoved = false;
+  bpmReadout.classList.add("dragging");
+  bpmReadout.setPointerCapture(ev.pointerId);
+});
+bpmReadout.addEventListener("pointermove", (ev) => {
+  if (dragStartY === null) return;
+  const dy = dragStartY - ev.clientY;
+  if (Math.abs(dy) > 3) bpmReadout._dragMoved = true;
+  setBPM(dragStartBPM + dy / 4); // ~4 px per BPM
+});
+bpmReadout.addEventListener("pointerup", () => {
+  bpmReadout.classList.remove("dragging");
+  if (bpmReadout._dragMoved) {
+    bpmReadout._dragging = true;
+    setTimeout(() => bpmReadout._dragging = false, 50); // suppress click
+  }
+  dragStartY = null;
+});
+bpmReadout.addEventListener("pointercancel", () => {
+  bpmReadout.classList.remove("dragging");
+  dragStartY = null;
+});
+
+// Mouse wheel — fine adjustment
+bpmReadout.addEventListener("wheel", (ev) => {
+  ev.preventDefault();
+  setBPM(bpm + (ev.deltaY < 0 ? 1 : -1));
+}, { passive: false });
 
 let connected = false;
 let isPlaying = false;
