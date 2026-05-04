@@ -64,12 +64,23 @@
   .diff-display{font-size:18px;color:#fff;letter-spacing:1px;margin-bottom:10px}
   .diff-display .match{color:var(--gold);text-shadow:0 0 8px var(--gold)}
   @media (max-width:900px){.featured{grid-template-columns:1fr}.frog-box{width:100%;max-width:400px;height:auto;aspect-ratio:1/1;margin:0 auto}}
-  /* Queued chain slot — flashes gold to indicate "I'm next at end of this loop" */
-  @keyframes chainQueueFlash {
-    0%, 100% { border-color: var(--gold) !important; box-shadow: 0 0 14px rgba(255,215,0,0.45) !important; }
-    50%      { border-color: #fff8c0   !important; box-shadow: 0 0 22px rgba(255,215,0,0.85) !important; }
+  /* Queued chain slot — flashes gold to indicate "I'm next at end of this loop".
+     Animation only animates box-shadow (no !important inside @keyframes — Safari
+     handles those inconsistently). The gold BORDER is set inline by renderChain()
+     so it survives no matter what the animation engine does. */
+  @keyframes chainQueueGlow {
+    0%, 100% { box-shadow: 0 0 14px 2px rgba(255,215,0,0.55); }
+    50%      { box-shadow: 0 0 26px 4px rgba(255,215,0,0.95); }
   }
-  .chain-queued { animation: chainQueueFlash 0.55s infinite ease-in-out; }
+  .chain-queued { animation: chainQueueGlow 0.55s infinite ease-in-out; }
+  .chain-queued::after {
+    content: "▶ NEXT";
+    position: absolute; top: 4px; right: 4px;
+    background: var(--gold); color: #000;
+    font-size: 8px; font-weight: bold; letter-spacing: 1px;
+    padding: 2px 4px; border-radius: 3px;
+    z-index: 10; pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -1010,13 +1021,24 @@ function renderChain() {
     const isQueued = idx === chainQueued && idx !== chainSlot;
     const card = document.createElement("div");
     card.className = isQueued ? "chain-queued" : "";
+    // Border + background reflect state. Queued (gold) takes precedence over
+    // inactive; active (acid green) takes precedence over queued (since the
+    // currently-playing slot can't also be "next"). The inline border-color
+    // is the source of truth — the .chain-queued animation only adds a
+    // glowing box-shadow that pulses on top.
+    const borderColor = isActive ? '#9f9' : (isQueued ? '#ffd700' : '#333');
+    const borderWidth = (isActive || isQueued) ? '2px' : '1px';
+    const bgFill      = isActive ? 'rgba(113,255,94,0.12)'
+                       : isQueued ? 'rgba(255,215,0,0.10)'
+                       : 'rgba(0,40,0,0.25)';
     card.style.cssText = `
-      border:1px solid ${isActive ? '#9f9' : '#333'};
-      background:${isActive ? 'rgba(113,255,94,0.12)' : 'rgba(0,40,0,0.25)'};
+      border:${borderWidth} solid ${borderColor};
+      background:${bgFill};
       border-radius:6px;padding:8px;font-size:11px;
       display:flex;flex-direction:column;gap:6px;cursor:pointer;
       box-shadow:${isActive ? '0 0 12px rgba(113,255,94,0.4)' : 'none'};
-      transition:all .15s;
+      transition:border-color .12s, background .12s;
+      position:relative;
     `;
     card.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center">
