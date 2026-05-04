@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acid Frogs · Studio (DM2 aesthetic)</title>
+<style>
+/* ============================================================================
+   DM2-STYLE PALETTE
+   - Pure black canvas (#000)
+   - Deep gray panels (#181818..#222) with subtle top highlight
+   - Amber/orange LED accents for active states (#ff9d33 / #ffa728)
+   - Cyan teal for secondary "active tab" highlight (#42dcd5)
+   - Lime green (was the old acid color) demoted to "queued" status only
+   - Rounded everything, subtle bevels, no glow except on active LEDs
+   ========================================================================= */
+:root {
+  --bg: #000;
+  --panel: linear-gradient(180deg, #232425 0%, #18191b 60%, #131416 100%);
+  --panel-flat: #1a1b1d;
+  --panel-edge: rgba(255,255,255,0.06);
+  --panel-line: rgba(0,0,0,0.6);
+  --pad-bg: linear-gradient(180deg, #2a2c30 0%, #1a1b1d 100%);
+  --led: #ffa728;
+  --led-bright: #ffd066;
+  --led-glow: 0 0 8px #ffa728, 0 0 14px rgba(255,167,40,0.5);
+  --led-dim: rgba(255,167,40,0.25);
+  --cyan: #42dcd5;
+  --cyan-glow: 0 0 8px #42dcd5;
+  --gold: #ffd700;
+  --text: #ffffff;
+  --text-dim: rgba(255,255,255,0.55);
+  --text-faint: rgba(255,255,255,0.35);
+  --border: rgba(255,255,255,0.08);
+}
+
+*{box-sizing:border-box}
+html,body{
+  margin:0; min-height:100%;
+  background:#000;
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  letter-spacing:0.01em;
+}
+.wrap{max-width:1280px;margin:0 auto;padding:18px 14px 40px}
+
+/* =================== TOP TRANSPORT BAR =================== */
+.transport{
+  display:grid;
+  grid-template-columns:auto auto 1fr auto;
+  gap:14px;
+  align-items:center;
+  padding:10px 14px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-top-color:rgba(255,255,255,0.12);
+  border-radius:12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 1px 0 rgba(0,0,0,0.6),
+    0 4px 16px rgba(0,0,0,0.5);
+}
+.play-btn{
+  width:64px;height:48px;border-radius:8px;
+  background:linear-gradient(180deg, #2a2c30 0%, #161718 100%);
+  border:1px solid var(--led);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 0 14px rgba(255,167,40,0.4);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:all .12s;
+}
+.play-btn:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), 0 0 22px rgba(255,167,40,0.7)}
+.play-btn .triangle{
+  width:0;height:0;
+  border-left:18px solid var(--led);
+  border-top:11px solid transparent;
+  border-bottom:11px solid transparent;
+  margin-left:4px;
+  filter:drop-shadow(0 0 4px rgba(255,167,40,0.8));
+}
+.play-btn.playing .triangle{
+  border-left:0;
+  width:14px;height:18px;margin-left:0;
+  background:linear-gradient(90deg, var(--led) 0 5px, transparent 5px 9px, var(--led) 9px 14px);
+}
+
+/* LED-style readouts */
+.readouts{display:flex;gap:10px}
+.readout{
+  background:#0c0d0f;
+  border:1px solid rgba(0,0,0,0.8);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,0.7), 0 1px 0 rgba(255,255,255,0.04);
+  border-radius:6px;
+  padding:6px 12px;
+  min-width:108px;
+}
+.readout .lab{
+  font-size:8px;letter-spacing:1.5px;color:var(--text-faint);
+  text-transform:uppercase;line-height:1;margin-bottom:4px;
+}
+.readout .val{
+  font-family:"SF Mono","Menlo",monospace;
+  font-size:14px;font-weight:600;
+  color:var(--led);text-shadow:var(--led-glow);
+  line-height:1;
+}
+
+/* Tab buttons */
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{
+  background:linear-gradient(180deg, #2a2c30 0%, #16171a 100%);
+  border:1px solid var(--border);
+  border-top-color:rgba(255,255,255,0.10);
+  border-radius:8px;
+  color:var(--text-dim);
+  font-size:11px;font-weight:600;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  padding:10px 16px;
+  cursor:pointer;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+  transition:all .12s;
+}
+.tab:hover{color:var(--text)}
+.tab.active{
+  color:var(--cyan);
+  border-color:var(--cyan);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.06), 0 0 10px rgba(66,220,213,0.35);
+}
+
+/* =================== MAIN STAGE PANEL =================== */
+.stage{
+  margin-top:14px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-top-color:rgba(255,255,255,0.10);
+  border-radius:14px;
+  padding:18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 1px 0 rgba(0,0,0,0.6),
+    0 4px 18px rgba(0,0,0,0.5);
+}
+.stage-head{
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:10px;
+  border-bottom:1px solid var(--border);
+  padding-bottom:14px;margin-bottom:18px;
+}
+.brand{
+  display:flex;align-items:center;gap:12px;
+  font-weight:700;font-size:24px;letter-spacing:6px;
+}
+.brand .dot{
+  width:10px;height:10px;background:var(--led);border-radius:50%;
+  box-shadow:var(--led-glow);
+  animation:ledPulse 1.6s ease-in-out infinite;
+}
+@keyframes ledPulse{
+  50%{box-shadow:0 0 12px var(--led), 0 0 24px var(--led-bright)}
+}
+.brand-sub{font-size:9px;letter-spacing:3px;color:var(--text-faint);font-weight:600}
+.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* Wallet status pill */
+.wallet-pill{
+  display:flex;align-items:center;gap:8px;
+  background:#0c0d0f;
+  border:1px solid var(--border);
+  border-radius:6px;padding:6px 10px;
+  font-size:10px;letter-spacing:1px;color:var(--text-dim);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.wallet-pill .dot{
+  width:6px;height:6px;border-radius:50%;
+  background:#444;
+}
+.wallet-pill.on .dot{background:var(--led);box-shadow:var(--led-glow)}
+
+/* Compact action buttons */
+.act{
+  background:linear-gradient(180deg, #2a2c30 0%, #16171a 100%);
+  border:1px solid var(--border);
+  border-top-color:rgba(255,255,255,0.10);
+  color:var(--text);
+  font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;
+  padding:8px 12px;border-radius:7px;cursor:pointer;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+  transition:all .12s;
+}
+.act:hover{border-color:rgba(255,255,255,0.18)}
+.act.primary{
+  border-color:var(--led);
+  color:var(--led);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 0 8px rgba(255,167,40,0.25);
+}
+.act.primary:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 0 14px rgba(255,167,40,0.5)}
+.act.cyan{
+  border-color:var(--cyan);color:var(--cyan);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 0 8px rgba(66,220,213,0.25);
+}
+.act.muted{opacity:.55}
+
+/* =================== SECTION CARDS (squad / chain) =================== */
+.section{
+  background:var(--panel-flat);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:14px;
+  margin-bottom:14px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.section-head{
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:8px;
+  margin-bottom:12px;
+}
+.section-title{
+  font-size:11px;font-weight:700;letter-spacing:2px;
+  color:var(--text);text-transform:uppercase;
+}
+.section-meta{font-size:10px;color:var(--text-faint);letter-spacing:1px}
+.status-line{font-size:10px;color:var(--led);min-height:13px;letter-spacing:1px;margin-bottom:8px}
+
+/* =================== SQUAD GRID =================== */
+.squad-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+  gap:8px;
+  min-height:90px;
+}
+.squad-empty{
+  grid-column:1/-1;
+  text-align:center;color:var(--text-faint);
+  font-size:11px;padding:24px 0;letter-spacing:1px;
+}
+.squad-card{
+  background:linear-gradient(180deg, #1f2124 0%, #131517 100%);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:6px;cursor:pointer;
+  display:flex;flex-direction:column;gap:4px;align-items:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+  transition:all .12s;
+}
+.squad-card:hover{border-color:var(--led);transform:translateY(-1px)}
+.squad-shape{
+  width:64px;height:64px;border-radius:50%;
+  background:#2a2c30;
+  border:2px solid rgba(255,255,255,0.12);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,0.4);
+}
+.squad-id{font-size:9px;color:var(--text-faint);letter-spacing:.5px;font-family:"SF Mono",monospace}
+
+/* =================== CHAIN SLOTS =================== */
+.chain-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:10px;min-height:120px;
+}
+.chain-empty{
+  grid-column:1/-1;text-align:center;color:var(--text-faint);
+  font-size:11px;padding:24px 0;letter-spacing:1px;
+}
+.chain-slot{
+  background:linear-gradient(180deg, #1f2124 0%, #131517 100%);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px;cursor:pointer;
+  display:flex;flex-direction:column;gap:6px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+  position:relative;
+  transition:border-color .12s, background .12s;
+}
+.chain-slot.active{
+  border-color:var(--led);
+  background:linear-gradient(180deg, rgba(255,167,40,0.10) 0%, #131517 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 0 12px rgba(255,167,40,0.35);
+}
+.chain-slot.queued{
+  border-color:var(--gold);border-width:2px;
+  background:linear-gradient(180deg, rgba(255,215,0,0.10) 0%, #131517 100%);
+  animation:queueGlow 0.5s ease-in-out infinite alternate;
+}
+@keyframes queueGlow{
+  to{box-shadow:0 0 24px rgba(255,215,0,0.85)}
+}
+.chain-slot.queued::after{
+  content:"▶ NEXT";
+  position:absolute;top:6px;right:6px;
+  background:var(--gold);color:#000;
+  font-size:8px;font-weight:700;letter-spacing:1px;
+  padding:2px 5px;border-radius:3px;
+  z-index:5;pointer-events:none;
+}
+.slot-num{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:9px;color:var(--text-faint);letter-spacing:1px;
+}
+.slot-shape{
+  aspect-ratio:1/1;border-radius:6px;background:#2a2c30;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(255,255,255,0.06);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,0.4);
+}
+.slot-info{font-size:9px;color:var(--text-dim);text-align:center;line-height:1.3}
+.slot-controls{
+  display:grid;grid-template-columns:1fr auto 1fr auto;gap:4px;align-items:center;
+  font-size:10px;
+}
+.tiny{
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-dim);width:22px;height:22px;border-radius:4px;
+  cursor:pointer;font-size:11px;line-height:1;padding:0;
+}
+.tiny:hover{color:var(--text);border-color:rgba(255,255,255,0.2)}
+.tiny.bad{border-color:rgba(255,80,80,0.3);color:#ff8080}
+.tiny.bad:hover{border-color:rgba(255,80,80,0.6)}
+.plays-count{color:var(--led);text-shadow:var(--led-glow);font-weight:700;font-size:11px}
+
+/* =================== FX RACK =================== */
+.fx-rack{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:14px;
+}
+.fx-cell{
+  background:#0c0d0f;
+  border:1px solid var(--border);
+  border-radius:8px;padding:12px;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);
+}
+.fx-cell .lab{
+  font-size:9px;letter-spacing:2px;color:var(--text-faint);
+  text-transform:uppercase;margin-bottom:8px;
+}
+.fx-cell input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:4px;border-radius:2px;
+  background:#0a0b0d;
+  border:1px solid rgba(0,0,0,0.6);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,0.6);
+  outline:none;
+}
+.fx-cell input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:18px;height:18px;border-radius:50%;
+  background:linear-gradient(180deg, #404245 0%, #1c1d1f 100%);
+  border:1px solid var(--led);
+  box-shadow:0 0 6px rgba(255,167,40,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
+  cursor:pointer;
+}
+.fx-cell input[type=range]::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;
+  background:linear-gradient(180deg, #404245 0%, #1c1d1f 100%);
+  border:1px solid var(--led);
+  box-shadow:0 0 6px rgba(255,167,40,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
+  cursor:pointer;
+}
+.fx-cell .val{
+  margin-top:6px;font-size:10px;
+  color:var(--led);text-shadow:var(--led-glow);
+  font-family:"SF Mono",monospace;letter-spacing:1px;
+}
+
+/* =================== BOTTOM TEST REPORT =================== */
+.test-report{
+  margin-top:14px;padding:8px 12px;
+  background:#0c0d0f;border:1px solid var(--border);
+  border-radius:6px;font-size:10px;letter-spacing:1px;
+  color:var(--text-faint);font-family:"SF Mono",monospace;
+}
+.test-report .ok{color:var(--led);text-shadow:var(--led-glow)}
+.test-report .pending{color:var(--gold)}
+.test-report .bad{color:#ff8080}
+
+@media (max-width:700px){
+  .transport{grid-template-columns:auto 1fr;}
+  .readouts{display:none}
+  .stage{padding:12px}
+  .brand{font-size:18px;letter-spacing:4px}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <!-- ============== TOP TRANSPORT BAR ============== -->
+  <div class="transport">
+    <div class="play-btn" id="playBtn"><div class="triangle"></div></div>
+    <div class="readouts">
+      <div class="readout"><div class="lab">BPM</div><div class="val">123.0</div></div>
+      <div class="readout"><div class="lab">SQUAD</div><div class="val" id="readout-squad">— · —</div></div>
+      <div class="readout"><div class="lab">SLOT</div><div class="val" id="readout-slot">— / —</div></div>
+    </div>
+    <div></div>
+    <div class="tabs">
+      <button class="tab active">STUDIO</button>
+      <button class="tab">CHAIN</button>
+      <button class="tab">FX</button>
+      <button class="tab">SONG</button>
+    </div>
+  </div>
+
+  <!-- ============== STAGE PANEL ============== -->
+  <div class="stage">
+    <div class="stage-head">
+      <div>
+        <div class="brand">
+          <span class="dot"></span>
+          <span>STUDIO</span>
+        </div>
+        <div class="brand-sub" style="margin-top:4px;margin-left:22px">ON-CHAIN · SELF-CONTAINED · NO THIRD-PARTY</div>
+      </div>
+      <div class="head-actions">
+        <div class="wallet-pill" id="wallet-pill"><span class="dot"></span><span id="wallet-label">no wallet</span></div>
+        <button class="act primary" id="connectBtn">CONNECT</button>
+        <button class="act cyan" id="demoBtn">DEMO</button>
+      </div>
+    </div>
+
+    <!-- ============== SQUAD ============== -->
+    <div class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">YOUR SQUAD</div>
+          <div class="section-meta">children of this parent inscription owned by your wallet</div>
+        </div>
+        <button class="act muted" id="refreshBtn" disabled>↻ REFRESH</button>
+      </div>
+      <div class="status-line" id="squad-status"></div>
+      <div class="squad-grid" id="squad-grid">
+        <div class="squad-empty" id="squad-empty">
+          Connect wallet (Nexus) or hit DEMO to populate your squad
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== CHAIN ============== -->
+    <div class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">CHAIN SEQUENCER</div>
+          <div class="section-meta">click squad members to add · click any chain slot to queue · 1 phrase = 8 bars</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="act primary" id="chainPlayBtn">▶ CHAIN PLAY</button>
+          <button class="act muted" id="chainClearBtn">CLEAR</button>
+        </div>
+      </div>
+      <div class="status-line" id="chain-status"></div>
+      <div class="chain-grid" id="chain-grid">
+        <div class="chain-empty" id="chain-empty">
+          Click any squad frog above to add it to the chain
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== FX RACK ============== -->
+    <div class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">FX</div>
+          <div class="section-meta">user voice — runs in parallel with the auto squelch</div>
+        </div>
+      </div>
+      <div class="fx-rack">
+        <div class="fx-cell">
+          <div class="lab">CUTOFF</div>
+          <input type="range" min="200" max="4500" value="1000" id="fx-cutoff">
+          <div class="val" id="fx-cutoff-val">1000 Hz</div>
+        </div>
+        <div class="fx-cell">
+          <div class="lab">RESO</div>
+          <input type="range" min="0.5" max="18" step="0.1" value="5" id="fx-reso">
+          <div class="val" id="fx-reso-val">5.0</div>
+        </div>
+        <div class="fx-cell">
+          <div class="lab">DRIVE</div>
+          <input type="range" min="0" max="60" value="15" id="fx-drive">
+          <div class="val" id="fx-drive-val">15</div>
+        </div>
+        <div class="fx-cell">
+          <div class="lab">DELAY</div>
+          <input type="range" min="0" max="100" value="0" id="fx-delay">
+          <div class="val" id="fx-delay-val">0</div>
+        </div>
+        <div class="fx-cell">
+          <div class="lab">REVERB</div>
+          <input type="range" min="0" max="100" value="0" id="fx-reverb">
+          <div class="val" id="fx-reverb-val">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="test-report" id="test-report">
+      AESTHETIC TEST · just the visual shell · audio engine + nexus wiring identical to mockup 14
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// MOCKUP 15 — DM2 aesthetic shell. This is a VISUAL EXPLORATION of the studio
+// theme, not a full functional rewrite. Wire-up is intentionally minimal:
+// just enough state for hover/active/queued rendering so you can see the
+// aesthetic in motion. The real audio engine + Nexus wallet + recursive
+// ownership lookup live in mockup 14 (and the inscribed mock-parent.html).
+// ============================================================================
+
+const playBtn        = document.getElementById("playBtn");
+const connectBtn     = document.getElementById("connectBtn");
+const demoBtn        = document.getElementById("demoBtn");
+const refreshBtn     = document.getElementById("refreshBtn");
+const walletPill     = document.getElementById("wallet-pill");
+const walletLabel    = document.getElementById("wallet-label");
+const squadStatusEl  = document.getElementById("squad-status");
+const squadGrid      = document.getElementById("squad-grid");
+const squadEmpty     = document.getElementById("squad-empty");
+const chainGrid      = document.getElementById("chain-grid");
+const chainEmpty     = document.getElementById("chain-empty");
+const chainStatusEl  = document.getElementById("chain-status");
+const chainPlayBtn   = document.getElementById("chainPlayBtn");
+const chainClearBtn  = document.getElementById("chainClearBtn");
+const readoutSquad   = document.getElementById("readout-squad");
+const readoutSlot    = document.getElementById("readout-slot");
+
+let connected = false;
+let isPlaying = false;
+let chainPlaying = false;
+let squad = [];
+let chain = [];
+let activeSlot = -1;
+let queuedSlot = -1;
+
+// Demo-mode squad: 8 random colored frogs
+function genDemoSquad() {
+  squad = [];
+  for (let i = 0; i < 8; i++) {
+    const hue = (i * 47) % 360;
+    squad.push({
+      id: "demo" + i.toString(16) + "deadbeef" + i + "i0",
+      hue,
+    });
+  }
+}
+
+function renderSquad() {
+  squadEmpty.style.display = squad.length ? "none" : "";
+  [...squadGrid.children].forEach(c => { if (c !== squadEmpty) c.remove(); });
+  squad.forEach(frog => {
+    const card = document.createElement("div");
+    card.className = "squad-card";
+    card.innerHTML = `
+      <div class="squad-shape" style="background:hsl(${frog.hue},65%,52%);box-shadow:inset 0 2px 4px rgba(0,0,0,0.5), 0 0 12px hsl(${frog.hue},80%,55%)"></div>
+      <div class="squad-id">${frog.id.slice(0,6)}…${frog.id.slice(-4)}</div>
+    `;
+    card.addEventListener("click", () => addToChain(frog));
+    squadGrid.appendChild(card);
+  });
+  readoutSquad.textContent = squad.length ? squad.length + " · LOADED" : "— · —";
+}
+
+function addToChain(frog) {
+  chain.push({ ...frog, plays: 1 });
+  renderChain();
+  updateReadouts();
+}
+
+function renderChain() {
+  chainEmpty.style.display = chain.length ? "none" : "";
+  [...chainGrid.children].forEach(c => { if (c !== chainEmpty) c.remove(); });
+  chain.forEach((frog, idx) => {
+    const slot = document.createElement("div");
+    let cls = "chain-slot";
+    if (idx === activeSlot) cls += " active";
+    else if (idx === queuedSlot) cls += " queued";
+    slot.className = cls;
+    slot.innerHTML = `
+      <div class="slot-num"><span>SLOT ${idx + 1}</span><span style="opacity:.5">${frog.id.slice(0,6)}</span></div>
+      <div class="slot-shape" style="background:hsl(${frog.hue},65%,52%);box-shadow:inset 0 2px 4px rgba(0,0,0,0.5), 0 0 12px hsl(${frog.hue},80%,55%)"></div>
+      <div class="slot-info"></div>
+      <div class="slot-controls">
+        <button class="tiny" data-act="dec" data-i="${idx}">−</button>
+        <span class="plays-count">×${frog.plays}</span>
+        <button class="tiny" data-act="inc" data-i="${idx}">+</button>
+        <button class="tiny bad" data-act="del" data-i="${idx}">×</button>
+      </div>
+    `;
+    slot.addEventListener("click", (ev) => {
+      if (ev.target.tagName === "BUTTON") return;
+      if (idx === activeSlot) { queuedSlot = -1; }
+      else { queuedSlot = idx; }
+      renderChain();
+    });
+    chainGrid.appendChild(slot);
+  });
+  chainGrid.querySelectorAll("button[data-act]").forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const i = +btn.dataset.i;
+      const a = btn.dataset.act;
+      if (a === "inc") chain[i].plays = Math.min(8, chain[i].plays + 1);
+      if (a === "dec") chain[i].plays = Math.max(1, chain[i].plays - 1);
+      if (a === "del") {
+        chain.splice(i, 1);
+        if (activeSlot >= chain.length) activeSlot = -1;
+        if (queuedSlot >= chain.length) queuedSlot = -1;
+      }
+      renderChain();
+      updateReadouts();
+    });
+  });
+  chainStatusEl.innerHTML = queuedSlot >= 0
+    ? `<span style="color:var(--gold)">⏭ queued: slot ${queuedSlot + 1} · swap at next phrase</span>`
+    : (chainPlaying ? `▶ playing slot ${activeSlot + 1}/${chain.length}` : "");
+}
+
+function updateReadouts() {
+  readoutSlot.textContent = chain.length
+    ? (activeSlot >= 0 ? `${activeSlot + 1}/${chain.length}` : `0/${chain.length}`)
+    : "— / —";
+}
+
+// ============== Demo wiring ==============
+demoBtn.addEventListener("click", () => {
+  connected = true;
+  walletPill.classList.add("on");
+  walletLabel.textContent = "DEMO · 8 mock frogs";
+  refreshBtn.disabled = false;
+  refreshBtn.classList.remove("muted");
+  squadStatusEl.textContent = "demo mode active — 8 mock children loaded";
+  genDemoSquad();
+  renderSquad();
+});
+
+connectBtn.addEventListener("click", () => {
+  if (connected) {
+    connected = false;
+    walletPill.classList.remove("on");
+    walletLabel.textContent = "no wallet";
+    connectBtn.textContent = "CONNECT";
+    refreshBtn.disabled = true;
+    refreshBtn.classList.add("muted");
+    squadStatusEl.textContent = "";
+    squad = []; renderSquad();
+    return;
+  }
+  // Aesthetic mockup — fake the connect flow
+  connected = true;
+  walletPill.classList.add("on");
+  walletLabel.textContent = "Xverse · bc1p…ag43";
+  connectBtn.textContent = "DISCONNECT";
+  refreshBtn.disabled = false;
+  refreshBtn.classList.remove("muted");
+  squadStatusEl.innerHTML = `<span style="color:var(--gold)">aesthetic mockup — real wallet connect lives in mockup 14. Use DEMO for fake squad.</span>`;
+});
+
+playBtn.addEventListener("click", () => {
+  isPlaying = !isPlaying;
+  playBtn.classList.toggle("playing", isPlaying);
+});
+
+chainPlayBtn.addEventListener("click", () => {
+  if (chain.length === 0) return;
+  chainPlaying = !chainPlaying;
+  if (chainPlaying) {
+    chainPlayBtn.textContent = "⏸ STOP";
+    activeSlot = queuedSlot >= 0 ? queuedSlot : 0;
+    queuedSlot = -1;
+  } else {
+    chainPlayBtn.textContent = "▶ CHAIN PLAY";
+    activeSlot = -1;
+  }
+  renderChain();
+  updateReadouts();
+});
+
+chainClearBtn.addEventListener("click", () => {
+  chain = []; activeSlot = -1; queuedSlot = -1;
+  chainPlaying = false;
+  chainPlayBtn.textContent = "▶ CHAIN PLAY";
+  renderChain();
+  updateReadouts();
+});
+
+// FX dial readouts
+["cutoff","reso","drive","delay","reverb"].forEach(k => {
+  const el = document.getElementById("fx-" + k);
+  const v  = document.getElementById("fx-" + k + "-val");
+  el.addEventListener("input", () => {
+    let s = el.value;
+    if (k === "cutoff") s = s + " Hz";
+    else if (k === "reso") s = parseFloat(s).toFixed(1);
+    v.textContent = s;
+  });
+});
+</script>
+</body>
+</html>
