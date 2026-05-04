@@ -637,7 +637,15 @@ const VISUALIZERS = [
   { id: "matrix",    label: "08 · Matrix rain" },
   { id: "blob",      label: "09 · Acid blob" },
   { id: "blockdata", label: "10 · Block-data scroll" },
+  { id: "undertone", label: "11 · Acid Undertone (Renascent #13)" },
 ];
+
+// Acid Undertone palette — pulled directly from strangersolemn's
+// Renascent #13 inscription. 3 colours that cycle across 6 channels.
+const UNDERTONE_PALETTE = ["#fe018a", "#44526f", "#292f48", "#fe018a", "#44526f", "#292f48"];
+// Per-channel intensity (decays each frame, spiked by audio events)
+const undertoneCh = [0,0,0,0,0,0];
+let undertoneFlow = 0;
 
 function buildVisualizerPicker() {
   const host = document.getElementById("vis-picker");
@@ -691,6 +699,7 @@ function drawVisualizer() {
     case "matrix":    return drawMatrix(W, H, t, fft);
     case "blob":      return drawBlob(W, H, t, fft);
     case "blockdata": return drawBlockdata(W, H, t, fft);
+    case "undertone": return drawUndertone(W, H, t, fft);
   }
 }
 
@@ -953,6 +962,63 @@ function drawBlockdata(W, H, t, fft) {
   // Nonce header at top, kick-pulsed
   bgCtx.fillStyle = `rgba(255,215,0,${0.6 + kickFlash * 0.4})`;
   bgCtx.fillText("NONCE 0x" + nonce + "  ·  KICK " + (kickFlash > 0.4 ? "▮" : " "), 12, 4);
+}
+
+// ----------- 11 · Acid Undertone (Renascent #13 visual lineage) -----------
+// Concentric expanding squares from centre, 6 channels with 3 cycling colours.
+// Each channel's intensity decays per frame; kick spikes them. CRT scanlines
+// over the top. Direct port of strangersolemn's Renascent acid-undertone.html
+// drawing logic, adapted to drive intensity from `kickFlash` (the studio's
+// existing per-kick pulse signal) instead of the inscription's own audio
+// triggers. Background colour, palette, scanline overlay, mx/flow constants
+// are all identical to the source.
+function drawUndertone(W, H, t, fft) {
+  // 1. Solid dark bg
+  bgCtx.fillStyle = "#19181d";
+  bgCtx.fillRect(0, 0, W, H);
+
+  // 2. Spike a channel on kick — kick rotates through the 6 channels so each
+  //    kick spawns a fresh wave of squares in the next colour.
+  if (kickFlash > 0.85) {
+    const idx = Math.floor((kickFlash * 1000) + (Date.now() / 250)) % undertoneCh.length;
+    undertoneCh[idx] = 1;
+  }
+
+  // 3. Update flow counter (drives the radial expansion)
+  undertoneFlow += 1.5;
+  const cX = W / 2, cY = H / 2;
+  const mx = W * 1.6;
+
+  // 4. Draw each channel's squares
+  for (let i = 0; i < undertoneCh.length; i++) {
+    const ch = undertoneCh[i];
+    const colour = UNDERTONE_PALETTE[i];
+    const fl = (i / undertoneCh.length) * mx + undertoneFlow;
+    const ct = (colour === "#fe018a") ? 5 : 3;
+    for (let k = 0; k < ct; k++) {
+      const s = (fl + k * 26) % mx;
+      if (s < 10) continue;
+      bgCtx.save();
+      bgCtx.beginPath();
+      bgCtx.strokeStyle = colour;
+      bgCtx.lineWidth = 1 + ch * 4;
+      bgCtx.globalAlpha = 0.45 + ch * 0.55;
+      bgCtx.strokeRect(cX - s / 2, cY - s / 2, s, s);
+      bgCtx.restore();
+    }
+    undertoneCh[i] *= 0.88; // decay
+  }
+
+  // 5. CRT scanlines on top — every 4 px, ~85% black. The signature texture.
+  bgCtx.save();
+  bgCtx.strokeStyle = "rgba(0,0,0,0.85)";
+  bgCtx.lineWidth = 1;
+  for (let y = 0; y < H; y += 4) {
+    bgCtx.beginPath();
+    bgCtx.moveTo(0, y); bgCtx.lineTo(W, y);
+    bgCtx.stroke();
+  }
+  bgCtx.restore();
 }
 
 // Frog animation is DRIVEN BY THE AUDIO SEQUENCER — frameIdx advances inside the
