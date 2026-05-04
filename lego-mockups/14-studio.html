@@ -1008,29 +1008,36 @@ nextBtn.addEventListener("click", async () => {
 
 // ============================================================================
 // ============================================================================
-// STUDIO — wallet connect + squad fetch
+// STUDIO — wallet connect + squad fetch (FULLY ON-CHAIN)
 // ============================================================================
-// The Studio is BUILT INTO THE PARENT INSCRIPTION. It's read-only against the
-// wallet — never signs anything, never moves money. All it asks is "what's
-// your address?" so the parent can ask the network "of my 10K children, which
-// ones does this address own?" and load them as the user's squad.
+// Connection: NEXUS — two ES modules inscribed on Bitcoin, dynamically
+// imported via recursive endpoints. Same mechanism BlockForge uses. NO
+// third-party APIs, NO DNS dependencies, NO indexer like Hiro.
 //
-// Connection: sats-connect via window.XverseProviders / window.unisat — no
-// SDK download, no third-party iframe. (Production version inscribes the
-// sats-connect helper if needed; the demo here uses the providers directly.)
+// Wallet connect is READ-ONLY: never signs, never broadcasts, never moves
+// money. Just gets the user's address.
 //
-// Squad fetch: Hiro Ordinals API filtered by parent inscription ID. If the
-// API is unreachable, falls back gracefully with a "demo squad" of random
-// 1337-epoch frogs. Same fallback used by the DEMO MODE button.
+// Squad lookup uses ord recursive endpoints only:
+//   /r/children/{PARENT}/{page}   → page through all children
+//   /r/inscription/{id}           → returns current owner `address`
+// Filter the latter to those matching the connected wallet → that's the squad.
 //
-// PARENT INSCRIPTION ID — placeholder. Once the master parent is inscribed,
-// swap this constant for the real ID and the squad query starts returning
-// real frogs.
+// Pinned to specific iN outputs (NOT /at/-1) so a future Nexus re-inscription
+// can't silently change the code we load. Same approach BlockForge uses.
+const NEXUS_NWC_INSCRIPTION = "/content/5cf27ef513315123556fc4823ef44146bca8cb6e288e588efc206243e6e49573i0";
+// Nexus SDK is only needed for signing flows — we don't load it here since
+// we're read-only. Keeping the ID as a comment for future inscriptions:
+// const NEXUS_SDK_INSCRIPTION = "/content/7808faf609a5463b3d1a4e370f27bfe826462eb29ebc639954a47b86ecd39ddbi0";
+
 const ACID_FROGS_PARENT_ID = "PLACEHOLDER_PARENT_INSCRIPTION_ID";
-const HIRO_API = "https://api.hiro.so/ordinals/v1/inscriptions";
+const ORD_HOST = "https://ordinals.com"; // recursive endpoints work same-origin
+                                          // when inscription is served from /content/
+                                          // — this is just for development from github.io
 
 let walletAddress = null;
-let squad = [];                // [{ inscriptionId, height (synthetic) , entry... }]
+let walletProviderName = null;
+let nexusWNC = null;            // NexusWalletConnect (loaded once on first connect)
+let squad = [];                 // [{ inscriptionId, height (synthetic), entry... }]
 
 const walletStatusEl    = document.getElementById("wallet-status");
 const walletConnectBtn  = document.getElementById("walletConnectBtn");
@@ -1045,42 +1052,66 @@ function shortAddr(a) {
   return a.slice(0, 6) + "…" + a.slice(-4);
 }
 
-// Read-only wallet connect. Tries Xverse first, then Unisat, then Leather.
-// All return a Bitcoin address. Never asks to sign or pay anything.
+// Lazy-load NexusWalletConnect via dynamic import of the inscribed module.
+// First call fetches + parses; subsequent calls return the cached module.
+async function loadNexusWalletConnect() {
+  if (nexusWNC) return nexusWNC;
+  // When this code runs INSIDE the inscription on ordinals.com, /content/...
+  // is same-origin and import() works directly. When it runs from github.io
+  // (development), we need the absolute URL to avoid 404 against the static
+  // host. The studio detects which case it's in.
+  const inInscription = location.hostname.includes("ordinals.com") ||
+                        location.pathname.startsWith("/content/");
+  const url = inInscription ? NEXUS_NWC_INSCRIPTION : (ORD_HOST + NEXUS_NWC_INSCRIPTION);
+  const mod = await import(url);
+  nexusWNC = mod.NexusWalletConnect || window.NexusWalletConnect;
+  if (!nexusWNC) throw new Error("NexusWalletConnect failed to load");
+  return nexusWNC;
+}
+
+// Read-only wallet connect via Nexus. NWC.connect(walletKey) returns a state
+// object with `state.address` (the ordinals address). Never signs anything.
+// Wallet keys are camelcase exact: "Xverse", "UniSat" (NOT "unisat"), "Leather".
 async function connectWallet() {
-  walletStatusEl.textContent = "connecting…";
+  walletStatusEl.textContent = "loading Nexus…";
+  walletStatusEl.style.color = "";
   try {
-    // Xverse — preferred (BlockForge default)
-    if (window.XverseProviders && window.XverseProviders.BitcoinProvider) {
-      const provider = window.XverseProviders.BitcoinProvider;
-      const accounts = await provider.request("getAccounts", { purposes: ["ordinals"] });
-      const addr = accounts && accounts.result && accounts.result[0] && accounts.result[0].address;
-      if (addr) return setWallet(addr, "Xverse");
+    const NWC = await loadNexusWalletConnect();
+    // Pick a wallet — try Xverse first, fall back to UniSat, then Leather.
+    // This avoids forcing a wallet-picker UI for the demo. Production should
+    // show the user a list of installed wallets and let them pick.
+    const candidates = [];
+    if (window.XverseProviders) candidates.push("Xverse");
+    if (window.unisat)          candidates.push("UniSat");
+    if (window.LeatherProvider) candidates.push("Leather");
+    if (candidates.length === 0) {
+      walletStatusEl.innerHTML = `<span style="color:#f88">no wallet extension found — install Xverse, UniSat, or Leather (or hit DEMO MODE)</span>`;
+      return;
     }
-    // Unisat
-    if (window.unisat) {
-      const accounts = await window.unisat.requestAccounts();
-      if (accounts && accounts[0]) return setWallet(accounts[0], "Unisat");
+    let state = null;
+    let chosen = null;
+    for (const key of candidates) {
+      try {
+        walletStatusEl.textContent = `connecting via ${key}…`;
+        state = await NWC.connect(key);
+        chosen = key;
+        break;
+      } catch (e) {
+        console.warn(`[nexus] ${key} connect failed`, e);
+      }
     }
-    // Leather (uses sats-connect-style provider)
-    if (window.LeatherProvider) {
-      const res = await window.LeatherProvider.request("getAddresses");
-      const addrs = res && res.result && res.result.addresses;
-      const ord   = addrs && addrs.find(a => a.type === "p2tr");
-      if (ord) return setWallet(ord.address, "Leather");
-    }
-    walletStatusEl.textContent = "no wallet extension found — install Xverse, Unisat, or Leather (or use DEMO MODE)";
-    walletStatusEl.style.color = "#f88";
+    if (!state || !state.address) throw new Error("all wallets failed");
+    setWallet(state.address, chosen);
   } catch (e) {
-    console.warn("[wallet] connect error", e);
-    walletStatusEl.textContent = "connect failed: " + (e.message || e);
-    walletStatusEl.style.color = "#f88";
+    console.warn("[nexus] connect error", e);
+    walletStatusEl.innerHTML = `<span style="color:#f88">connect failed: ${e.message || e}</span>`;
   }
 }
 
 function setWallet(addr, providerName) {
   walletAddress = addr;
-  walletStatusEl.innerHTML = `<span style="color:#9f9">▣</span> ${providerName} · ${shortAddr(addr)}`;
+  walletProviderName = providerName;
+  walletStatusEl.innerHTML = `<span style="color:#9f9">▣</span> ${providerName} via Nexus · ${shortAddr(addr)}`;
   walletStatusEl.style.color = "";
   walletConnectBtn.textContent = "DISCONNECT";
   squadRefreshBtn.disabled = false;
@@ -1090,6 +1121,7 @@ function setWallet(addr, providerName) {
 
 function disconnectWallet() {
   walletAddress = null;
+  walletProviderName = null;
   walletStatusEl.textContent = "no wallet connected";
   walletStatusEl.style.color = "#888";
   walletConnectBtn.textContent = "CONNECT WALLET";
@@ -1099,30 +1131,63 @@ function disconnectWallet() {
   renderSquad();
 }
 
-// Fetch all inscriptions owned by walletAddress and filter to children of
-// our master parent. Hiro API supports both `address` and `recursive`/parent
-// filters; we do the parent filter client-side for resilience.
+// On-chain squad lookup using ONLY recursive ord endpoints. No Hiro, no
+// mempool.space, no third-party. Pattern from BlockForge:
+//   1. Page through /r/children/{parent}/{page} to get every child ID
+//   2. For each, fetch /r/inscription/{id} — returns metadata with `address`
+//   3. Filter to those matching walletAddress = your squad
 async function fetchSquad() {
   if (!walletAddress) return;
-  squadSummary.textContent = "querying network…";
+  squadSummary.textContent = "loading squad from on-chain endpoints…";
+  // Determine endpoint base — same-origin when running inside the inscription,
+  // explicit ordinals.com when developing from github.io.
+  const inInscription = location.hostname.includes("ordinals.com") ||
+                        location.pathname.startsWith("/content/");
+  const ORD = inInscription ? "" : ORD_HOST;
   try {
-    const url = `${HIRO_API}?address=${walletAddress}&limit=60`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Hiro API " + res.status);
-    const data = await res.json();
-    const owned = (data.results || []).filter(insc =>
-      insc.parent === ACID_FROGS_PARENT_ID ||
-      (insc.parents && insc.parents.includes(ACID_FROGS_PARENT_ID))
-    );
-    if (owned.length === 0) {
-      squadSummary.innerHTML = `<span style="color:#f88">0 Acid Frogs found in ${shortAddr(walletAddress)} — try DEMO MODE to play random frogs</span>`;
-      squad = [];
-      renderSquad();
+    if (ACID_FROGS_PARENT_ID === "PLACEHOLDER_PARENT_INSCRIPTION_ID") {
+      squadSummary.innerHTML = `<span style="color:var(--gold)">PLACEHOLDER_PARENT_INSCRIPTION_ID still set — real squad lookup waits for the master parent to be inscribed. Use DEMO MODE for now.</span>`;
       return;
     }
-    squadSummary.textContent = `loaded ${owned.length} Acid Frogs from ${shortAddr(walletAddress)}`;
-    squad = await Promise.all(owned.map(buildSquadEntryFromInscription));
-    renderSquad();
+    // Step 1: page through all children of the master parent.
+    const childIds = [];
+    for (let page = 0; page < 200; page++) {
+      const batch = await fetch(`${ORD}/r/children/${ACID_FROGS_PARENT_ID}/${page}`).then(r => r.json());
+      if (!batch?.ids?.length) break;
+      childIds.push(...batch.ids);
+      squadSummary.textContent = `discovering frogs… (${childIds.length} found)`;
+      if (batch.ids.length < 100) break;
+    }
+    if (childIds.length === 0) {
+      squadSummary.innerHTML = `<span style="color:#f88">no children found under parent ${ACID_FROGS_PARENT_ID.slice(0,12)}…</span>`;
+      return;
+    }
+    // Step 2: parallel ownership lookup. Show progress as we go.
+    squad = [];
+    let scanned = 0;
+    const BATCH = 30; // gentle on the indexer
+    for (let i = 0; i < childIds.length; i += BATCH) {
+      const slice = childIds.slice(i, i + BATCH);
+      const results = await Promise.all(slice.map(async (id) => {
+        try {
+          const data = await fetch(`${ORD}/r/inscription/${id}`).then(r => r.json());
+          return data?.address === walletAddress ? id : null;
+        } catch (e) { return null; }
+      }));
+      const owned = results.filter(Boolean);
+      scanned += slice.length;
+      // Progressively build squad entries
+      for (const id of owned) {
+        const entry = await buildSquadEntryFromInscription({ id, number: 0 });
+        squad.push(entry);
+      }
+      squadSummary.textContent = `scanned ${scanned}/${childIds.length} · ${squad.length} owned`;
+      renderSquad();
+    }
+    squadSummary.textContent = `loaded ${squad.length} Acid Frog${squad.length === 1 ? '' : 's'} from ${shortAddr(walletAddress)}`;
+    if (squad.length === 0) {
+      squadSummary.innerHTML += ` · <span style="color:#f88">try DEMO MODE</span>`;
+    }
   } catch (e) {
     console.warn("[squad] fetch failed", e);
     squadSummary.innerHTML = `<span style="color:#f88">squad fetch failed (${e.message}) — try DEMO MODE</span>`;
