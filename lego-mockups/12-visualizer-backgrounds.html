@@ -475,6 +475,9 @@ let stepTimer = null;     // legacy — kept for any old code paths, no longer u
 let scheduleId = null;    // Tone.Transport scheduleRepeat ID for clean cancel
 let stepIdx = 0;
 let kickFlash = 0;
+let clapFlash = 0;     // spikes on every clap (carries through bars 6-7 when kick drops out)
+let hatFlash  = 0;     // spikes on every hi-hat (4/bar, very steady)
+let acidFlash = 0;     // spikes on bar-8 ACID hit + drop
 let frameIdx = 0;
 let frameTimer = 0;
 let stepsSinceHat  = 999;  // 16th-notes since last hat  — drives nod pose
@@ -607,6 +610,9 @@ function animate() {
   }
   drawVisualizer();
   kickFlash *= 0.85;
+  clapFlash *= 0.88;
+  hatFlash  *= 0.78;  // shorter decay since hat fires often
+  acidFlash *= 0.93;  // longer decay so the drop "rings"
   requestAnimationFrame(animate);
 }
 
@@ -626,23 +632,36 @@ let visState = {};                // per-visualizer scratch state (particles etc
 let currentVis = "spectrum";      // which visualizer is rendering
 let visStartTime = performance.now();
 
+// Curated to user's 5 keepers. Drove by multiple flash signals (kick/clap/hat/
+// acid) so visualizers stay alive even when the kick drops out in bars 6-8.
 const VISUALIZERS = [
-  { id: "spectrum",  label: "01 · Spectrum bars" },
-  { id: "scope",     label: "02 · Oscilloscope" },
-  { id: "radial",    label: "03 · Radial pulse" },
-  { id: "particles", label: "04 · Particle field" },
-  { id: "grid",      label: "05 · Wireframe grid" },
-  { id: "tunnel",    label: "06 · Tunnel / vortex" },
-  { id: "strobe",    label: "07 · Strobe" },
-  { id: "matrix",    label: "08 · Matrix rain" },
-  { id: "blob",      label: "09 · Acid blob" },
-  { id: "blockdata", label: "10 · Block-data scroll" },
-  { id: "undertone", label: "11 · Acid Undertone (Renascent #13)" },
+  { id: "spectrum",  label: "01 · Spectrum bars (mirrored, full width)" },
+  { id: "electric",  label: "02 · Electric line" },
+  { id: "strobe",    label: "03 · Strobe" },
+  { id: "blockdata", label: "04 · Block-data scroll" },
+  { id: "undertone", label: "05 · Acid Undertone (frog colours)" },
 ];
 
-// Acid Undertone palette — pulled directly from strangersolemn's
-// Renascent #13 inscription. 3 colours that cycle across 6 channels.
-const UNDERTONE_PALETTE = ["#fe018a", "#44526f", "#292f48", "#fe018a", "#44526f", "#292f48"];
+// Acid Frogs palette — replaces Renascent #13's pink/blue/dark-blue with
+// the 6 colours strangersolemn is using for the frog body variants:
+// Green, Baby Blue, Pink, Ruby, Grayscale, Yellow.
+const FROG_PALETTE = {
+  green:    "#9f9",
+  blue:     "#88ccff",
+  pink:     "#ffaadd",
+  ruby:     "#d22a46",   // user-chosen crimson, named "Ruby"
+  gray:     "#bbbbbb",
+  yellow:   "#ffe066",
+};
+// 6 channels of Acid Undertone — one per palette entry, in a stable order
+const UNDERTONE_PALETTE = [
+  FROG_PALETTE.green,
+  FROG_PALETTE.pink,
+  FROG_PALETTE.blue,
+  FROG_PALETTE.yellow,
+  FROG_PALETTE.ruby,
+  FROG_PALETTE.gray,
+];
 // Per-channel intensity (decays each frame, spiked by audio events)
 const undertoneCh = [0,0,0,0,0,0];
 let undertoneFlow = 0;
@@ -690,14 +709,8 @@ function drawVisualizer() {
   const fft = getFFT();                                     // -100..0 dB array, 64 bins, or null
   switch (currentVis) {
     case "spectrum":  return drawSpectrum(W, H, t, fft);
-    case "scope":     return drawScope(W, H, t, fft);
-    case "radial":    return drawRadial(W, H, t, fft);
-    case "particles": return drawParticles(W, H, t, fft);
-    case "grid":      return drawGrid(W, H, t, fft);
-    case "tunnel":    return drawTunnel(W, H, t, fft);
+    case "electric":  return drawElectric(W, H, t, fft);
     case "strobe":    return drawStrobe(W, H, t, fft);
-    case "matrix":    return drawMatrix(W, H, t, fft);
-    case "blob":      return drawBlob(W, H, t, fft);
     case "blockdata": return drawBlockdata(W, H, t, fft);
     case "undertone": return drawUndertone(W, H, t, fft);
   }
@@ -714,163 +727,113 @@ function fftMag(fft) {
   return out;
 }
 
-// ----------- 01 · Spectrum bars -----------
+// ============================================================================
+// VISUALIZER KEEPERS (5)
+// Each visualizer can read multiple flash signals so it stays alive even
+// when the kick drops out (bars 6-8 of the arrangement). Signals:
+//   kickFlash  — 4-on-floor kick / halftime kick / dnb kick
+//   clapFlash  — clap on 2 and 4, plus the bar-8 outro claps
+//   hatFlash   — hi-hat off-beats (4 per bar, very steady)
+//   acidFlash  — bar-8 ACID hit (longer decay, "rings" out)
+// All decay independently in the animate() RAF tick.
+// ============================================================================
+
+// ----------- 01 · Spectrum bars (mirrored, full width) -----------
+// Reflects the FFT around the centre line so the bars fill the WHOLE width
+// instead of bunching on the left. Drives accent layers from kick (low band),
+// clap (mid band), hat (high band), so something is always moving.
 function drawSpectrum(W, H, t, fft) {
-  bgCtx.fillStyle = "rgba(0,0,0,0.55)";
+  bgCtx.fillStyle = "rgba(0,0,0,0.5)";
   bgCtx.fillRect(0, 0, W, H);
   const mag = fftMag(fft);
-  const N = 32;
-  const bw = W / N;
+  const N = 24;                    // 24 bars per side -> 48 total mirrored
+  const bw = W / (N * 2);
   for (let i = 0; i < N; i++) {
-    const m = mag ? mag[i] : 0.05 + 0.05 * Math.sin(t * 2 + i * 0.3);
-    const h = m * H * 0.85;
-    const hue = 110 - i * 1.2;
-    bgCtx.fillStyle = `hsl(${hue}, 100%, ${50 + m * 30}%)`;
-    bgCtx.fillRect(i * bw + 1, H - h, bw - 2, h);
+    // Mix the FFT bin with one of the flash signals based on band:
+    // - low bins (kick range) lift on kickFlash
+    // - mid bins (clap snare) lift on clapFlash
+    // - high bins lift on hatFlash
+    const fftV = mag ? mag[Math.min(i * 2, mag.length - 1)] : 0;
+    const idle = 0.05 + 0.05 * Math.sin(t * 2 + i * 0.3);
+    let punch = 0;
+    if (i < 6)        punch = kickFlash * 0.45;
+    else if (i < 14)  punch = clapFlash * 0.5;
+    else              punch = hatFlash  * 0.4;
+    const m = Math.max(idle, fftV) + punch;
+    const h = Math.min(1, m) * H * 0.85;
+    // Hue cycles green -> cyan -> green across the bar count
+    const hue = 110 + Math.sin(i * 0.5) * 30;
+    bgCtx.fillStyle = `hsl(${hue}, 80%, ${50 + Math.min(m, 1) * 25}%)`;
+    // Right side
+    const xR = W / 2 + i * bw;
+    bgCtx.fillRect(xR + 1, H - h, bw - 2, h);
+    // Mirrored left side
+    const xL = W / 2 - (i + 1) * bw;
+    bgCtx.fillRect(xL + 1, H - h, bw - 2, h);
   }
-  // Kick = full-bg green strobe overlay
-  if (kickFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(153,255,153,${kickFlash * 0.6})`;
+  // ACID hit = full-bg gold flash (rare, big)
+  if (acidFlash > 0.05) {
+    bgCtx.fillStyle = `rgba(255,215,0,${acidFlash * 0.45})`;
     bgCtx.fillRect(0, 0, W, H);
   }
 }
 
-// ----------- 02 · Oscilloscope -----------
-function drawScope(W, H, t, fft) {
-  bgCtx.fillStyle = "rgba(0,0,0,0.4)";
+// ----------- 02 · Electric line -----------
+// A flowing horizontal sine wave across the full width. Steady, hat-driven
+// so it always has motion (hat fires every other beat). Clap punches it
+// upward; kick adds a slow envelope swell; ACID sends a flash spike.
+let _electricPhase = 0;
+function drawElectric(W, H, t, fft) {
+  bgCtx.fillStyle = "rgba(0,0,0,0.35)";
   bgCtx.fillRect(0, 0, W, H);
-  const wave = fft || null;
-  bgCtx.strokeStyle = "#9f9";
-  bgCtx.lineWidth = 2 + kickFlash * 4;
+  _electricPhase += 0.06 + hatFlash * 0.08;
+  const cy = H * 0.5;
+  const baseAmp = H * 0.15;
+  const swell   = baseAmp * (1 + kickFlash * 0.35);
+  const punch   = clapFlash * H * 0.18;
+
+  // Glow underneath (wide, low-alpha line)
+  bgCtx.strokeStyle = `rgba(153,255,153,${0.18 + hatFlash * 0.18})`;
+  bgCtx.lineWidth = 16 + acidFlash * 18;
   bgCtx.beginPath();
-  const N = 128;
-  for (let i = 0; i < N; i++) {
-    const v = wave ? (wave[i % wave.length] + 60) / 100 : Math.sin(t * 3 + i * 0.2) * 0.3;
-    const warp = kickFlash * Math.sin(i * 0.3 + t * 8) * 80;
-    const x = (i / (N - 1)) * W;
-    const y = H / 2 + v * H * 0.4 + warp;
-    if (i === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
+  for (let x = 0; x <= W; x += 4) {
+    const px = x / W;
+    const y = cy + Math.sin(px * 8 - _electricPhase) * swell
+               + Math.sin(px * 22 - _electricPhase * 2.3) * punch * 0.5;
+    if (x === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
+  }
+  bgCtx.stroke();
+  // Crisp top line
+  bgCtx.strokeStyle = `rgba(153,255,153,${0.85 + acidFlash * 0.15})`;
+  bgCtx.lineWidth = 2 + clapFlash * 2;
+  bgCtx.beginPath();
+  for (let x = 0; x <= W; x += 4) {
+    const px = x / W;
+    const y = cy + Math.sin(px * 8 - _electricPhase) * swell
+               + Math.sin(px * 22 - _electricPhase * 2.3) * punch * 0.5;
+    if (x === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
   }
   bgCtx.stroke();
 }
 
-// ----------- 03 · Radial pulse -----------
-function drawRadial(W, H, t, fft) {
-  if (!visState.rings) visState.rings = [];
-  bgCtx.fillStyle = "rgba(0,0,0,0.25)";
-  bgCtx.fillRect(0, 0, W, H);
-  if (kickFlash > 0.7) visState.rings.push({ r: 0, a: 1 });
-  const cx = W / 2, cy = H / 2;
-  for (let i = visState.rings.length - 1; i >= 0; i--) {
-    const ring = visState.rings[i];
-    ring.r += 6;
-    ring.a -= 0.012;
-    if (ring.a <= 0) { visState.rings.splice(i, 1); continue; }
-    bgCtx.strokeStyle = `rgba(153,255,153,${ring.a})`;
-    bgCtx.lineWidth = 2 + ring.a * 3;
-    bgCtx.beginPath();
-    bgCtx.arc(cx, cy, ring.r, 0, Math.PI * 2);
-    bgCtx.stroke();
-  }
-  // Idle wiggle even without kicks
-  bgCtx.strokeStyle = `rgba(153,255,153,${0.15 + kickFlash * 0.4})`;
-  bgCtx.lineWidth = 1;
-  bgCtx.beginPath();
-  bgCtx.arc(cx, cy, 30 + Math.sin(t * 2) * 8, 0, Math.PI * 2);
-  bgCtx.stroke();
-}
-
-// ----------- 04 · Particle field -----------
-function drawParticles(W, H, t, fft) {
-  if (!visState.parts) {
-    visState.parts = Array.from({ length: 80 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
-    }));
-  }
-  bgCtx.fillStyle = "rgba(0,0,0,0.3)";
-  bgCtx.fillRect(0, 0, W, H);
-  bgCtx.fillStyle = "#9f9";
-  for (const p of visState.parts) {
-    if (kickFlash > 0.7) {
-      const ang = Math.random() * Math.PI * 2;
-      p.vx += Math.cos(ang) * 4;
-      p.vy += Math.sin(ang) * 4;
-    }
-    p.x += p.vx; p.y += p.vy;
-    p.vx *= 0.97; p.vy *= 0.97;
-    if (p.x < 0) p.x += W; if (p.x > W) p.x -= W;
-    if (p.y < 0) p.y += H; if (p.y > H) p.y -= H;
-    bgCtx.fillRect(p.x, p.y, 2 + kickFlash * 2, 2 + kickFlash * 2);
-  }
-}
-
-// ----------- 05 · Wireframe grid -----------
-function drawGrid(W, H, t, fft) {
-  bgCtx.fillStyle = "rgba(0,0,0,0.6)";
-  bgCtx.fillRect(0, 0, W, H);
-  bgCtx.strokeStyle = `rgba(153,255,153,${0.4 + kickFlash * 0.5})`;
-  bgCtx.lineWidth = 1;
-  const flex = 1 + kickFlash * 0.15;
-  const horizon = H * 0.55;
-  // Horizontal lines (perspective)
-  for (let i = 0; i < 14; i++) {
-    const k = i / 14;
-    const y = horizon + (H - horizon) * Math.pow(k, 1.6);
-    bgCtx.beginPath();
-    bgCtx.moveTo(0, y); bgCtx.lineTo(W, y);
-    bgCtx.stroke();
-  }
-  // Vertical lines converging on horizon
-  const vp = W / 2 + Math.sin(t * 0.6) * 30;
-  for (let i = 0; i <= 16; i++) {
-    const x = (i / 16) * W;
-    bgCtx.beginPath();
-    bgCtx.moveTo(x, H); bgCtx.lineTo(vp, horizon);
-    bgCtx.stroke();
-  }
-  // Kick = horizon flash
-  if (kickFlash > 0.05) {
-    const grad = bgCtx.createLinearGradient(0, horizon - 20, 0, horizon + 20);
-    grad.addColorStop(0,   "rgba(153,255,153,0)");
-    grad.addColorStop(0.5, `rgba(153,255,153,${kickFlash * 0.6})`);
-    grad.addColorStop(1,   "rgba(153,255,153,0)");
-    bgCtx.fillStyle = grad;
-    bgCtx.fillRect(0, horizon - 20, W, 40);
-  }
-}
-
-// ----------- 06 · Tunnel / vortex -----------
-function drawTunnel(W, H, t, fft) {
-  bgCtx.fillStyle = "rgba(0,0,0,0.25)";
-  bgCtx.fillRect(0, 0, W, H);
-  const cx = W / 2, cy = H / 2;
-  const advance = (visState.adv = (visState.adv || 0) + (kickFlash > 0.5 ? 0.4 : 0.05));
-  for (let i = 0; i < 18; i++) {
-    const z = ((i / 18) + advance) % 1;
-    const size = z * Math.min(W, H) * 0.95;
-    const alpha = (1 - z) * (0.8 + kickFlash * 0.2);
-    const hue = 130 - i * 4;
-    bgCtx.strokeStyle = `hsla(${hue}, 100%, 60%, ${alpha})`;
-    bgCtx.lineWidth = 2;
-    bgCtx.beginPath();
-    bgCtx.rect(cx - size / 2, cy - size / 2, size, size);
-    bgCtx.stroke();
-  }
-}
-
-// ----------- 07 · Strobe -----------
+// ----------- 03 · Strobe -----------
+// Solid colour pulse synced to clap (much better than kick — clap carries
+// through bars 6-8 when kick drops out). Subtle scanlines for texture.
 function drawStrobe(W, H, t, fft) {
-  // Solid base + kick flash
   const base = 8 + Math.sin(t * 1.5) * 4;
   bgCtx.fillStyle = `rgb(${base}, ${base + 4}, ${base})`;
   bgCtx.fillRect(0, 0, W, H);
-  if (kickFlash > 0.05) {
-    const k = kickFlash;
-    bgCtx.fillStyle = `rgba(153,255,153,${k * 0.85})`;
+  // Clap = green flash (the main beat)
+  if (clapFlash > 0.05) {
+    bgCtx.fillStyle = `rgba(153,255,153,${clapFlash * 0.85})`;
     bgCtx.fillRect(0, 0, W, H);
   }
-  // Faint scanlines for vibe
+  // ACID hit = gold flash on top
+  if (acidFlash > 0.05) {
+    bgCtx.fillStyle = `rgba(255,215,0,${acidFlash * 0.6})`;
+    bgCtx.fillRect(0, 0, W, H);
+  }
+  // Subtle scanlines
   bgCtx.strokeStyle = "rgba(0,0,0,0.18)";
   bgCtx.lineWidth = 1;
   for (let y = 0; y < H; y += 4) {
@@ -880,136 +843,90 @@ function drawStrobe(W, H, t, fft) {
   }
 }
 
-// ----------- 08 · Matrix rain -----------
-function drawMatrix(W, H, t, fft) {
-  if (!visState.cols) {
-    visState.cols = [];
-    const colW = 14;
-    const cols = Math.floor(W / colW);
-    for (let i = 0; i < cols; i++) {
-      visState.cols.push({ y: Math.random() * H, speed: 1 + Math.random() * 2 });
-    }
-    visState.colW = colW;
-  }
-  bgCtx.fillStyle = "rgba(0,0,0,0.18)";
-  bgCtx.fillRect(0, 0, W, H);
-  bgCtx.font = "12px monospace";
-  bgCtx.textBaseline = "top";
-  const speedBoost = 1 + kickFlash * 4;
-  for (let i = 0; i < visState.cols.length; i++) {
-    const c = visState.cols[i];
-    c.y += c.speed * speedBoost;
-    if (c.y > H + 20) c.y = -20;
-    const ch = String.fromCharCode(0x30 + Math.floor(Math.random() * 16));
-    bgCtx.fillStyle = "#9f9";
-    bgCtx.fillText(ch, i * visState.colW, c.y);
-    // Trail
-    bgCtx.fillStyle = "rgba(153,255,153,0.4)";
-    bgCtx.fillText(ch, i * visState.colW, c.y - 14);
-  }
-}
-
-// ----------- 09 · Acid blob (metaball-ish) -----------
-function drawBlob(W, H, t, fft) {
-  bgCtx.fillStyle = "rgba(0,0,0,0.2)";
-  bgCtx.fillRect(0, 0, W, H);
-  const cx = W / 2, cy = H / 2;
-  const baseR = Math.min(W, H) * 0.28;
-  bgCtx.strokeStyle = `rgba(153,255,153,${0.7 + kickFlash * 0.3})`;
-  bgCtx.lineWidth = 2;
-  bgCtx.beginPath();
-  const N = 64;
-  for (let i = 0; i <= N; i++) {
-    const a = (i / N) * Math.PI * 2;
-    const wob = Math.sin(a * 3 + t * 1.7) * 12 +
-                Math.sin(a * 5 + t * 2.3) * 8 +
-                kickFlash * Math.sin(a * 7) * 30;
-    const r = baseR + wob;
-    const x = cx + Math.cos(a) * r;
-    const y = cy + Math.sin(a) * r;
-    if (i === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
-  }
-  bgCtx.stroke();
-  // Inner glow
-  const grad = bgCtx.createRadialGradient(cx, cy, baseR * 0.2, cx, cy, baseR);
-  grad.addColorStop(0, `rgba(153,255,153,${0.25 + kickFlash * 0.3})`);
-  grad.addColorStop(1, "rgba(153,255,153,0)");
-  bgCtx.fillStyle = grad;
-  bgCtx.fillRect(0, 0, W, H);
-}
-
-// ----------- 10 · Block-data scroll -----------
+// ----------- 04 · Block-data scroll (full width) -----------
+// Two columns of scrolling block hex, filling the entire canvas width.
+// Each row spans the whole canvas. Kick punches the brightness; clap fires
+// a row-jitter; ACID = gold pulse on the nonce header.
+let _blockOff = 0;
 function drawBlockdata(W, H, t, fft) {
   bgCtx.fillStyle = "rgba(0,0,0,0.6)";
   bgCtx.fillRect(0, 0, W, H);
   const merkle = (current && current.merkle) || "0".repeat(64);
   const nonce  = (current && current.nonceHex) || "00000000";
-  // Build scrolling lines from merkleroot bytes — feels like a terminal dumping block data
-  bgCtx.font = "11px monospace";
+  bgCtx.font = "12px monospace";
   bgCtx.textBaseline = "top";
   const lineH = 14;
-  const offset = (visState.off = (visState.off || 0) + 0.6);
-  const lines = 30;
+  _blockOff += 0.6 + clapFlash * 0.8;       // clap punches the scroll speed
+  // Build a long line: merkleroot looped enough times to fill any width
+  const bigLine = (merkle + " · ").repeat(8);
+  const lines = Math.ceil(H / lineH) + 4;
   for (let i = 0; i < lines; i++) {
-    const y = (i * lineH - (offset % lineH));
-    const seed = (i * 7 + Math.floor(offset / lineH)) % 32;
-    const hex = merkle.slice((seed * 2) % 64, (seed * 2) % 64 + 16) + " · " +
-                merkle.slice(((seed + 4) * 2) % 64, ((seed + 4) * 2) % 64 + 16);
-    const dim = 0.25 + (1 - Math.abs(i - lines / 2) / (lines / 2)) * 0.5;
-    bgCtx.fillStyle = `rgba(153,255,153,${dim + kickFlash * 0.4})`;
-    bgCtx.fillText(hex, 12, y);
+    const y = (i * lineH - (_blockOff % lineH));
+    // Slight per-row offset of the long line so it doesn't repeat identically
+    const offsetChars = (i * 13 + Math.floor(_blockOff / lineH)) % 64;
+    const slice = bigLine.slice(offsetChars, offsetChars + Math.ceil(W / 7) + 8);
+    // Brightness ramps to centre + spikes on kick
+    const dim = 0.18 + (1 - Math.abs(i - lines / 2) / (lines / 2)) * 0.5;
+    bgCtx.fillStyle = `rgba(153,255,153,${dim + kickFlash * 0.35})`;
+    bgCtx.fillText(slice, 6, y);
   }
-  // Nonce header at top, kick-pulsed
-  bgCtx.fillStyle = `rgba(255,215,0,${0.6 + kickFlash * 0.4})`;
-  bgCtx.fillText("NONCE 0x" + nonce + "  ·  KICK " + (kickFlash > 0.4 ? "▮" : " "), 12, 4);
+  // Nonce header at top, ACID-pulsed
+  bgCtx.fillStyle = `rgba(255,215,0,${0.6 + acidFlash * 0.4})`;
+  const headerText = "NONCE 0x" + nonce + "   ·   KICK " + (kickFlash > 0.4 ? "▮" : " ") +
+                     "   CLAP " + (clapFlash > 0.4 ? "▮" : " ") +
+                     "   HAT " + (hatFlash > 0.4 ? "▮" : " ");
+  bgCtx.fillRect(0, 0, W, 18);
+  bgCtx.fillStyle = "#000";
+  bgCtx.fillRect(0, 0, W, 18);
+  bgCtx.fillStyle = `rgba(255,215,0,${0.7 + acidFlash * 0.3})`;
+  bgCtx.fillText(headerText, 8, 3);
 }
 
-// ----------- 11 · Acid Undertone (Renascent #13 visual lineage) -----------
-// Concentric expanding squares from centre, 6 channels with 3 cycling colours.
-// Each channel's intensity decays per frame; kick spikes them. CRT scanlines
-// over the top. Direct port of strangersolemn's Renascent acid-undertone.html
-// drawing logic, adapted to drive intensity from `kickFlash` (the studio's
-// existing per-kick pulse signal) instead of the inscription's own audio
-// triggers. Background colour, palette, scanline overlay, mx/flow constants
-// are all identical to the source.
+// ----------- 05 · Acid Undertone (Acid Frogs palette) -----------
+// Concentric expanding squares from centre, 6 channels. Replaces Renascent
+// #13's pink/blue/dark-blue with the 6 frog body colours (green, pink,
+// blue, yellow, red, gray). Channels 0-3 driven by individual sounds so
+// each event spawns its own coloured wave.
 function drawUndertone(W, H, t, fft) {
-  // 1. Solid dark bg
   bgCtx.fillStyle = "#19181d";
   bgCtx.fillRect(0, 0, W, H);
 
-  // 2. Spike a channel on kick — kick rotates through the 6 channels so each
-  //    kick spawns a fresh wave of squares in the next colour.
-  if (kickFlash > 0.85) {
-    const idx = Math.floor((kickFlash * 1000) + (Date.now() / 250)) % undertoneCh.length;
-    undertoneCh[idx] = 1;
-  }
+  // Trigger channels by sound:
+  // ch[0] green   = kick
+  // ch[1] pink    = clap
+  // ch[2] blue    = hat
+  // ch[3] yellow  = ACID
+  // ch[4] red     = clap second voice (offset)
+  // ch[5] gray    = hat second voice (offset)
+  if (kickFlash > 0.85) undertoneCh[0] = 1;
+  if (clapFlash > 0.85) { undertoneCh[1] = 1; undertoneCh[4] = 0.6; }
+  if (hatFlash  > 0.85) { undertoneCh[2] = 1; undertoneCh[5] = 0.4; }
+  if (acidFlash > 0.85) undertoneCh[3] = 1;
 
-  // 3. Update flow counter (drives the radial expansion)
   undertoneFlow += 1.5;
   const cX = W / 2, cY = H / 2;
-  const mx = W * 1.6;
+  const mx = Math.max(W, H) * 1.6;
 
-  // 4. Draw each channel's squares
   for (let i = 0; i < undertoneCh.length; i++) {
     const ch = undertoneCh[i];
     const colour = UNDERTONE_PALETTE[i];
     const fl = (i / undertoneCh.length) * mx + undertoneFlow;
-    const ct = (colour === "#fe018a") ? 5 : 3;
+    const ct = 4;
     for (let k = 0; k < ct; k++) {
-      const s = (fl + k * 26) % mx;
+      const s = (fl + k * 30) % mx;
       if (s < 10) continue;
       bgCtx.save();
       bgCtx.beginPath();
       bgCtx.strokeStyle = colour;
       bgCtx.lineWidth = 1 + ch * 4;
-      bgCtx.globalAlpha = 0.45 + ch * 0.55;
+      bgCtx.globalAlpha = 0.4 + ch * 0.55;
       bgCtx.strokeRect(cX - s / 2, cY - s / 2, s, s);
       bgCtx.restore();
     }
-    undertoneCh[i] *= 0.88; // decay
+    undertoneCh[i] *= 0.88;
   }
 
-  // 5. CRT scanlines on top — every 4 px, ~85% black. The signature texture.
+  // CRT scanlines
   bgCtx.save();
   bgCtx.strokeStyle = "rgba(0,0,0,0.85)";
   bgCtx.lineWidth = 1;
@@ -1220,19 +1137,20 @@ async function startAudio() {
 
     // ---- CLAP ----
     if (barCount === 7 && stepIn16 >= 12) {
-      clapP.start(time);
+      clapP.start(time); clapFlash = 1;
     } else if (stepIn16 === 4 || stepIn16 === 12) {
-      clapP.start(time);
+      clapP.start(time); clapFlash = 1;
     }
 
     // ---- HAT ----
     if (currentKit.hat && stepIn16 % 4 === 2 && !(barCount === 7 && stepIn16 >= 12)) {
       if (currentKit.hat === "dif") hatDifP.start(time);
       else hatP.start(time);
+      hatFlash = 1;
     }
 
     // ---- FINAL HIT ----
-    if (barCount === 7 && stepIn16 === 12) finalP.start(time);
+    if (barCount === 7 && stepIn16 === 12) { finalP.start(time); acidFlash = 1; }
 
     // ---- ACID VOCAL DROP ----
     if (barCount === 7 && stepIn16 === 12 && current && vocalsP[current.vocalIdx]) {
