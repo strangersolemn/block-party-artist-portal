@@ -1105,17 +1105,32 @@ async function addRandomChainSlot() {
   renderChain();
 }
 
-// Click a slot → queue it for next loop boundary. Slot flashes gold to
-// indicate "playing next". The actual swap happens inside tickChainLoop()
-// when the current 16-bar loop completes — never mid-pattern.
+// Click a slot:
+//   - If audio is playing → queue for the next 16-bar loop boundary (gold flash)
+//   - If audio is NOT playing → instantly swap (there's no current loop to wait
+//     for, so the click should feel responsive)
+//   - Clicking the currently-playing slot just clears any pending queue
 function queueChainSlot(idx) {
   if (idx < 0 || idx >= chain.length) return;
-  if (idx === chainSlot) {
-    // Clicking the currently-playing slot just clears any pending queue
+  if (idx === chainSlot && audioStarted) {
     chainQueued = null;
-  } else {
-    chainQueued = idx;
+    renderChain();
+    updateChainStatus();
+    return;
   }
+  if (!audioStarted) {
+    // Instant load — next press of PLAY/CHAIN PLAY will start with this frog
+    chainSlot = idx;
+    chainQueued = null;
+    chainPhrasesDone = 0;
+    chainStartStep = stepIdx;
+    swapToChainSlotFrog();
+    renderChain();
+    updateChainStatus();
+    return;
+  }
+  // Audio playing → queue for end of current loop
+  chainQueued = idx;
   renderChain();
   updateChainStatus();
 }
@@ -1210,9 +1225,14 @@ chainPlayBtn.addEventListener("click", async () => {
   if (chain.length === 0) return;
   if (!chainMode) {
     chainMode = true;
-    chainSlot = 0;
+    // Honor a pending queue first: if the user clicked a slot while stopped,
+    // start there. Otherwise resume from wherever chainSlot already is (don't
+    // hard-reset to 0 — that would lose the user's place after stop+play).
+    if (chainQueued !== null) {
+      chainSlot = chainQueued;
+      chainQueued = null;
+    }
     chainPhrasesDone = 0;
-    chainQueued = null;
     chainStartStep = stepIdx;
     swapToChainSlotFrog();
     renderChain();
