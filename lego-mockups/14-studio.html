@@ -1070,7 +1070,11 @@ async function loadNexusWalletConnect() {
 }
 
 // Read-only wallet connect via Nexus. NWC.connect(walletKey) returns a state
-// object with `state.address` (the ordinals address). Never signs anything.
+// object with TWO address fields: `state.ordinalsAddress` (Taproot bc1p...,
+// owns inscriptions) and `state.address` / `state.paymentAddress` (P2WPKH
+// bc1q...). We MUST use ordinalsAddress for the squad lookup since that's
+// where Bitcoin Ordinals live. BlockForge uses the same fallback chain.
+// Never signs anything.
 // Wallet keys are camelcase exact: "Xverse", "UniSat" (NOT "unisat"), "Leather".
 async function connectWallet() {
   walletStatusEl.textContent = "loading Nexus…";
@@ -1100,8 +1104,12 @@ async function connectWallet() {
         console.warn(`[nexus] ${key} connect failed`, e);
       }
     }
-    if (!state || !state.address) throw new Error("all wallets failed");
-    setWallet(state.address, chosen);
+    // Use the ordinals (Taproot) address for the squad-ownership comparison.
+    // state.address is sometimes the payment address (bc1q...) which won't
+    // match inscriptions that live on the Taproot address (bc1p...).
+    const ordinalsAddr = state && (state.ordinalsAddress || state.address);
+    if (!ordinalsAddr) throw new Error("all wallets failed — no address returned");
+    setWallet(ordinalsAddr, chosen);
   } catch (e) {
     console.warn("[nexus] connect error", e);
     walletStatusEl.innerHTML = `<span style="color:#f88">connect failed: ${e.message || e}</span>`;

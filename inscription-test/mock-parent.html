@@ -165,7 +165,8 @@ const gridEl     = document.getElementById("squad-grid");
 const emptyEl    = document.getElementById("squad-empty");
 const reportEl   = document.getElementById("report");
 
-let walletAddr = null;
+let walletAddr = null;        // primary (ordinals/taproot) address — for display
+let walletAddrSet = new Set(); // ALL plausible addresses (ordinals + payment) for matching
 let nwc = null;
 let squad = [];
 let audioCtx = null; // lazy-init AudioContext
@@ -224,6 +225,7 @@ async function loadNexus() {
 connectBtn.addEventListener("click", async () => {
   if (walletAddr) {
     walletAddr = null;
+    walletAddrSet = new Set();
     walletEl.textContent = "no wallet connected";
     walletEl.style.color = "#888";
     connectBtn.textContent = "CONNECT WALLET";
@@ -249,8 +251,19 @@ connectBtn.addEventListener("click", async () => {
       try { state = await NWC.connect(k); picked = k; break; }
       catch (e) { console.warn(k, e); }
     }
-    if (!state || !state.address) throw new Error("connect failed for all candidates");
-    walletAddr = state.address;
+    // CRITICAL: Nexus state has TWO addresses — `ordinalsAddress` (Taproot,
+    // bc1p..., owns inscriptions) and `address` / `paymentAddress` (P2WPKH
+    // bc1q...). Inscriptions live on the ordinals address, so we MUST compare
+    // against that. BlockForge uses `state.ordinalsAddress || state.address`
+    // as the canonical source. We belt-and-braces: collect EVERY plausible
+    // address into a Set and match against any of them in the squad scan.
+    walletAddr = state.ordinalsAddress || state.address;
+    walletAddrSet = new Set([
+      state.ordinalsAddress,
+      state.address,
+      state.paymentAddress,
+    ].filter(Boolean));
+    if (!walletAddr) throw new Error("connect returned no address");
     walletEl.innerHTML = `<span style="color:var(--c1)">▣</span> ${picked} · ${shortAddr(walletAddr)}`;
     connectBtn.textContent = "DISCONNECT";
     test.walletConnect = "ok"; reportStatus();
@@ -300,7 +313,9 @@ async function fetchSquad() {
       const results = await Promise.all(slice.map(async id => {
         try {
           const data = await fetch(`${ORD}/r/inscription/${id}`).then(r => r.json());
-          return data?.address === walletAddr ? id : null;
+          // Match against ANY of the wallet's known addresses — covers wallets
+          // where inscriptions might live on the payment-address slot.
+          return data?.address && walletAddrSet.has(data.address) ? id : null;
         } catch { return null; }
       }));
       for (const id of results.filter(Boolean)) {
