@@ -140,15 +140,24 @@
 const NEXUS_NWC_INSCRIPTION = "/content/5cf27ef513315123556fc4823ef44146bca8cb6e288e588efc206243e6e49573i0";
 
 // Detect environment: same-origin when running inside the inscription, fall
-// back to ordinals.com when developing from a static host.
+// back to ordinals.com when developing from a static host. Look for an
+// inscription ID anywhere in the URL path so we work whether the user
+// opens /content/{id}, /inscription/{id}, /preview/{id} — all valid
+// ordinals.com paths that serve the same content.
+const INSCRIPTION_ID_RE = /([a-f0-9]{64}i\d+)/i;
 const inInscription = location.hostname.includes("ordinals.com") ||
-                      location.pathname.startsWith("/content/");
+                      INSCRIPTION_ID_RE.test(location.pathname);
 const ORD = inInscription ? "" : "https://ordinals.com";
 
-// Self-discovery: extract this inscription's ID from the URL path.
+// Self-discovery — BlockForge's pattern: last URL segment, validated as an
+// inscription ID. Works regardless of whether path starts with /content/,
+// /inscription/, /preview/, or any future ordinals.com URL convention.
 function getSelfId() {
-  if (!inInscription) return null;
-  const m = location.pathname.match(/\/content\/([a-f0-9]+i[0-9]+)/i);
+  // Strip query string + hash, then take the last path segment
+  const last = (location.pathname.split("/").pop() || "").split("?")[0].split("#")[0];
+  if (INSCRIPTION_ID_RE.test(last)) return last;
+  // Fallback: search anywhere in the full pathname
+  const m = location.pathname.match(INSCRIPTION_ID_RE);
   return m ? m[1] : null;
 }
 const SELF_ID = getSelfId();
