@@ -642,25 +642,28 @@ const VISUALIZERS = [
   { id: "undertone", label: "05 · Acid Undertone (frog colours)" },
 ];
 
-// Acid Frogs palette — replaces Renascent #13's pink/blue/dark-blue with
-// the 6 colours strangersolemn is using for the frog body variants:
-// Green, Baby Blue, Pink, Ruby, Grayscale, Yellow.
+// Acid Frogs palette — 8 gemstone-named body colours. Production hex values
+// confirmed by strangersolemn (replaces preview placeholders).
 const FROG_PALETTE = {
-  green:    "#9f9",
-  blue:     "#88ccff",
-  pink:     "#ffaadd",
-  ruby:     "#d22a46",   // user-chosen crimson, named "Ruby"
-  gray:     "#bbbbbb",
-  yellow:   "#ffe066",
+  jade:        "#2e5230",   // classic frog green — default / common
+  larimar:     "#a6d1fe",   // pale sky blue (was "baby blue")
+  topaz:       "#eed248",   // golden yellow
+  pearl:       "#d1d1d1",   // off-white
+  hematite:    "#373737",   // darker grey
+  rosequartz:  "#ffaadd",   // light pink (placeholder hex until confirmed)
+  ruby:        "#d22a46",   // crimson — legendary
+  amethyst:    "#9b56d0",   // purple — legendary
 };
-// 6 channels of Acid Undertone — one per palette entry, in a stable order
+// 6 channels of Acid Undertone — picks 6 of the 8 gems for the visualizer.
+// Skipping pearl (too close to white, washes out) and hematite (too close to
+// the bg). Order chosen so adjacent channels feel distinct.
 const UNDERTONE_PALETTE = [
-  FROG_PALETTE.green,
-  FROG_PALETTE.pink,
-  FROG_PALETTE.blue,
-  FROG_PALETTE.yellow,
+  FROG_PALETTE.jade,
+  FROG_PALETTE.rosequartz,
+  FROG_PALETTE.larimar,
+  FROG_PALETTE.topaz,
   FROG_PALETTE.ruby,
-  FROG_PALETTE.gray,
+  FROG_PALETTE.amethyst,
 ];
 // Per-channel intensity (decays each frame, spiked by audio events)
 const undertoneCh = [0,0,0,0,0,0];
@@ -817,20 +820,32 @@ function drawElectric(W, H, t, fft) {
 }
 
 // ----------- 03 · Strobe -----------
-// Solid colour pulse synced to clap (much better than kick — clap carries
-// through bars 6-8 when kick drops out). Subtle scanlines for texture.
+// Idle state SITS ON THE COLOUR (Jade — the classic frog green) instead of
+// near-black. When nothing's flashing the bg is a steady saturated colour
+// that breathes slightly with t. Flashes punch BRIGHTER (white-ish) on top:
+//   clap  -> bright pale green flash (carries through bars 6-8)
+//   kick  -> deep darker pulse for contrast
+//   ACID  -> gold over the top
+// Future work: in production, default colour will follow the active frog's
+// body gem (Jade/Ruby/Amethyst etc) instead of being hardcoded.
 function drawStrobe(W, H, t, fft) {
-  const base = 8 + Math.sin(t * 1.5) * 4;
-  bgCtx.fillStyle = `rgb(${base}, ${base + 4}, ${base})`;
+  // Idle base: Jade with a gentle breathing modulation so it never feels static
+  const breathe = 1 + Math.sin(t * 1.2) * 0.06;
+  bgCtx.fillStyle = `rgb(${Math.round(46 * breathe)}, ${Math.round(82 * breathe)}, ${Math.round(48 * breathe)})`;
   bgCtx.fillRect(0, 0, W, H);
-  // Clap = green flash (the main beat)
+  // Clap = bright pale-green pulse (lifts the whole field)
   if (clapFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(153,255,153,${clapFlash * 0.85})`;
+    bgCtx.fillStyle = `rgba(180,255,180,${clapFlash * 0.85})`;
+    bgCtx.fillRect(0, 0, W, H);
+  }
+  // Kick = deep darker punch for rhythmic contrast against the bright base
+  if (kickFlash > 0.05) {
+    bgCtx.fillStyle = `rgba(0,30,0,${kickFlash * 0.45})`;
     bgCtx.fillRect(0, 0, W, H);
   }
   // ACID hit = gold flash on top
   if (acidFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(255,215,0,${acidFlash * 0.6})`;
+    bgCtx.fillStyle = `rgba(238,210,72,${acidFlash * 0.7})`;  // Topaz
     bgCtx.fillRect(0, 0, W, H);
   }
   // Subtle scanlines
