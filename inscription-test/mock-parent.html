@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acid Frogs · Test Parent</title>
+<style>
+  :root { --acid:#9f9; --gold:#ffd700; --pink:#ff88ff; --bg:#000; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--acid);font-family:"Courier New",ui-monospace,monospace;overflow:hidden}
+  /* ============ SPLASH ============ */
+  #splash{
+    position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:32px;text-align:center;padding:24px;
+    background:radial-gradient(circle at 50% 40%, rgba(153,255,153,0.15), #000 70%);
+  }
+  #logo{width:min(220px,60vw);height:auto;filter:drop-shadow(0 0 20px rgba(153,255,153,0.6))}
+  #logo .ring{transform-origin:50% 50%;animation:logoSpin 12s linear infinite}
+  #logo .ring2{animation:logoSpin 18s linear infinite reverse}
+  @keyframes logoSpin{to{transform:rotate(360deg)}}
+  h1.title{font-size:40px;letter-spacing:8px;margin:0;text-shadow:0 0 14px rgba(153,255,153,0.7)}
+  .sub{font-size:11px;letter-spacing:3px;opacity:.7}
+  .btn{
+    background:transparent;color:var(--acid);border:1px solid var(--acid);
+    padding:14px 32px;font:inherit;font-size:14px;letter-spacing:3px;cursor:pointer;
+    text-transform:uppercase;transition:all .15s
+  }
+  .btn:hover{background:var(--acid);color:#000;box-shadow:0 0 24px var(--acid)}
+  .btn:disabled{opacity:.4;cursor:default}
+  .btn:disabled:hover{background:transparent;color:var(--acid);box-shadow:none}
+  /* ============ STUDIO ============ */
+  #studio{position:fixed;inset:0;display:none;flex-direction:column;padding:18px;gap:16px}
+  #studio.on{display:flex}
+  .studio-header{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+    border-bottom:1px solid var(--acid);padding-bottom:12px
+  }
+  .studio-header h2{margin:0;font-size:18px;letter-spacing:4px}
+  .wallet-area{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px}
+  #wallet-status{color:#888;letter-spacing:1px}
+  .squad-section{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px}
+  .section-title{font-size:11px;letter-spacing:3px;opacity:.7}
+  #squad-summary{font-size:11px;color:var(--acid);min-height:14px}
+  #squad-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;
+    padding:10px;border:1px dashed #333;border-radius:4px;background:rgba(0,40,0,0.2);
+    min-height:120px
+  }
+  .squad-empty{
+    grid-column:1/-1;text-align:center;opacity:.5;font-size:12px;padding:30px 0
+  }
+  .frog-card{
+    border:1px solid #333;border-radius:6px;padding:8px;cursor:pointer;
+    background:rgba(0,30,0,0.2);transition:all .12s;
+    display:flex;flex-direction:column;gap:6px;align-items:center
+  }
+  .frog-card:hover{border-color:var(--acid);transform:translateY(-2px);box-shadow:0 0 12px rgba(153,255,153,0.3)}
+  .frog-card.playing{border-color:var(--gold);box-shadow:0 0 18px rgba(255,215,0,0.7);animation:frogPulse .4s infinite alternate}
+  @keyframes frogPulse{to{box-shadow:0 0 28px rgba(255,215,0,1.0)}}
+  .frog-shape{width:80px;height:80px;border-radius:50%;background:#333;border:2px solid rgba(255,255,255,0.2)}
+  .frog-id{font-size:9px;opacity:.7;letter-spacing:.5px;font-family:monospace;word-break:break-all;text-align:center}
+  /* mini test report */
+  #report{font-size:10px;letter-spacing:1px;opacity:.7;border-top:1px solid #333;padding-top:8px}
+  #report .ok{color:var(--acid)} #report .bad{color:#f88} #report .pending{color:var(--gold)}
+</style>
+</head>
+<body>
+
+<!-- ============ SPLASH ============ -->
+<div id="splash">
+  <svg id="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <!-- outer ring with notches (cypherpunk vibe) -->
+    <g class="ring">
+      <circle cx="100" cy="100" r="86" fill="none" stroke="#9f9" stroke-width="2"/>
+      <circle cx="100" cy="14" r="3" fill="#9f9"/>
+      <circle cx="100" cy="186" r="3" fill="#9f9"/>
+      <circle cx="14" cy="100" r="3" fill="#9f9"/>
+      <circle cx="186" cy="100" r="3" fill="#9f9"/>
+    </g>
+    <!-- inner ring (counter-spinning) -->
+    <g class="ring2">
+      <polygon points="100,40 160,140 40,140" fill="none" stroke="#ffd700" stroke-width="2"/>
+    </g>
+    <!-- centre logo: stylised frog face with two eyes -->
+    <circle cx="100" cy="100" r="38" fill="#000" stroke="#9f9" stroke-width="2"/>
+    <circle cx="86" cy="92" r="6" fill="#9f9"/>
+    <circle cx="114" cy="92" r="6" fill="#9f9"/>
+    <path d="M82,114 Q100,124 118,114" stroke="#9f9" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </svg>
+  <div>
+    <h1 class="title">ACID FROGS</h1>
+    <div class="sub">TEST PARENT · INSCRIPTION TEST</div>
+  </div>
+  <button class="btn" id="enterBtn">▶ ENTER STUDIO</button>
+  <div class="sub" style="opacity:.5;font-size:9px">on-chain · self-contained · no third-party</div>
+</div>
+
+<!-- ============ STUDIO ============ -->
+<div id="studio">
+  <div class="studio-header">
+    <h2>⌐◨_◨ STUDIO</h2>
+    <div class="wallet-area">
+      <span id="wallet-status">no wallet connected</span>
+      <button class="btn" id="connectBtn" style="font-size:11px;padding:8px 14px">CONNECT WALLET</button>
+      <button class="btn" id="demoBtn" style="font-size:11px;padding:8px 14px;opacity:.55">DEMO</button>
+      <button class="btn" id="backBtn" style="font-size:11px;padding:8px 14px;opacity:.55">BACK</button>
+    </div>
+  </div>
+
+  <div class="squad-section">
+    <div class="section-title">YOUR SQUAD <span style="opacity:.4">· children of this parent inscription owned by your wallet</span></div>
+    <div id="squad-summary"></div>
+    <div id="squad-grid">
+      <div class="squad-empty" id="squad-empty">
+        Connect wallet (Nexus) or hit DEMO to populate the squad
+      </div>
+    </div>
+  </div>
+
+  <div id="report"></div>
+</div>
+
+<script>
+// ============================================================================
+// MOCK PARENT — minimal Acid Frogs studio for testing the inscription
+// architecture before committing the real parent. Tests:
+//   1. Splash → studio click-through
+//   2. Nexus wallet connect (read-only) loaded via dynamic import from inscription
+//   3. Self-discovery via location.pathname (this parent's own inscription ID)
+//   4. Recursive children enumeration via /r/children/{self}/{page}
+//   5. On-chain ownership lookup via /r/inscription/{id} → data.address
+//   6. Click-to-play: minimal AudioContext beep + visual pulse
+// No third-party APIs. No DNS. Should work as long as ANY ord-compatible
+// server is up.
+// ============================================================================
+
+// Pinned Nexus inscription. Same one BlockForge uses. Pinned to specific iN
+// (NOT /at/-1) so a future Nexus re-inscription can't silently change us.
+const NEXUS_NWC_INSCRIPTION = "/content/5cf27ef513315123556fc4823ef44146bca8cb6e288e588efc206243e6e49573i0";
+
+// Detect environment: same-origin when running inside the inscription, fall
+// back to ordinals.com when developing from a static host.
+const inInscription = location.hostname.includes("ordinals.com") ||
+                      location.pathname.startsWith("/content/");
+const ORD = inInscription ? "" : "https://ordinals.com";
+
+// Self-discovery: extract this inscription's ID from the URL path.
+function getSelfId() {
+  if (!inInscription) return null;
+  const m = location.pathname.match(/\/content\/([a-f0-9]+i[0-9]+)/i);
+  return m ? m[1] : null;
+}
+const SELF_ID = getSelfId();
+
+const splashEl   = document.getElementById("splash");
+const studioEl   = document.getElementById("studio");
+const enterBtn   = document.getElementById("enterBtn");
+const backBtn    = document.getElementById("backBtn");
+const connectBtn = document.getElementById("connectBtn");
+const demoBtn    = document.getElementById("demoBtn");
+const walletEl   = document.getElementById("wallet-status");
+const summaryEl  = document.getElementById("squad-summary");
+const gridEl     = document.getElementById("squad-grid");
+const emptyEl    = document.getElementById("squad-empty");
+const reportEl   = document.getElementById("report");
+
+let walletAddr = null;
+let nwc = null;
+let squad = [];
+let audioCtx = null; // lazy-init AudioContext
+
+const test = {
+  selfDiscovered:    SELF_ID ? "ok" : "pending",
+  recursiveEndpoint: "pending",
+  nexusLoad:         "pending",
+  walletConnect:     "pending",
+  childrenList:      "pending",
+  ownershipLookup:   "pending",
+  playback:          "pending",
+};
+function reportStatus() {
+  const cls = v => `<span class="${v === 'ok' ? 'ok' : v === 'fail' ? 'bad' : 'pending'}">${v}</span>`;
+  reportEl.innerHTML = `TEST · self:${cls(test.selfDiscovered)} · /r:${cls(test.recursiveEndpoint)} · nexus:${cls(test.nexusLoad)} · wallet:${cls(test.walletConnect)} · children:${cls(test.childrenList)} · owners:${cls(test.ownershipLookup)} · play:${cls(test.playback)}`;
+}
+reportStatus();
+
+// Smoke-test the recursive endpoint at startup so we catch deployment issues
+// before the user clicks anything.
+(async () => {
+  try {
+    const r = await fetch(ORD + "/r/blockheight");
+    if (r.ok) test.recursiveEndpoint = "ok"; else test.recursiveEndpoint = "fail";
+  } catch (e) { test.recursiveEndpoint = "fail"; }
+  reportStatus();
+})();
+
+// ============================================================================
+// Splash → Studio
+// ============================================================================
+enterBtn.addEventListener("click", () => {
+  splashEl.style.display = "none";
+  studioEl.classList.add("on");
+});
+backBtn.addEventListener("click", () => {
+  splashEl.style.display = "";
+  studioEl.classList.remove("on");
+});
+
+// ============================================================================
+// Nexus wallet connect (read-only, on-chain)
+// ============================================================================
+async function loadNexus() {
+  if (nwc) return nwc;
+  walletEl.textContent = "loading nexus…";
+  const url = inInscription ? NEXUS_NWC_INSCRIPTION : (ORD + NEXUS_NWC_INSCRIPTION);
+  const mod = await import(url);
+  nwc = mod.NexusWalletConnect || window.NexusWalletConnect;
+  if (!nwc) throw new Error("NexusWalletConnect not exported");
+  test.nexusLoad = "ok"; reportStatus();
+  return nwc;
+}
+
+connectBtn.addEventListener("click", async () => {
+  if (walletAddr) {
+    walletAddr = null;
+    walletEl.textContent = "no wallet connected";
+    walletEl.style.color = "#888";
+    connectBtn.textContent = "CONNECT WALLET";
+    squad = []; renderSquad();
+    test.walletConnect = "pending"; test.childrenList = "pending"; test.ownershipLookup = "pending";
+    reportStatus();
+    return;
+  }
+  walletEl.textContent = "connecting…"; walletEl.style.color = "";
+  try {
+    const NWC = await loadNexus();
+    const candidates = [];
+    if (window.XverseProviders) candidates.push("Xverse");
+    if (window.unisat)          candidates.push("UniSat");
+    if (window.LeatherProvider) candidates.push("Leather");
+    if (!candidates.length) {
+      walletEl.innerHTML = '<span style="color:#f88">install Xverse / UniSat / Leather (or use DEMO)</span>';
+      test.walletConnect = "fail"; reportStatus();
+      return;
+    }
+    let state = null, picked = null;
+    for (const k of candidates) {
+      try { state = await NWC.connect(k); picked = k; break; }
+      catch (e) { console.warn(k, e); }
+    }
+    if (!state || !state.address) throw new Error("connect failed for all candidates");
+    walletAddr = state.address;
+    walletEl.innerHTML = `<span style="color:var(--acid)">▣</span> ${picked} · ${shortAddr(walletAddr)}`;
+    connectBtn.textContent = "DISCONNECT";
+    test.walletConnect = "ok"; reportStatus();
+    fetchSquad();
+  } catch (e) {
+    console.warn("[wallet]", e);
+    walletEl.innerHTML = `<span style="color:#f88">${e.message}</span>`;
+    test.walletConnect = "fail"; reportStatus();
+  }
+});
+
+function shortAddr(a) { return a ? a.slice(0,6) + "…" + a.slice(-4) : "—"; }
+
+// ============================================================================
+// Squad: enumerate children of self, filter by owner address
+// ============================================================================
+async function fetchSquad() {
+  if (!walletAddr) return;
+  if (!SELF_ID) {
+    summaryEl.innerHTML = '<span style="color:var(--gold)">SELF_ID unknown — running outside an inscription. Use DEMO to test the UI.</span>';
+    return;
+  }
+  summaryEl.textContent = "discovering children…";
+  squad = [];
+  try {
+    // Page through children
+    const childIds = [];
+    for (let page = 0; page < 200; page++) {
+      const batch = await fetch(`${ORD}/r/children/${SELF_ID}/${page}`).then(r => r.json());
+      if (!batch?.ids?.length) break;
+      childIds.push(...batch.ids);
+      summaryEl.textContent = `discovering children… ${childIds.length} found`;
+      if (batch.ids.length < 100) break;
+    }
+    if (!childIds.length) {
+      summaryEl.innerHTML = '<span style="color:#f88">no children of this parent yet — inscribe some mock-delegates first</span>';
+      test.childrenList = "fail"; reportStatus();
+      renderSquad(); return;
+    }
+    test.childrenList = "ok"; reportStatus();
+
+    // Owner lookup (batched)
+    let scanned = 0;
+    const BATCH = 30;
+    for (let i = 0; i < childIds.length; i += BATCH) {
+      const slice = childIds.slice(i, i + BATCH);
+      const results = await Promise.all(slice.map(async id => {
+        try {
+          const data = await fetch(`${ORD}/r/inscription/${id}`).then(r => r.json());
+          return data?.address === walletAddr ? id : null;
+        } catch { return null; }
+      }));
+      for (const id of results.filter(Boolean)) {
+        squad.push({ id, hue: hashHue(id) });
+      }
+      scanned += slice.length;
+      summaryEl.textContent = `scanned ${scanned}/${childIds.length} · ${squad.length} owned`;
+      renderSquad();
+    }
+    if (squad.length) test.ownershipLookup = "ok";
+    else test.ownershipLookup = "fail";
+    reportStatus();
+    summaryEl.textContent = `${squad.length} owned · scan complete`;
+  } catch (e) {
+    console.warn("[squad]", e);
+    summaryEl.innerHTML = `<span style="color:#f88">scan failed: ${e.message}</span>`;
+    test.childrenList = test.childrenList === "ok" ? test.childrenList : "fail";
+    test.ownershipLookup = "fail";
+    reportStatus();
+  }
+}
+
+// Demo mode — populate with 5 fake frogs without any wallet
+demoBtn.addEventListener("click", () => {
+  walletAddr = "demo-address";
+  walletEl.innerHTML = '<span style="color:var(--gold)">▣</span> DEMO MODE · 5 mock frogs';
+  squad = [];
+  for (let i = 0; i < 5; i++) {
+    const fakeId = "mock" + i.toString(16).padStart(4, "0") + "deadbeef".repeat(7) + "i0";
+    squad.push({ id: fakeId, hue: hashHue(fakeId) });
+  }
+  summaryEl.textContent = "demo squad · 5 mock frogs";
+  renderSquad();
+});
+
+function hashHue(id) {
+  // Cheap hash from id → 0..360 hue
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
+  return h % 360;
+}
+
+function renderSquad() {
+  emptyEl.style.display = squad.length ? "none" : "";
+  [...gridEl.children].forEach(c => { if (c !== emptyEl) c.remove(); });
+  squad.forEach((frog) => {
+    const card = document.createElement("div");
+    card.className = "frog-card";
+    card.innerHTML = `
+      <div class="frog-shape" style="background:hsl(${frog.hue},70%,50%);box-shadow:0 0 14px hsl(${frog.hue},80%,55%)"></div>
+      <div class="frog-id">${frog.id.slice(0, 8)}…${frog.id.slice(-6)}</div>
+    `;
+    card.addEventListener("click", () => playFrog(card, frog));
+    gridEl.appendChild(card);
+  });
+}
+
+// ============================================================================
+// "Playback" — minimal AudioContext beep tuned by frog's hue.
+// Just to prove the architecture supports playback, no Tone.js required.
+// ============================================================================
+function playFrog(card, frog) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const freq = 110 + (frog.hue / 360) * 880; // hue → 110..990 Hz
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = "sawtooth";
+  o.frequency.value = freq;
+  o.connect(g); g.connect(audioCtx.destination);
+  const t = audioCtx.currentTime;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.3, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+  o.start(t); o.stop(t + 0.42);
+  card.classList.add("playing");
+  setTimeout(() => card.classList.remove("playing"), 420);
+  test.playback = "ok"; reportStatus();
+}
+</script>
+</body>
+</html>
