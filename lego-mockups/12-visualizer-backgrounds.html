@@ -642,26 +642,37 @@ const VISUALIZERS = [
   { id: "undertone", label: "05 · Acid Undertone (frog colours)" },
 ];
 
-// Acid Frogs palette — 8 gemstone-named body colours. Production hex values
-// confirmed by strangersolemn (replaces preview placeholders).
+// Acid Frogs palette — 7 gemstone-named body colours, with rarity tiers and
+// production weights. Rose Quartz dropped. Topaz promoted to MYTHICAL — the
+// single rarest gem in the collection (~20 frogs of 2,016).
 const FROG_PALETTE = {
-  jade:        "#2e5230",   // classic frog green — default / common
-  larimar:     "#a6d1fe",   // pale sky blue (was "baby blue")
-  topaz:       "#eed248",   // golden yellow
-  pearl:       "#d1d1d1",   // off-white
-  hematite:    "#373737",   // darker grey
-  rosequartz:  "#ffaadd",   // light pink (placeholder hex until confirmed)
-  ruby:        "#d22a46",   // crimson — legendary
-  amethyst:    "#9b56d0",   // purple — legendary
+  jade:     "#2e5230",   // common 58%
+  larimar:  "#a6d1fe",   // medium 12%
+  hematite: "#373737",   // medium 12%
+  pearl:    "#d1d1d1",   // medium 12%
+  ruby:     "#d22a46",   // legendary 3%
+  amethyst: "#9b56d0",   // legendary 2%
+  topaz:    "#eed248",   // MYTHICAL 1% — the rarest gem
 };
-// 6 channels of Acid Undertone — picks 6 of the 8 gems for the visualizer.
-// Skipping pearl (too close to white, washes out) and hematite (too close to
-// the bg). Order chosen so adjacent channels feel distinct.
+// Rarity-weighted body picker (numbers must sum to 100). Used by the
+// merkleroot-byte trait derivation in production.
+const FROG_BODY_WEIGHTS = [
+  { name: "jade",     w: 58, tier: "common"    },
+  { name: "larimar",  w: 12, tier: "medium"    },
+  { name: "hematite", w: 12, tier: "medium"    },
+  { name: "pearl",    w: 12, tier: "medium"    },
+  { name: "ruby",     w:  3, tier: "legendary" },
+  { name: "amethyst", w:  2, tier: "legendary" },
+  { name: "topaz",    w:  1, tier: "mythical"  },
+];
+// 6 channels of Acid Undertone — picks 6 of the 7 gems for the visualizer.
+// Skipping hematite (too close to bg dark grey, would disappear). Order
+// chosen so adjacent channels feel distinct.
 const UNDERTONE_PALETTE = [
   FROG_PALETTE.jade,
-  FROG_PALETTE.rosequartz,
   FROG_PALETTE.larimar,
   FROG_PALETTE.topaz,
+  FROG_PALETTE.pearl,
   FROG_PALETTE.ruby,
   FROG_PALETTE.amethyst,
 ];
