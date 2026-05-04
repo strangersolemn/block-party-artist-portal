@@ -896,14 +896,13 @@ async function startAudio() {
     }
     const globalBarIdx = Math.floor(refStepIdx / 16) % 16;
     let useRiffB = globalBarIdx >= 8;
-    // 2-bar block swaps: each fill is 2 bars long instead of 1.
-    //  First 8 bars  (A-bias): bars 3+4 and 7+8 swap to B → A A B B A A B B
-    //  Second 8 bars (B-bias): bars 11+12 and 15+16 swap to A → B B A A B B A A
-    // Net 16-bar pattern is a mirror across the 8-bar midpoint.
-    if (globalBarIdx === 2 || globalBarIdx === 3 || globalBarIdx === 6 || globalBarIdx === 7)
-      useRiffB = true;
-    if (globalBarIdx === 10 || globalBarIdx === 11 || globalBarIdx === 14 || globalBarIdx === 15)
-      useRiffB = false;
+    // 1-bar alternating swap: every other bar flips between A and B.
+    //  First 8 bars : A B A B A B A B
+    //  Second 8 bars: B A B A B A B A  (mirror across the 8-bar midpoint)
+    // useRiffB is XOR of "is odd bar" with "is second half".
+    const _isOddBar = (globalBarIdx % 2) === 1;
+    const _isSecondHalf = globalBarIdx >= 8;
+    useRiffB = _isOddBar !== _isSecondHalf;
     const activeBass  = useRiffB ? (current.bassline2 || current.bassline) : current.bassline;
     const pattern = patternForBarDeep(activeBass, barCount, current.nonceHex);
     const step = pattern[stepIn16];
