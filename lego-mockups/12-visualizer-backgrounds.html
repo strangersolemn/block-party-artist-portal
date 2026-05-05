@@ -837,7 +837,12 @@ function drawSpectrum(W, H, t, fft) {
   const cy = H / 2;
   for (let i = 0; i < N; i++) {
     const fftV = mag ? mag[Math.min(i * 2, mag.length - 1)] : 0;
-    const idle = 0.04 + 0.04 * Math.sin(t * 2 + i * 0.3);
+    // Idle baseline: two layered sin waves with per-bar phase offsets so the
+    // field ripples like a breathing wave even when no note is hitting.
+    // Range ≈ 0.10 .. 0.45 (was 0.04 .. 0.08 — way too static).
+    const wave1 = Math.sin(t * 2.2 + i * 0.45);
+    const wave2 = Math.sin(t * 4.1 + i * 0.85);
+    const idle  = 0.22 + wave1 * 0.12 + wave2 * 0.08;
     let punch = 0;
     let band;
     if (i < 6)        { punch = kickFlash * 0.5; band = 0; }
