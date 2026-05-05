@@ -1127,25 +1127,37 @@ function drawUndertone(W, H, t, fft) {
   }
 }
 
-// ----------- 08 · Static (B&W only) -----------
-// Pure CRT snow on black — no colour-coding (user removed). Random white
-// pixels every frame, kick fires a horizontal slice glitch (cable-broken
-// effect), clap = brief white wash, ACID = white pulse.
+// ----------- 08 · Static (B&W) -----------
+// Real CRT snow — per-pixel grayscale noise via ImageData. Every pixel
+// gets a fresh random luminance each frame (not blocky 4px squares like
+// the old version). About 60% of pixels are bright (gray 160-255), 40%
+// black — gives the dense, sharp, properly-white look of an untuned TV.
+// Kick fires a horizontal slice glitch (cable-broken effect), clap = brief
+// white wash, ACID = bigger white pulse.
 let _tvGlitchY = -1;
 let _tvGlitchAge = 0;
 function drawTVStatic(W, H, t, fft) {
-  bgCtx.fillStyle = "#000";
-  bgCtx.fillRect(0, 0, W, H);
-  // Pure white snow on black
-  const px = 4;
-  const noiseCount = Math.floor((W * H) / (px * px) / 8);
-  for (let n = 0; n < noiseCount; n++) {
-    const nx = Math.floor(Math.random() * W);
-    const ny = Math.floor(Math.random() * H);
-    const a = 0.3 + Math.random() * 0.7;
-    bgCtx.fillStyle = `rgba(255,255,255,${a})`;
-    bgCtx.fillRect(nx, ny, px, px);
+  // Per-pixel noise — much denser + whiter than the old fillRect version
+  const img = bgCtx.createImageData(W, H);
+  const data = img.data;
+  const len = data.length;
+  for (let i = 0; i < len; i += 4) {
+    const r = Math.random();
+    let v;
+    if (r > 0.4) {
+      // 60% bright pixels — gray 160 to 255 with a punch of pure white sparkles
+      v = r > 0.95 ? 255 : 160 + ((r - 0.4) * 158) | 0;
+    } else {
+      // 40% black for contrast
+      v = 0;
+    }
+    data[i]     = v;
+    data[i + 1] = v;
+    data[i + 2] = v;
+    data[i + 3] = 255;
   }
+  bgCtx.putImageData(img, 0, 0);
+
   // KICK glitch: slice a random horizontal band, shift it left/right
   if (kickFlash > 0.85 && _tvGlitchAge <= 0) {
     _tvGlitchY = Math.floor(Math.random() * (H - 30));
@@ -1155,19 +1167,19 @@ function drawTVStatic(W, H, t, fft) {
     const sliceH = 8 + Math.floor(Math.random() * 18);
     const dx = (Math.random() - 0.5) * 80 * kickFlash;
     try {
-      const data = bgCtx.getImageData(0, _tvGlitchY, W, sliceH);
-      bgCtx.putImageData(data, dx, _tvGlitchY);
+      const sliceData = bgCtx.getImageData(0, _tvGlitchY, W, sliceH);
+      bgCtx.putImageData(sliceData, dx, _tvGlitchY);
     } catch (e) {}
     _tvGlitchAge--;
   }
   // CLAP = brief white flash
   if (clapFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(255,255,255,${clapFlash * 0.25})`;
+    bgCtx.fillStyle = `rgba(255,255,255,${clapFlash * 0.35})`;
     bgCtx.fillRect(0, 0, W, H);
   }
   // ACID = bigger white wash
   if (acidFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(255,255,255,${acidFlash * 0.5})`;
+    bgCtx.fillStyle = `rgba(255,255,255,${acidFlash * 0.6})`;
     bgCtx.fillRect(0, 0, W, H);
   }
 }
