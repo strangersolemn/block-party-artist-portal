@@ -93,6 +93,9 @@
   </div>
 
   <div class="lore" style="margin-top:24px">
+    <b>BODY GEM</b> · click to switch the active body — visualizer palette swaps to match
+    <div id="gem-picker" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin:10px 0 18px"></div>
+
     <b>VISUALIZER PICKER</b> · click to switch the background live
     <div id="vis-picker" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:12px"></div>
   </div>
@@ -654,6 +657,33 @@ const FROG_PALETTE = {
   amethyst: "#9b56d0",   // legendary 2%
   topaz:    "#eed248",   // MYTHICAL 1% — the rarest gem
 };
+
+// THEME MAP — each body gem gets a 3-colour scheme (primary / accent /
+// highlight) so the visualizer palette matches the frog's body. In production
+// this rotates automatically when the active chain slot's body gem changes;
+// in the mockup we expose 7 buttons to pick a body gem and watch the
+// visualizers re-skin live.
+const GEM_THEMES = {
+  jade:     { primary: FROG_PALETTE.jade,     accent: FROG_PALETTE.larimar,  highlight: FROG_PALETTE.topaz    },
+  larimar:  { primary: FROG_PALETTE.larimar,  accent: FROG_PALETTE.pearl,    highlight: FROG_PALETTE.amethyst },
+  topaz:    { primary: FROG_PALETTE.topaz,    accent: FROG_PALETTE.ruby,     highlight: FROG_PALETTE.jade     },
+  pearl:    { primary: FROG_PALETTE.pearl,    accent: FROG_PALETTE.larimar,  highlight: FROG_PALETTE.ruby     },
+  hematite: { primary: FROG_PALETTE.hematite, accent: FROG_PALETTE.pearl,    highlight: FROG_PALETTE.ruby     },
+  ruby:     { primary: FROG_PALETTE.ruby,     accent: FROG_PALETTE.amethyst, highlight: FROG_PALETTE.topaz    },
+  amethyst: { primary: FROG_PALETTE.amethyst, accent: FROG_PALETTE.topaz,    highlight: FROG_PALETTE.pearl    },
+};
+let currentBodyGem = "jade"; // active body — drives the visualizer palette
+function getTheme() { return GEM_THEMES[currentBodyGem]; }
+
+// Tiny util: hex "#abc" or "#aabbcc" -> "r,g,b" string for use in rgba()
+function hexToRgb(hex) {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map(c => c + c).join("");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `${r},${g},${b}`;
+}
 // Rarity-weighted body picker (numbers must sum to 100). Used by the
 // merkleroot-byte trait derivation in production.
 const FROG_BODY_WEIGHTS = [
@@ -679,6 +709,37 @@ const UNDERTONE_PALETTE = [
 // Per-channel intensity (decays each frame, spiked by audio events)
 const undertoneCh = [0,0,0,0,0,0];
 let undertoneFlow = 0;
+
+function buildGemPicker() {
+  const host = document.getElementById("gem-picker");
+  if (!host) return;
+  const order = ["jade","larimar","hematite","pearl","ruby","amethyst","topaz"];
+  host.innerHTML = order.map(g => {
+    const hex = FROG_PALETTE[g];
+    const name = g.charAt(0).toUpperCase() + g.slice(1);
+    const active = g === currentBodyGem;
+    return `<button class="gem-btn" data-gem="${g}" style="
+      padding:8px 6px;
+      border:1px solid ${active ? '#fff' : 'rgba(255,255,255,0.2)'};
+      background:${hex};
+      color:${(g==='topaz'||g==='larimar'||g==='pearl'||g==='hematite')?'#000':'#fff'};
+      cursor:pointer;
+      font-family:inherit;
+      font-size:10px;
+      font-weight:bold;
+      letter-spacing:1px;
+      border-radius:6px;
+      box-shadow:${active ? '0 0 14px rgba(255,255,255,0.6), inset 0 0 0 2px rgba(255,255,255,0.4)' : 'none'};
+      transition:all .12s;
+    ">${name.toUpperCase()}</button>`;
+  }).join("");
+  host.querySelectorAll(".gem-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentBodyGem = btn.dataset.gem;
+      buildGemPicker(); // re-render to update active highlight
+    });
+  });
+}
 
 function buildVisualizerPicker() {
   const host = document.getElementById("vis-picker");
@@ -753,61 +814,59 @@ function fftMag(fft) {
 // ============================================================================
 
 // ----------- 01 · Spectrum bars (mirrored, full width) -----------
-// Reflects the FFT around the centre line so the bars fill the WHOLE width
-// instead of bunching on the left. Drives accent layers from kick (low band),
-// clap (mid band), hat (high band), so something is always moving.
+// Mirrored across centre. Bands themed:
+//   low bars (kick range)  → primary
+//   mid bars (clap range)  → accent
+//   high bars (hat range)  → highlight
+// ACID hit = full-bg highlight flash.
 function drawSpectrum(W, H, t, fft) {
   bgCtx.fillStyle = "rgba(0,0,0,0.5)";
   bgCtx.fillRect(0, 0, W, H);
+  const theme = getTheme();
+  const colours = [theme.primary, theme.accent, theme.highlight];
   const mag = fftMag(fft);
-  const N = 24;                    // 24 bars per side -> 48 total mirrored
+  const N = 24;
   const bw = W / (N * 2);
   for (let i = 0; i < N; i++) {
-    // Mix the FFT bin with one of the flash signals based on band:
-    // - low bins (kick range) lift on kickFlash
-    // - mid bins (clap snare) lift on clapFlash
-    // - high bins lift on hatFlash
     const fftV = mag ? mag[Math.min(i * 2, mag.length - 1)] : 0;
     const idle = 0.05 + 0.05 * Math.sin(t * 2 + i * 0.3);
     let punch = 0;
-    if (i < 6)        punch = kickFlash * 0.45;
-    else if (i < 14)  punch = clapFlash * 0.5;
-    else              punch = hatFlash  * 0.4;
+    let band;
+    if (i < 6)        { punch = kickFlash * 0.45; band = 0; }
+    else if (i < 14)  { punch = clapFlash * 0.5;  band = 1; }
+    else              { punch = hatFlash  * 0.4;  band = 2; }
     const m = Math.max(idle, fftV) + punch;
     const h = Math.min(1, m) * H * 0.85;
-    // Hue cycles green -> cyan -> green across the bar count
-    const hue = 110 + Math.sin(i * 0.5) * 30;
-    bgCtx.fillStyle = `hsl(${hue}, 80%, ${50 + Math.min(m, 1) * 25}%)`;
-    // Right side
+    bgCtx.fillStyle = colours[band];
+    bgCtx.globalAlpha = 0.55 + Math.min(m, 1) * 0.45;
     const xR = W / 2 + i * bw;
     bgCtx.fillRect(xR + 1, H - h, bw - 2, h);
-    // Mirrored left side
     const xL = W / 2 - (i + 1) * bw;
     bgCtx.fillRect(xL + 1, H - h, bw - 2, h);
   }
-  // ACID hit = full-bg gold flash (rare, big)
+  bgCtx.globalAlpha = 1;
   if (acidFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(255,215,0,${acidFlash * 0.45})`;
+    bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.5})`;
     bgCtx.fillRect(0, 0, W, H);
   }
 }
 
 // ----------- 02 · Electric line -----------
-// A flowing horizontal sine wave across the full width. Steady, hat-driven
-// so it always has motion (hat fires every other beat). Clap punches it
-// upward; kick adds a slow envelope swell; ACID sends a flash spike.
+// Themed: glow = primary, crisp top line = primary, accent kicks in on
+// clap punches, highlight glow on ACID.
 let _electricPhase = 0;
 function drawElectric(W, H, t, fft) {
   bgCtx.fillStyle = "rgba(0,0,0,0.35)";
   bgCtx.fillRect(0, 0, W, H);
+  const theme = getTheme();
   _electricPhase += 0.06 + hatFlash * 0.08;
   const cy = H * 0.5;
   const baseAmp = H * 0.15;
   const swell   = baseAmp * (1 + kickFlash * 0.35);
   const punch   = clapFlash * H * 0.18;
 
-  // Glow underneath (wide, low-alpha line)
-  bgCtx.strokeStyle = `rgba(153,255,153,${0.18 + hatFlash * 0.18})`;
+  // Glow underneath — primary colour
+  bgCtx.strokeStyle = `rgba(${hexToRgb(theme.primary)},${0.18 + hatFlash * 0.18})`;
   bgCtx.lineWidth = 16 + acidFlash * 18;
   bgCtx.beginPath();
   for (let x = 0; x <= W; x += 4) {
@@ -817,8 +876,15 @@ function drawElectric(W, H, t, fft) {
     if (x === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
   }
   bgCtx.stroke();
-  // Crisp top line
-  bgCtx.strokeStyle = `rgba(153,255,153,${0.85 + acidFlash * 0.15})`;
+  // Highlight outer wash on ACID
+  if (acidFlash > 0.05) {
+    bgCtx.strokeStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.5})`;
+    bgCtx.lineWidth = 28;
+    bgCtx.stroke();
+  }
+  // Crisp top line — primary
+  bgCtx.strokeStyle = theme.primary;
+  bgCtx.globalAlpha = 0.85 + acidFlash * 0.15;
   bgCtx.lineWidth = 2 + clapFlash * 2;
   bgCtx.beginPath();
   for (let x = 0; x <= W; x += 4) {
@@ -828,35 +894,33 @@ function drawElectric(W, H, t, fft) {
     if (x === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
   }
   bgCtx.stroke();
+  bgCtx.globalAlpha = 1;
 }
 
 // ----------- 03 · Strobe -----------
-// Idle state SITS ON THE COLOUR (Jade — the classic frog green) instead of
-// near-black. When nothing's flashing the bg is a steady saturated colour
-// that breathes slightly with t. Flashes punch BRIGHTER (white-ish) on top:
-//   clap  -> bright pale green flash (carries through bars 6-8)
-//   kick  -> deep darker pulse for contrast
-//   ACID  -> gold over the top
-// Future work: in production, default colour will follow the active frog's
-// body gem (Jade/Ruby/Amethyst etc) instead of being hardcoded.
+// Idle base = body's primary gem colour (was hardcoded Jade). Breathes gently.
+// Clap punches with the accent colour (lifts the field). Kick = deep dark
+// punch for rhythmic contrast. ACID = highlight flash on top.
 function drawStrobe(W, H, t, fft) {
-  // Idle base: Jade with a gentle breathing modulation so it never feels static
+  const theme = getTheme();
   const breathe = 1 + Math.sin(t * 1.2) * 0.06;
-  bgCtx.fillStyle = `rgb(${Math.round(46 * breathe)}, ${Math.round(82 * breathe)}, ${Math.round(48 * breathe)})`;
+  // Parse primary hex into RGB so we can modulate brightness for breathing
+  const rgb = hexToRgb(theme.primary).split(",").map(Number);
+  bgCtx.fillStyle = `rgb(${Math.round(rgb[0] * breathe)},${Math.round(rgb[1] * breathe)},${Math.round(rgb[2] * breathe)})`;
   bgCtx.fillRect(0, 0, W, H);
-  // Clap = bright pale-green pulse (lifts the whole field)
+  // Clap = accent flash (lifts the whole field)
   if (clapFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(180,255,180,${clapFlash * 0.85})`;
+    bgCtx.fillStyle = `rgba(${hexToRgb(theme.accent)},${clapFlash * 0.7})`;
     bgCtx.fillRect(0, 0, W, H);
   }
-  // Kick = deep darker punch for rhythmic contrast against the bright base
+  // Kick = deep dark punch for rhythmic contrast
   if (kickFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(0,30,0,${kickFlash * 0.45})`;
+    bgCtx.fillStyle = `rgba(0,0,0,${kickFlash * 0.45})`;
     bgCtx.fillRect(0, 0, W, H);
   }
-  // ACID hit = gold flash on top
+  // ACID hit = highlight flash on top
   if (acidFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(238,210,72,${acidFlash * 0.7})`;  // Topaz
+    bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.7})`;
     bgCtx.fillRect(0, 0, W, H);
   }
   // Subtle scanlines
@@ -893,18 +957,17 @@ function drawBlockdata(W, H, t, fft) {
     const slice = bigLine.slice(offsetChars, offsetChars + Math.ceil(W / 7) + 8);
     // Brightness ramps to centre + spikes on kick
     const dim = 0.18 + (1 - Math.abs(i - lines / 2) / (lines / 2)) * 0.5;
-    bgCtx.fillStyle = `rgba(153,255,153,${dim + kickFlash * 0.35})`;
+    bgCtx.fillStyle = `rgba(${hexToRgb(getTheme().primary)},${dim + kickFlash * 0.35})`;
     bgCtx.fillText(slice, 6, y);
   }
   // Nonce header at top, ACID-pulsed
-  bgCtx.fillStyle = `rgba(255,215,0,${0.6 + acidFlash * 0.4})`;
+  const theme = getTheme();
   const headerText = "NONCE 0x" + nonce + "   ·   KICK " + (kickFlash > 0.4 ? "▮" : " ") +
                      "   CLAP " + (clapFlash > 0.4 ? "▮" : " ") +
                      "   HAT " + (hatFlash > 0.4 ? "▮" : " ");
-  bgCtx.fillRect(0, 0, W, 18);
   bgCtx.fillStyle = "#000";
   bgCtx.fillRect(0, 0, W, 18);
-  bgCtx.fillStyle = `rgba(255,215,0,${0.7 + acidFlash * 0.3})`;
+  bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${0.7 + acidFlash * 0.3})`;
   bgCtx.fillText(headerText, 8, 3);
 }
 
@@ -1325,6 +1388,7 @@ async function renderGallery() {
 
 // -------------------------- init --------------------------
 (async () => {
+  buildGemPicker();
   buildVisualizerPicker();
   await setFeatured(942000);
   animate();
