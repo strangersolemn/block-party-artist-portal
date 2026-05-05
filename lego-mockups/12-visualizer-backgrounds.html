@@ -877,7 +877,6 @@ function drawLines303(W, H, t, fft) {
   bgCtx.fillRect(0, 0, W, H);
   const theme = getTheme();
   _303Flow += 0.6 + hatFlash * 0.5;
-  // Colour flip every 600ms — gives the lines a rhythmic shimmer
   const now = performance.now();
   if (now - _303LastFlip > 600) {
     _303ColorState = !_303ColorState;
@@ -886,23 +885,24 @@ function drawLines303(W, H, t, fft) {
   const lineColour = _303ColorState ? theme.accent : theme.primary;
   bgCtx.strokeStyle = lineColour;
   bgCtx.lineWidth = 3 + clapFlash * 2;
-  // Spacing: 20px between lines, plus a small per-frame nudge from the flow
+  // Vertical lines at 20px spacing. Calmer baseline sin warp + VIOLENT kick
+  // ripple matching Mr 303's intensity (×150 — 3× the original Mrs 303
+  // multiplier of ×50). User: "make Mrs 303 lines more like Mr 303 but vertical".
   for (let x = -20; x < W + 20; x += 20) {
     bgCtx.beginPath();
     bgCtx.moveTo(x, 0);
     for (let y = 0; y <= H; y++) {
-      const baseOffset = Math.sin((y + _303Flow * 2) * 0.04 + x * 0.05) * 15;
+      const baseOffset = Math.sin((y + _303Flow) * 0.1 + now * 0.002) * 10;
       let rippleOffset = 0;
       if (kickFlash > 0.02) {
-        const rippleTime = now * 0.0015;
-        const rippleFreq = y * 0.2;
-        rippleOffset = Math.sin(rippleFreq + rippleTime) * kickFlash * 50;
+        const rippleTime = now * 0.015;
+        const rippleFreq = (y + _303Flow) * 0.08;
+        rippleOffset = Math.sin(rippleFreq + rippleTime) * kickFlash * 150; // 3× violent
       }
       bgCtx.lineTo(x + baseOffset + rippleOffset, y);
     }
     bgCtx.stroke();
   }
-  // ACID hit = highlight overlay wash
   if (acidFlash > 0.05) {
     bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.3})`;
     bgCtx.fillRect(0, 0, W, H);
@@ -1137,24 +1137,36 @@ function drawUndertone(W, H, t, fft) {
 let _tvGlitchY = -1;
 let _tvGlitchAge = 0;
 function drawTVStatic(W, H, t, fft) {
-  // Per-pixel noise — much denser + whiter than the old fillRect version
+  // Per-pixel noise — mostly bright white + sparser, BIGGER black voids.
+  // 80% bright pixels (denser than before) but the black 20% is drawn as
+  // multi-pixel chunks (each "black hit" sets a 3×3 block to black) so
+  // the dark patches read as bigger holes in a sea of white.
   const img = bgCtx.createImageData(W, H);
   const data = img.data;
-  const len = data.length;
-  for (let i = 0; i < len; i += 4) {
+  // First pass: dense bright noise across every pixel (gray 180-255 + sparkle)
+  for (let i = 0; i < data.length; i += 4) {
     const r = Math.random();
-    let v;
-    if (r > 0.4) {
-      // 60% bright pixels — gray 160 to 255 with a punch of pure white sparkles
-      v = r > 0.95 ? 255 : 160 + ((r - 0.4) * 158) | 0;
-    } else {
-      // 40% black for contrast
-      v = 0;
-    }
+    const v = r > 0.95 ? 255 : 180 + ((r * 75) | 0);
     data[i]     = v;
     data[i + 1] = v;
     data[i + 2] = v;
     data[i + 3] = 255;
+  }
+  // Second pass: stamp BIG black void chunks across the field. ~12% of
+  // canvas area becomes black 3×3 blocks (≈200% bigger black area than
+  // the old per-pixel black). Net: mostly white but with chunky black
+  // holes that read as proper TV-snow drop-outs.
+  const voidChunkSize = 3;
+  const voidCount = Math.floor((W * H) * 0.12 / (voidChunkSize * voidChunkSize));
+  for (let n = 0; n < voidCount; n++) {
+    const vx = Math.floor(Math.random() * (W - voidChunkSize));
+    const vy = Math.floor(Math.random() * (H - voidChunkSize));
+    for (let dy = 0; dy < voidChunkSize; dy++) {
+      for (let dx = 0; dx < voidChunkSize; dx++) {
+        const idx = ((vy + dy) * W + (vx + dx)) * 4;
+        data[idx] = 0; data[idx + 1] = 0; data[idx + 2] = 0;
+      }
+    }
   }
   bgCtx.putImageData(img, 0, 0);
 
