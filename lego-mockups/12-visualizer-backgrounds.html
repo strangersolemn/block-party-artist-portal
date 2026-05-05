@@ -638,11 +638,12 @@ let visStartTime = performance.now();
 // Curated to user's 5 keepers. Drove by multiple flash signals (kick/clap/hat/
 // acid) so visualizers stay alive even when the kick drops out in bars 6-8.
 const VISUALIZERS = [
-  { id: "spectrum",  label: "01 · Spectrum bars (mirrored, full width)" },
-  { id: "electric",  label: "02 · Electric line" },
+  { id: "spectrum",  label: "01 · Spectrum bars (mirrored)" },
+  { id: "lines303",  label: "02 · Mrs 303 lines (Acid Family)" },
   { id: "strobe",    label: "03 · Strobe" },
   { id: "blockdata", label: "04 · Block-data scroll" },
-  { id: "undertone", label: "05 · Acid Undertone (frog colours)" },
+  { id: "undertone", label: "05 · Acid Undertone (2-colour)" },
+  { id: "tvstatic",  label: "06 · TV Static · colour-coded glitch" },
 ];
 
 // Acid Frogs palette — 7 gemstone-named body colours, with rarity tiers and
@@ -784,10 +785,11 @@ function drawVisualizer() {
   const fft = getFFT();                                     // -100..0 dB array, 64 bins, or null
   switch (currentVis) {
     case "spectrum":  return drawSpectrum(W, H, t, fft);
-    case "electric":  return drawElectric(W, H, t, fft);
+    case "lines303":  return drawLines303(W, H, t, fft);
     case "strobe":    return drawStrobe(W, H, t, fft);
     case "blockdata": return drawBlockdata(W, H, t, fft);
     case "undertone": return drawUndertone(W, H, t, fft);
+    case "tvstatic":  return drawTVStatic(W, H, t, fft);
   }
 }
 
@@ -851,50 +853,51 @@ function drawSpectrum(W, H, t, fft) {
   }
 }
 
-// ----------- 02 · Electric line -----------
-// Themed: glow = primary, crisp top line = primary, accent kicks in on
-// clap punches, highlight glow on ACID.
-let _electricPhase = 0;
-function drawElectric(W, H, t, fft) {
-  bgCtx.fillStyle = "rgba(0,0,0,0.35)";
+// ----------- 02 · Mrs 303 lines (Acid Family lineage) -----------
+// Vertical wavy lines, ~20px apart across the full width. Flow drifts
+// downward over time. Sin-wave warp on each line. Kick fires a ripple
+// that travels through the lines (matching the Mrs 303 inscription's
+// kickHitIntensity behaviour). Colour flips between primary and accent
+// every ~600 ms so the field doesn't feel static even at idle.
+// Source: strangersolemn's Mrs 303 inscription (Acid Family / Boutique).
+let _303Flow = 0;
+let _303ColorState = false;
+let _303LastFlip = 0;
+function drawLines303(W, H, t, fft) {
+  bgCtx.fillStyle = "#000";
   bgCtx.fillRect(0, 0, W, H);
   const theme = getTheme();
-  _electricPhase += 0.06 + hatFlash * 0.08;
-  const cy = H * 0.5;
-  const baseAmp = H * 0.15;
-  const swell   = baseAmp * (1 + kickFlash * 0.35);
-  const punch   = clapFlash * H * 0.18;
-
-  // Glow underneath — primary colour
-  bgCtx.strokeStyle = `rgba(${hexToRgb(theme.primary)},${0.18 + hatFlash * 0.18})`;
-  bgCtx.lineWidth = 16 + acidFlash * 18;
-  bgCtx.beginPath();
-  for (let x = 0; x <= W; x += 4) {
-    const px = x / W;
-    const y = cy + Math.sin(px * 8 - _electricPhase) * swell
-               + Math.sin(px * 22 - _electricPhase * 2.3) * punch * 0.5;
-    if (x === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
+  _303Flow += 0.6 + hatFlash * 0.5;
+  // Colour flip every 600ms — gives the lines a rhythmic shimmer
+  const now = performance.now();
+  if (now - _303LastFlip > 600) {
+    _303ColorState = !_303ColorState;
+    _303LastFlip = now;
   }
-  bgCtx.stroke();
-  // Highlight outer wash on ACID
-  if (acidFlash > 0.05) {
-    bgCtx.strokeStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.5})`;
-    bgCtx.lineWidth = 28;
+  const lineColour = _303ColorState ? theme.accent : theme.primary;
+  bgCtx.strokeStyle = lineColour;
+  bgCtx.lineWidth = 3 + clapFlash * 2;
+  // Spacing: 20px between lines, plus a small per-frame nudge from the flow
+  for (let x = -20; x < W + 20; x += 20) {
+    bgCtx.beginPath();
+    bgCtx.moveTo(x, 0);
+    for (let y = 0; y <= H; y++) {
+      const baseOffset = Math.sin((y + _303Flow * 2) * 0.04 + x * 0.05) * 15;
+      let rippleOffset = 0;
+      if (kickFlash > 0.02) {
+        const rippleTime = now * 0.0015;
+        const rippleFreq = y * 0.2;
+        rippleOffset = Math.sin(rippleFreq + rippleTime) * kickFlash * 50;
+      }
+      bgCtx.lineTo(x + baseOffset + rippleOffset, y);
+    }
     bgCtx.stroke();
   }
-  // Crisp top line — primary
-  bgCtx.strokeStyle = theme.primary;
-  bgCtx.globalAlpha = 0.85 + acidFlash * 0.15;
-  bgCtx.lineWidth = 2 + clapFlash * 2;
-  bgCtx.beginPath();
-  for (let x = 0; x <= W; x += 4) {
-    const px = x / W;
-    const y = cy + Math.sin(px * 8 - _electricPhase) * swell
-               + Math.sin(px * 22 - _electricPhase * 2.3) * punch * 0.5;
-    if (x === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
+  // ACID hit = highlight overlay wash
+  if (acidFlash > 0.05) {
+    bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.3})`;
+    bgCtx.fillRect(0, 0, W, H);
   }
-  bgCtx.stroke();
-  bgCtx.globalAlpha = 1;
 }
 
 // ----------- 03 · Strobe -----------
@@ -933,73 +936,93 @@ function drawStrobe(W, H, t, fft) {
   }
 }
 
-// ----------- 04 · Block-data scroll (full width) -----------
-// Two columns of scrolling block hex, filling the entire canvas width.
-// Each row spans the whole canvas. Kick punches the brightness; clap fires
-// a row-jitter; ACID = gold pulse on the nonce header.
-let _blockOff = 0;
+// ----------- 04 · Block-data scroll (full width, varied speeds) -----------
+// Each row gets its OWN scroll speed + start offset so the field doesn't
+// march in lockstep (was reading as a uniform diagonal). Brighter base
+// alpha. Reacts harder to kick + clap — kick spikes brightness, clap
+// shoves a few rows by a random kick. Some rows scroll left, some right.
+const _bdRowSpeeds = [];   // per-row scroll speed × direction (cached on first draw)
+const _bdRowOffsets = [];  // per-row independent scroll position
 function drawBlockdata(W, H, t, fft) {
-  bgCtx.fillStyle = "rgba(0,0,0,0.6)";
+  bgCtx.fillStyle = "rgba(0,0,0,0.7)";
   bgCtx.fillRect(0, 0, W, H);
+  const theme = getTheme();
   const merkle = (current && current.merkle) || "0".repeat(64);
   const nonce  = (current && current.nonceHex) || "00000000";
-  bgCtx.font = "12px monospace";
+  bgCtx.font = "13px monospace";
   bgCtx.textBaseline = "top";
-  const lineH = 14;
-  _blockOff += 0.6 + clapFlash * 0.8;       // clap punches the scroll speed
-  // Build a long line: merkleroot looped enough times to fill any width
-  const bigLine = (merkle + " · ").repeat(8);
-  const lines = Math.ceil(H / lineH) + 4;
+  const lineH = 16;
+  const lines = Math.ceil(H / lineH) + 2;
+  // Lazy-init per-row speeds the first time (or if line count changed).
+  // Each row gets a random speed in range -1.5..+1.5 and a random start offset.
+  if (_bdRowSpeeds.length !== lines) {
+    _bdRowSpeeds.length = 0; _bdRowOffsets.length = 0;
+    for (let i = 0; i < lines; i++) {
+      const dir = (i * 7 + 3) % 4 === 0 ? -1 : 1; // ~25% scroll backwards
+      const speed = (0.4 + ((i * 17) % 10) / 10) * dir; // 0.4..1.4 px/frame
+      _bdRowSpeeds.push(speed);
+      _bdRowOffsets.push((i * 73) % 256);
+    }
+  }
+  // Advance each row independently — clap punches an extra burst on a few rows
   for (let i = 0; i < lines; i++) {
-    const y = (i * lineH - (_blockOff % lineH));
-    // Slight per-row offset of the long line so it doesn't repeat identically
-    const offsetChars = (i * 13 + Math.floor(_blockOff / lineH)) % 64;
-    const slice = bigLine.slice(offsetChars, offsetChars + Math.ceil(W / 7) + 8);
-    // Brightness ramps to centre + spikes on kick
-    const dim = 0.18 + (1 - Math.abs(i - lines / 2) / (lines / 2)) * 0.5;
-    bgCtx.fillStyle = `rgba(${hexToRgb(getTheme().primary)},${dim + kickFlash * 0.35})`;
+    let push = _bdRowSpeeds[i] * (1 + kickFlash * 0.6);
+    if (clapFlash > 0.85 && (i % 5 === 0)) push += _bdRowSpeeds[i] * 8; // clap kicks a few rows hard
+    _bdRowOffsets[i] += push;
+  }
+
+  // Build a long string from the merkleroot looped — slice from per-row offset
+  const bigLine = (merkle + " · ").repeat(8);
+  const charsPerLine = Math.ceil(W / 7) + 8;
+  for (let i = 0; i < lines; i++) {
+    const y = i * lineH;
+    const offset = Math.floor(_bdRowOffsets[i]) % bigLine.length;
+    const start = ((offset % bigLine.length) + bigLine.length) % bigLine.length;
+    let slice = bigLine.slice(start) + bigLine.slice(0, start);
+    slice = slice.slice(0, charsPerLine);
+    // Brightness much higher than before (0.55 base) + harder kick spike
+    const baseAlpha = 0.55 + (1 - Math.abs(i - lines / 2) / (lines / 2)) * 0.35;
+    bgCtx.fillStyle = `rgba(${hexToRgb(theme.primary)},${Math.min(1, baseAlpha + kickFlash * 0.4)})`;
     bgCtx.fillText(slice, 6, y);
   }
   // Nonce header at top, ACID-pulsed
-  const theme = getTheme();
   const headerText = "NONCE 0x" + nonce + "   ·   KICK " + (kickFlash > 0.4 ? "▮" : " ") +
                      "   CLAP " + (clapFlash > 0.4 ? "▮" : " ") +
                      "   HAT " + (hatFlash > 0.4 ? "▮" : " ");
   bgCtx.fillStyle = "#000";
-  bgCtx.fillRect(0, 0, W, 18);
-  bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${0.7 + acidFlash * 0.3})`;
-  bgCtx.fillText(headerText, 8, 3);
+  bgCtx.fillRect(0, 0, W, 22);
+  bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${0.85 + acidFlash * 0.15})`;
+  bgCtx.fillText(headerText, 8, 5);
 }
 
-// ----------- 05 · Acid Undertone (Acid Frogs palette) -----------
-// Concentric expanding squares from centre, 6 channels. Replaces Renascent
-// #13's pink/blue/dark-blue with the 6 frog body colours (green, pink,
-// blue, yellow, red, gray). Channels 0-3 driven by individual sounds so
-// each event spawns its own coloured wave.
+// ----------- 05 · Acid Undertone (2-colour, no scanlines) -----------
+// Simplified per user's request: only 2 colours used — body's primary gem
+// + Pearl (light) — over the dark Renascent #13 background. Even channels
+// pulse primary, odd channels pulse pearl. Channels driven by sound:
+//   ch[0] primary  = kick
+//   ch[1] pearl    = clap
+//   ch[2] primary  = hat
+//   ch[3] pearl    = ACID hit
+// Scanlines removed — the simpler colour scheme reads cleaner without them.
 function drawUndertone(W, H, t, fft) {
   bgCtx.fillStyle = "#19181d";
   bgCtx.fillRect(0, 0, W, H);
 
-  // Trigger channels by sound:
-  // ch[0] green   = kick
-  // ch[1] pink    = clap
-  // ch[2] blue    = hat
-  // ch[3] yellow  = ACID
-  // ch[4] red     = clap second voice (offset)
-  // ch[5] gray    = hat second voice (offset)
   if (kickFlash > 0.85) undertoneCh[0] = 1;
-  if (clapFlash > 0.85) { undertoneCh[1] = 1; undertoneCh[4] = 0.6; }
-  if (hatFlash  > 0.85) { undertoneCh[2] = 1; undertoneCh[5] = 0.4; }
+  if (clapFlash > 0.85) undertoneCh[1] = 1;
+  if (hatFlash  > 0.85) undertoneCh[2] = 1;
   if (acidFlash > 0.85) undertoneCh[3] = 1;
 
   undertoneFlow += 1.5;
   const cX = W / 2, cY = H / 2;
   const mx = Math.max(W, H) * 1.6;
+  const theme = getTheme();
+  const palette = [theme.primary, FROG_PALETTE.pearl, theme.primary, FROG_PALETTE.pearl];
 
-  for (let i = 0; i < undertoneCh.length; i++) {
-    const ch = undertoneCh[i];
-    const colour = UNDERTONE_PALETTE[i];
-    const fl = (i / undertoneCh.length) * mx + undertoneFlow;
+  for (let i = 0; i < palette.length; i++) {
+    const ch = undertoneCh[i] || 0;
+    const colour = palette[i];
+    const fl = (i / palette.length) * mx + undertoneFlow;
     const ct = 4;
     for (let k = 0; k < ct; k++) {
       const s = (fl + k * 30) % mx;
@@ -1012,19 +1035,94 @@ function drawUndertone(W, H, t, fft) {
       bgCtx.strokeRect(cX - s / 2, cY - s / 2, s, s);
       bgCtx.restore();
     }
-    undertoneCh[i] *= 0.88;
+    undertoneCh[i] = ch * 0.88;
   }
+}
 
-  // CRT scanlines
-  bgCtx.save();
-  bgCtx.strokeStyle = "rgba(0,0,0,0.85)";
-  bgCtx.lineWidth = 1;
-  for (let y = 0; y < H; y += 4) {
-    bgCtx.beginPath();
-    bgCtx.moveTo(0, y); bgCtx.lineTo(W, y);
-    bgCtx.stroke();
+// ----------- 06 · TV Static · colour-coded glitch -----------
+// CRT-snow noise field, partitioned into horizontal bands. Each band is
+// dyed with a different gem colour from the active theme, so the static
+// reads as "colour-coded bars". Random horizontal slice glitches on every
+// kick (a band of pixels jumps left/right). Clap fires a colour-shift
+// flicker; ACID = full-bg highlight pulse.
+let _tvBandHeights = null;   // cached random band partitioning
+let _tvGlitchY = -1;         // y-position of the active glitch band (-1 = idle)
+let _tvGlitchAge = 0;        // frames remaining for the current glitch
+function drawTVStatic(W, H, t, fft) {
+  const theme = getTheme();
+  // Partition canvas into 6 bands of varying heights — cache per resize
+  if (!_tvBandHeights || _tvBandHeights.totalH !== H) {
+    _tvBandHeights = { totalH: H, bands: [] };
+    const palette = [theme.primary, theme.accent, theme.highlight,
+                     FROG_PALETTE.pearl, theme.primary, theme.accent];
+    let yCursor = 0;
+    for (let i = 0; i < 6; i++) {
+      const remaining = H - yCursor;
+      const remainingBands = 6 - i;
+      // Random band height between 60% and 140% of even split
+      const evenH = remaining / remainingBands;
+      const bh = Math.round(evenH * (0.6 + Math.random() * 0.8));
+      const h = Math.min(bh, remaining - (remainingBands - 1) * 20);
+      _tvBandHeights.bands.push({ y: yCursor, h, colour: palette[i] });
+      yCursor += h;
+    }
+    // Last band fills remaining
+    if (_tvBandHeights.bands.length) {
+      _tvBandHeights.bands[_tvBandHeights.bands.length - 1].h = H - _tvBandHeights.bands[_tvBandHeights.bands.length - 1].y;
+    }
   }
-  bgCtx.restore();
+  // Solid black wipe so the static only shows where we draw it
+  bgCtx.fillStyle = "#000";
+  bgCtx.fillRect(0, 0, W, H);
+  // Each band: render fast random noise tinted by band colour
+  for (const band of _tvBandHeights.bands) {
+    const rgb = hexToRgb(band.colour).split(",").map(Number);
+    // Fill base with low-alpha colour
+    bgCtx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.15)`;
+    bgCtx.fillRect(0, band.y, W, band.h);
+    // Sparse "snow" pixels — sample a random subset for performance
+    const px = 4; // pixel size of each noise block
+    const noiseCount = Math.floor((W * band.h) / (px * px) / 6);
+    for (let n = 0; n < noiseCount; n++) {
+      const nx = Math.floor(Math.random() * W);
+      const ny = band.y + Math.floor(Math.random() * band.h);
+      const v = Math.random();
+      // Mostly band-colour pixels, occasional white speckle for sparkle
+      if (v > 0.85) {
+        bgCtx.fillStyle = `rgba(255,255,255,${0.6 + Math.random() * 0.4})`;
+      } else {
+        const a = 0.4 + Math.random() * 0.5;
+        bgCtx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+      }
+      bgCtx.fillRect(nx, ny, px, px);
+    }
+  }
+  // KICK glitch: slice a random band horizontally, shift it left/right
+  if (kickFlash > 0.85 && _tvGlitchAge <= 0) {
+    _tvGlitchY = Math.floor(Math.random() * (H - 30));
+    _tvGlitchAge = 6; // frames
+  }
+  if (_tvGlitchAge > 0 && _tvGlitchY >= 0) {
+    const sliceH = 8 + Math.floor(Math.random() * 18);
+    const dx = (Math.random() - 0.5) * 80 * kickFlash;
+    try {
+      const data = bgCtx.getImageData(0, _tvGlitchY, W, sliceH);
+      bgCtx.putImageData(data, dx, _tvGlitchY);
+    } catch (e) { /* canvas tainting on some configs */ }
+    _tvGlitchAge--;
+  }
+  // CLAP colour-shift: tint a random horizontal band with accent
+  if (clapFlash > 0.85) {
+    const shiftY = Math.floor(Math.random() * H);
+    const shiftH = 10 + Math.floor(Math.random() * 30);
+    bgCtx.fillStyle = `rgba(${hexToRgb(theme.accent)},0.45)`;
+    bgCtx.fillRect(0, shiftY, W, shiftH);
+  }
+  // ACID = full-bg highlight pulse
+  if (acidFlash > 0.05) {
+    bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.35})`;
+    bgCtx.fillRect(0, 0, W, H);
+  }
 }
 
 // Frog animation is DRIVEN BY THE AUDIO SEQUENCER — frameIdx advances inside the
