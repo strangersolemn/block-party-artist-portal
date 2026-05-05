@@ -638,12 +638,14 @@ let visStartTime = performance.now();
 // Curated to user's 5 keepers. Drove by multiple flash signals (kick/clap/hat/
 // acid) so visualizers stay alive even when the kick drops out in bars 6-8.
 const VISUALIZERS = [
-  { id: "spectrum",  label: "01 · Spectrum bars (mirrored)" },
-  { id: "lines303",  label: "02 · Mrs 303 lines (Acid Family)" },
-  { id: "strobe",    label: "03 · Strobe" },
-  { id: "blockdata", label: "04 · Block-data scroll" },
-  { id: "undertone", label: "05 · Acid Undertone (2-colour)" },
-  { id: "tvstatic",  label: "06 · TV Static · colour-coded glitch" },
+  { id: "spectrum",  label: "01 · Mirror Bars" },
+  { id: "lines303",  label: "02 · Mrs 303 (vertical waves)" },
+  { id: "lines303m", label: "03 · Mr 303 (horizontal ripple)" },
+  { id: "lines303b", label: "04 · Baby 303 (centre sawtooth)" },
+  { id: "strobe",    label: "05 · Strobe" },
+  { id: "blockdata", label: "06 · Block Data" },
+  { id: "undertone", label: "07 · Undertone" },
+  { id: "tvstatic",  label: "08 · Static (B&W)" },
 ];
 
 // Acid Frogs palette — 7 gemstone-named body colours, with rarity tiers and
@@ -785,7 +787,9 @@ function drawVisualizer() {
   const fft = getFFT();                                     // -100..0 dB array, 64 bins, or null
   switch (currentVis) {
     case "spectrum":  return drawSpectrum(W, H, t, fft);
-    case "lines303":  return drawLines303(W, H, t, fft);
+    case "lines303":  return drawLines303(W, H, t, fft);    // Mrs 303 vertical
+    case "lines303m": return drawLines303M(W, H, t, fft);   // Mr 303 horizontal
+    case "lines303b": return drawLines303B(W, H, t, fft);   // Baby 303 sawtooth
     case "strobe":    return drawStrobe(W, H, t, fft);
     case "blockdata": return drawBlockdata(W, H, t, fft);
     case "undertone": return drawUndertone(W, H, t, fft);
@@ -815,36 +819,41 @@ function fftMag(fft) {
 // All decay independently in the animate() RAF tick.
 // ============================================================================
 
-// ----------- 01 · Spectrum bars (mirrored, full width) -----------
-// Mirrored across centre. Bands themed:
-//   low bars (kick range)  → primary
-//   mid bars (clap range)  → accent
-//   high bars (hat range)  → highlight
-// ACID hit = full-bg highlight flash.
+// ----------- 01 · Mirror Bars (middle-out, mirrored top + bottom) -----------
+// Bars now anchor to the HORIZONTAL CENTRE LINE and grow up + down equally,
+// AND are mirrored left/right across the vertical centre. Result: bars
+// emerge from the middle of the canvas in all 4 directions when hits land.
+//   low bars (kick)  → primary
+//   mid bars (clap)  → accent
+//   high bars (hat)  → highlight
 function drawSpectrum(W, H, t, fft) {
-  bgCtx.fillStyle = "rgba(0,0,0,0.5)";
+  bgCtx.fillStyle = "#000";
   bgCtx.fillRect(0, 0, W, H);
   const theme = getTheme();
   const colours = [theme.primary, theme.accent, theme.highlight];
   const mag = fftMag(fft);
   const N = 24;
   const bw = W / (N * 2);
+  const cy = H / 2;
   for (let i = 0; i < N; i++) {
     const fftV = mag ? mag[Math.min(i * 2, mag.length - 1)] : 0;
-    const idle = 0.05 + 0.05 * Math.sin(t * 2 + i * 0.3);
+    const idle = 0.04 + 0.04 * Math.sin(t * 2 + i * 0.3);
     let punch = 0;
     let band;
-    if (i < 6)        { punch = kickFlash * 0.45; band = 0; }
-    else if (i < 14)  { punch = clapFlash * 0.5;  band = 1; }
-    else              { punch = hatFlash  * 0.4;  band = 2; }
+    if (i < 6)        { punch = kickFlash * 0.5; band = 0; }
+    else if (i < 14)  { punch = clapFlash * 0.55; band = 1; }
+    else              { punch = hatFlash  * 0.45; band = 2; }
     const m = Math.max(idle, fftV) + punch;
-    const h = Math.min(1, m) * H * 0.85;
+    // Half-height — total bar = up half + down half from centre
+    const halfH = Math.min(1, m) * H * 0.45;
     bgCtx.fillStyle = colours[band];
-    bgCtx.globalAlpha = 0.55 + Math.min(m, 1) * 0.45;
+    bgCtx.globalAlpha = 0.6 + Math.min(m, 1) * 0.4;
+    // Right side
     const xR = W / 2 + i * bw;
-    bgCtx.fillRect(xR + 1, H - h, bw - 2, h);
+    bgCtx.fillRect(xR + 1, cy - halfH, bw - 2, halfH * 2);
+    // Mirrored left side
     const xL = W / 2 - (i + 1) * bw;
-    bgCtx.fillRect(xL + 1, H - h, bw - 2, h);
+    bgCtx.fillRect(xL + 1, cy - halfH, bw - 2, halfH * 2);
   }
   bgCtx.globalAlpha = 1;
   if (acidFlash > 0.05) {
@@ -900,7 +909,82 @@ function drawLines303(W, H, t, fft) {
   }
 }
 
-// ----------- 03 · Strobe -----------
+// ----------- Mr 303 (horizontal lines, violent ripples) -----------
+// Source: strangersolemn's Mr 303 inscription. Horizontal lines at 20px
+// vertical spacing across the full width. Sin warp per X position, but
+// the kick ripple is 3× more violent than Mrs 303 (×150 vs ×50) — that's
+// the explicit comment in the original source. Result: very calm at idle,
+// HARD ripple punches on kick that rip through the whole field.
+function drawLines303M(W, H, t, fft) {
+  bgCtx.fillStyle = "#000";
+  bgCtx.fillRect(0, 0, W, H);
+  const theme = getTheme();
+  const now = performance.now();
+  if (now - _303LastFlip > 600) { _303ColorState = !_303ColorState; _303LastFlip = now; }
+  bgCtx.strokeStyle = _303ColorState ? theme.accent : theme.primary;
+  bgCtx.lineWidth = 3 + clapFlash * 2;
+  _303Flow += 0.6 + hatFlash * 0.5;
+  for (let y = -20; y < H + 40; y += 20) {
+    bgCtx.beginPath();
+    for (let x = 0; x <= W; x += 4) {
+      const baseOffset = Math.sin((y + _303Flow) * 0.1 + now * 0.002) * 10;
+      let rippleOffset = 0;
+      if (kickFlash > 0.02) {
+        const rippleTime = now * 0.015;
+        const rippleFreq = (y + _303Flow) * 0.08;
+        rippleOffset = Math.sin(rippleFreq + rippleTime) * kickFlash * 150; // 3× violent
+      }
+      if (x === 0) bgCtx.moveTo(x, y + baseOffset + rippleOffset);
+      else bgCtx.lineTo(x, y + baseOffset + rippleOffset);
+    }
+    bgCtx.stroke();
+  }
+  if (acidFlash > 0.05) {
+    bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.3})`;
+    bgCtx.fillRect(0, 0, W, H);
+  }
+}
+
+// ----------- Baby 303 (sawtooth lines from centre outward) -----------
+// Source: strangersolemn's Baby 303 inscription. Lines spaced 80px
+// vertically (much sparser than the others). Triangle-wave (sawtooth)
+// shape rather than sin — gives crisper "shark teeth" look. Wave radiates
+// from horizontal centre outward. Kick = sin spike + small random jitter.
+function drawLines303B(W, H, t, fft) {
+  bgCtx.fillStyle = "#000";
+  bgCtx.fillRect(0, 0, W, H);
+  const theme = getTheme();
+  const now = performance.now();
+  if (now - _303LastFlip > 600) { _303ColorState = !_303ColorState; _303LastFlip = now; }
+  bgCtx.strokeStyle = _303ColorState ? theme.accent : theme.primary;
+  bgCtx.lineWidth = 3 + clapFlash * 2;
+  _303Flow += 0.6 + hatFlash * 0.5;
+  const cX = W / 2;
+  const period = 60;
+  for (let y = 40; y <= H + 40; y += 80) {
+    bgCtx.beginPath();
+    for (let x = 0; x <= W; x += 5) {
+      const distFromCenter = Math.abs(x - cX);
+      const wavePos = distFromCenter - (_303Flow * 2);
+      // Triangle wave: 0..20..0..20 cycle
+      const sawWave = (Math.abs(((wavePos % period) + period) % period - period / 2) / (period / 2)) * 20;
+      let reactionOffset = 0;
+      if (kickFlash > 0.02) {
+        const spike = Math.sin(now * 0.02 + x) * kickFlash * 30;
+        reactionOffset = spike + (Math.random() - 0.5) * kickFlash * 10;
+      }
+      if (x === 0) bgCtx.moveTo(x, y + sawWave + reactionOffset);
+      else bgCtx.lineTo(x, y + sawWave + reactionOffset);
+    }
+    bgCtx.stroke();
+  }
+  if (acidFlash > 0.05) {
+    bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.3})`;
+    bgCtx.fillRect(0, 0, W, H);
+  }
+}
+
+// ----------- 05 · Strobe -----------
 // Idle base = body's primary gem colour (was hardcoded Jade). Breathes gently.
 // Clap punches with the accent colour (lifts the field). Kick = deep dark
 // punch for rhythmic contrast. ACID = highlight flash on top.
@@ -944,8 +1028,12 @@ function drawStrobe(W, H, t, fft) {
 const _bdRowSpeeds = [];   // per-row scroll speed × direction (cached on first draw)
 const _bdRowOffsets = [];  // per-row independent scroll position
 function drawBlockdata(W, H, t, fft) {
-  bgCtx.fillStyle = "rgba(0,0,0,0.7)";
+  bgCtx.fillStyle = "#000";
   bgCtx.fillRect(0, 0, W, H);
+  // CLAP: text disappears briefly on the hit so each clap punctuates the
+  // visual with a black blink. Threshold 0.5 so the off-flash is short and
+  // tight (the field comes back as clapFlash decays past .5).
+  if (clapFlash > 0.5) return;
   const theme = getTheme();
   const merkle = (current && current.merkle) || "0".repeat(64);
   const nonce  = (current && current.nonceHex) || "00000000";
@@ -1005,7 +1093,7 @@ function drawBlockdata(W, H, t, fft) {
 //   ch[3] pearl    = ACID hit
 // Scanlines removed — the simpler colour scheme reads cleaner without them.
 function drawUndertone(W, H, t, fft) {
-  bgCtx.fillStyle = "#19181d";
+  bgCtx.fillStyle = "#000";
   bgCtx.fillRect(0, 0, W, H);
 
   if (kickFlash > 0.85) undertoneCh[0] = 1;
@@ -1039,68 +1127,29 @@ function drawUndertone(W, H, t, fft) {
   }
 }
 
-// ----------- 06 · TV Static · colour-coded glitch -----------
-// CRT-snow noise field, partitioned into horizontal bands. Each band is
-// dyed with a different gem colour from the active theme, so the static
-// reads as "colour-coded bars". Random horizontal slice glitches on every
-// kick (a band of pixels jumps left/right). Clap fires a colour-shift
-// flicker; ACID = full-bg highlight pulse.
-let _tvBandHeights = null;   // cached random band partitioning
-let _tvGlitchY = -1;         // y-position of the active glitch band (-1 = idle)
-let _tvGlitchAge = 0;        // frames remaining for the current glitch
+// ----------- 08 · Static (B&W only) -----------
+// Pure CRT snow on black — no colour-coding (user removed). Random white
+// pixels every frame, kick fires a horizontal slice glitch (cable-broken
+// effect), clap = brief white wash, ACID = white pulse.
+let _tvGlitchY = -1;
+let _tvGlitchAge = 0;
 function drawTVStatic(W, H, t, fft) {
-  const theme = getTheme();
-  // Partition canvas into 6 bands of varying heights — cache per resize
-  if (!_tvBandHeights || _tvBandHeights.totalH !== H) {
-    _tvBandHeights = { totalH: H, bands: [] };
-    const palette = [theme.primary, theme.accent, theme.highlight,
-                     FROG_PALETTE.pearl, theme.primary, theme.accent];
-    let yCursor = 0;
-    for (let i = 0; i < 6; i++) {
-      const remaining = H - yCursor;
-      const remainingBands = 6 - i;
-      // Random band height between 60% and 140% of even split
-      const evenH = remaining / remainingBands;
-      const bh = Math.round(evenH * (0.6 + Math.random() * 0.8));
-      const h = Math.min(bh, remaining - (remainingBands - 1) * 20);
-      _tvBandHeights.bands.push({ y: yCursor, h, colour: palette[i] });
-      yCursor += h;
-    }
-    // Last band fills remaining
-    if (_tvBandHeights.bands.length) {
-      _tvBandHeights.bands[_tvBandHeights.bands.length - 1].h = H - _tvBandHeights.bands[_tvBandHeights.bands.length - 1].y;
-    }
-  }
-  // Solid black wipe so the static only shows where we draw it
   bgCtx.fillStyle = "#000";
   bgCtx.fillRect(0, 0, W, H);
-  // Each band: render fast random noise tinted by band colour
-  for (const band of _tvBandHeights.bands) {
-    const rgb = hexToRgb(band.colour).split(",").map(Number);
-    // Fill base with low-alpha colour
-    bgCtx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.15)`;
-    bgCtx.fillRect(0, band.y, W, band.h);
-    // Sparse "snow" pixels — sample a random subset for performance
-    const px = 4; // pixel size of each noise block
-    const noiseCount = Math.floor((W * band.h) / (px * px) / 6);
-    for (let n = 0; n < noiseCount; n++) {
-      const nx = Math.floor(Math.random() * W);
-      const ny = band.y + Math.floor(Math.random() * band.h);
-      const v = Math.random();
-      // Mostly band-colour pixels, occasional white speckle for sparkle
-      if (v > 0.85) {
-        bgCtx.fillStyle = `rgba(255,255,255,${0.6 + Math.random() * 0.4})`;
-      } else {
-        const a = 0.4 + Math.random() * 0.5;
-        bgCtx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
-      }
-      bgCtx.fillRect(nx, ny, px, px);
-    }
+  // Pure white snow on black
+  const px = 4;
+  const noiseCount = Math.floor((W * H) / (px * px) / 8);
+  for (let n = 0; n < noiseCount; n++) {
+    const nx = Math.floor(Math.random() * W);
+    const ny = Math.floor(Math.random() * H);
+    const a = 0.3 + Math.random() * 0.7;
+    bgCtx.fillStyle = `rgba(255,255,255,${a})`;
+    bgCtx.fillRect(nx, ny, px, px);
   }
-  // KICK glitch: slice a random band horizontally, shift it left/right
+  // KICK glitch: slice a random horizontal band, shift it left/right
   if (kickFlash > 0.85 && _tvGlitchAge <= 0) {
     _tvGlitchY = Math.floor(Math.random() * (H - 30));
-    _tvGlitchAge = 6; // frames
+    _tvGlitchAge = 6;
   }
   if (_tvGlitchAge > 0 && _tvGlitchY >= 0) {
     const sliceH = 8 + Math.floor(Math.random() * 18);
@@ -1108,19 +1157,17 @@ function drawTVStatic(W, H, t, fft) {
     try {
       const data = bgCtx.getImageData(0, _tvGlitchY, W, sliceH);
       bgCtx.putImageData(data, dx, _tvGlitchY);
-    } catch (e) { /* canvas tainting on some configs */ }
+    } catch (e) {}
     _tvGlitchAge--;
   }
-  // CLAP colour-shift: tint a random horizontal band with accent
-  if (clapFlash > 0.85) {
-    const shiftY = Math.floor(Math.random() * H);
-    const shiftH = 10 + Math.floor(Math.random() * 30);
-    bgCtx.fillStyle = `rgba(${hexToRgb(theme.accent)},0.45)`;
-    bgCtx.fillRect(0, shiftY, W, shiftH);
+  // CLAP = brief white flash
+  if (clapFlash > 0.05) {
+    bgCtx.fillStyle = `rgba(255,255,255,${clapFlash * 0.25})`;
+    bgCtx.fillRect(0, 0, W, H);
   }
-  // ACID = full-bg highlight pulse
+  // ACID = bigger white wash
   if (acidFlash > 0.05) {
-    bgCtx.fillStyle = `rgba(${hexToRgb(theme.highlight)},${acidFlash * 0.35})`;
+    bgCtx.fillStyle = `rgba(255,255,255,${acidFlash * 0.5})`;
     bgCtx.fillRect(0, 0, W, H);
   }
 }
