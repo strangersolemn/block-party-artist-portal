@@ -260,11 +260,13 @@ html,body{
 }
 .squad-card:hover{border-color:var(--led);transform:translateY(-1px)}
 .squad-shape{
-  width:64px;height:64px;border-radius:50%;
-  background:#2a2c30;
-  border:2px solid rgba(255,255,255,0.12);
-  box-shadow:inset 0 2px 4px rgba(0,0,0,0.4);
+  width:64px;height:64px;border-radius:6px;
+  background:#0a0b0d;
+  border:1px solid rgba(255,255,255,0.08);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);
+  position:relative;overflow:hidden;
 }
+.squad-shape canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
 .squad-id{font-size:9px;color:var(--text-faint);letter-spacing:.5px;font-family:"SF Mono",monospace}
 
 /* =================== CHAIN SLOTS =================== */
@@ -313,11 +315,12 @@ html,body{
   font-size:9px;color:var(--text-faint);letter-spacing:1px;
 }
 .slot-shape{
-  aspect-ratio:1/1;border-radius:6px;background:#2a2c30;
-  display:flex;align-items:center;justify-content:center;
+  aspect-ratio:1/1;border-radius:6px;background:#0a0b0d;
   border:1px solid rgba(255,255,255,0.06);
-  box-shadow:inset 0 2px 4px rgba(0,0,0,0.4);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);
+  position:relative;overflow:hidden;
 }
+.slot-shape canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
 .slot-info{font-size:9px;color:var(--text-dim);text-align:center;line-height:1.3}
 .slot-controls{
   display:grid;grid-template-columns:1fr auto 1fr auto;gap:4px;align-items:center;
@@ -358,20 +361,26 @@ html,body{
   position:relative;overflow:hidden;
 }
 .frog-blob{
-  width:62%;height:62%;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%, #555 0%, #2a2c30 60%, #1a1b1d 100%);
-  border:2px solid rgba(255,255,255,0.08);
-  box-shadow:inset 0 4px 12px rgba(0,0,0,0.5), 0 0 30px rgba(255,167,40,0.15);
-  transition:all .25s;
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .25s;
+}
+.frog-blob canvas{
+  width:100%;height:100%;image-rendering:pixelated;
 }
 .frog-blob.active{
-  background:radial-gradient(circle at 35% 30%, hsl(var(--frog-hue,140), 70%, 65%) 0%, hsl(var(--frog-hue,140), 60%, 45%) 60%, hsl(var(--frog-hue,140), 70%, 25%) 100%);
-  box-shadow:inset 0 4px 12px rgba(0,0,0,0.4), 0 0 60px hsl(var(--frog-hue,140), 80%, 50%);
   animation:frogBreathe 1.6s ease-in-out infinite;
 }
 @keyframes frogBreathe{
-  50%{transform:scale(1.04)}
+  50%{transform:scale(1.03)}
 }
+.frog-loading{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,0.35);font-size:10px;letter-spacing:2px;
+  background:rgba(0,0,0,0.5);text-transform:uppercase;
+  pointer-events:none;
+}
+.frog-loading.hidden{display:none}
 .frog-meta{
   display:flex;justify-content:space-between;align-items:center;
   font-size:10px;color:var(--text-faint);letter-spacing:1px;
@@ -500,7 +509,11 @@ html,body{
     <div class="featured">
       <div class="frog-stage">
         <div class="frog-canvas-wrap">
-          <div class="frog-blob" id="frog-blob"></div>
+          <canvas id="frog-bg-canvas" width="500" height="500" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated"></canvas>
+          <div class="frog-blob" id="frog-blob">
+            <canvas id="frog-canvas" width="500" height="500"></canvas>
+          </div>
+          <div class="frog-loading hidden" id="frog-loading">loading from chain…</div>
         </div>
         <div class="frog-meta">
           <span id="frog-id">— · no frog loaded</span>
@@ -575,11 +588,125 @@ html,body{
 
 <script>
 // ============================================================================
-// MOCKUP 15 — DM2 aesthetic shell. This is a VISUAL EXPLORATION of the studio
-// theme, not a full functional rewrite. Wire-up is intentionally minimal:
-// just enough state for hover/active/queued rendering so you can see the
-// aesthetic in motion. The real audio engine + Nexus wallet + recursive
-// ownership lookup live in mockup 14 (and the inscribed mock-parent.html).
+// MOCKUP 15 — DM2 studio + on-chain trait rendering
+// Real frog sprites pulled live from Bitcoin via /content/{id}. Audio + Nexus
+// wallet live in mockup 14; this is the aesthetic + visual rendering test.
+// ============================================================================
+
+// ============================================================================
+// ON-CHAIN MANIFEST — every trait verified live on chain 2026-05-05
+// ============================================================================
+const ORD_BASE = location.hostname.includes("ordinals.com") || location.pathname.startsWith("/content/")
+  ? "" : "https://ordinals.com";
+
+const BODIES = [
+  { id: "0f752f44e73af70349e81d5428af4ab9a48749e0a356c1118d3d9307cf1a4a5ai0", name: "Jade",     hex: "#2e5230", tier: "common",     w: 58 },
+  { id: "475de8098affe1457bfbd15bbcc881c3a1465aed81aa19c853a475abf3667dc2i4", name: "Larimar",  hex: "#a6d1fe", tier: "medium",     w: 12 },
+  { id: "475de8098affe1457bfbd15bbcc881c3a1465aed81aa19c853a475abf3667dc2i5", name: "Hematite", hex: "#373737", tier: "medium",     w: 12 },
+  { id: "475de8098affe1457bfbd15bbcc881c3a1465aed81aa19c853a475abf3667dc2i2", name: "Pearl",    hex: "#d1d1d1", tier: "medium",     w: 12 },
+  { id: "10bc9405d6fc0d682b65d8cb2f970f065ab58aae3b8d495b859194cbb8ccbac1i2", name: "Ruby",     hex: "#d22a46", tier: "legendary",  w:  3 },
+  { id: "475de8098affe1457bfbd15bbcc881c3a1465aed81aa19c853a475abf3667dc2i1", name: "Amethyst", hex: "#9b56d0", tier: "legendary",  w:  2 },
+  { id: "475de8098affe1457bfbd15bbcc881c3a1465aed81aa19c853a475abf3667dc2i3", name: "Topaz",    hex: "#eed248", tier: "mythical",   w:  1 },
+];
+const HEADS = [
+  ...["Peaky Blue","Peaky Brown","Sweatband Blue","Tribal Green","Plunger","Russian","Tribal Orange"]
+    .map((n,i)=>({id:`56698bf4d9ae87475765cec2e7d119e93b03e60ce6483bbb2577226fe1d4a537i${i}`,name:n})),
+  ...["Peaky Grey","Frog Green","Emporer","Wizard Blue","Gizmo","Crown","Tinfoil","Frog Blue Light","Pizza","Chicken","Mc D","Sailor","Bandana White","Frog Orange","Snap Blue","Frog Blue","Viking","Police","Gangster Crown"]
+    .map((n,i)=>({id:`a258f4f15fd760b22153f797cbab8e7d669d7f20f0f050f14aa96419532b09cbi${i}`,name:n})),
+  ...["Rice","Snap Red","On Chain Beanie","Dunce","Crown","Propellor","Spike","Acid Beanie Blue","Snap Blue Light","BTC Bucket Orange","Runes Beanie","Fro","Rasta Crown","BTC Bucket Yellow","Sweatband Red","Sweatband Blue Light","Quiff Blonde","Acid Beanie Red","Headband"]
+    .map((n,i)=>({id:`262ec0ed4e98ee88210d33bce5a9615a9445004f6a28de56f8b34b4552d0b24di${i}`,name:n})),
+  ...["Karen Bob","Slick Rick","Karen High"]
+    .map((n,i)=>({id:`34edafdee8ecac2dfbbb1dc294a4e8262dbafcb97afb7d0818db07cc3f91ff6bi${i}`,name:n})),
+  { id: "728dfe7f99551f92fb7f8126ae1e71fc987696477fbd8622e87476bb08420deai1", name: "Conehead Jade", requires: { body: "Jade" } },
+];
+const EYES = [
+  ...["Xray","Dead Frog Low","Saucers","Lazy Low","Saucers Low","Dead Frog","Suss Low","Fear","Billy","Robo Low","Fiend Low","Aviator Red","Shiner Low","Aviator Pink","Fear Low","Nerd","Sad","Bored Low","Aviator Blue","Eye 19","Aviator Grey","VR Blue"]
+    .map((n,i)=>({id:`d5195b214c762dcea0e428ba0872167bf1c0ca8f30c891f388278c52139d5461i${i}`,name:n})),
+  ...["Karen Side Eye","Karen Suss Low","VR Yellow","Karen Fiend"]
+    .map((n,i)=>({id:`0f474669fc0ace3c5a3507c397f6b7ff1911d9d487bc64a33d473dd0a1523d71i${i}`,name:n})),
+];
+const CLOTHING = [
+  ...["Soccer Scarf Red","Soccer Scarf Green","Soccer Scarf Blue"]
+    .map((n,i)=>({id:`c4213efe2e295fe8360e06947134fd2c0ad9cd8a062fc84135b67b5a6f1e80ffi${i}`,name:n})),
+  ...["Smart Suit","Tribal Orange","BP Tee","Wife Beater","Flasher","Tribal Green"]
+    .map((n,i)=>({id:`ab7c1dcf676b04c234c18e56427827d5daa994258ad8ed2b8d594a51512218afi${i}`,name:n})),
+  ...["Sweater Green","Sweater BTC","Sweater Grey","Sweater Red","Sweater Red Splatter","Sweater Blue","Sweater Ord","Track Red","Track Blue","Track Grey","Emporer","Bubble Blue"]
+    .map((n,i)=>({id:`a7fa12bee88b30d15eae39cf3d8327c5286cf157204552a89d458e264454bd33i${i}`,name:n})),
+];
+const MOUTHS = [
+  { id: "0f752f44e73af70349e81d5428af4ab9a48749e0a356c1118d3d9307cf1a4a5ai1", name: "Frog Grin" },
+  { id: "0f752f44e73af70349e81d5428af4ab9a48749e0a356c1118d3d9307cf1a4a5ai2", name: "Frog Frown" },
+];
+
+// ============================================================================
+// LOADER + COMPOSITOR
+// ============================================================================
+const _spriteCache = new Map();
+function loadSprite(id) {
+  if (_spriteCache.has(id)) return _spriteCache.get(id);
+  const p = new Promise((res, rej) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error("failed " + id));
+    img.src = `${ORD_BASE}/content/${id}`;
+  });
+  _spriteCache.set(id, p);
+  return p;
+}
+async function loadFrogSprites(traits) {
+  const [body, mouth, eyes, clothing, head] = await Promise.all([
+    loadSprite(traits.body.id),
+    loadSprite(traits.mouth.id),
+    loadSprite(traits.eyes.id),
+    loadSprite(traits.clothing.id),
+    loadSprite(traits.head.id),
+  ]);
+  return { body, mouth, eyes, clothing, head };
+}
+function pickWeighted(arr) {
+  const total = arr.reduce((s,x)=>s+(x.w||1),0);
+  let r = Math.random()*total;
+  for (const x of arr) { r -= (x.w||1); if (r<=0) return x; }
+  return arr[arr.length-1];
+}
+function pickRandom(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+function pickHeadFor(body) {
+  const eligible = HEADS.filter(h => !h.requires?.body || h.requires.body === body.name);
+  return pickRandom(eligible);
+}
+function pickTraits(forceBody = null) {
+  const body = forceBody
+    ? (BODIES.find(b => b.name === forceBody) || BODIES[0])
+    : pickWeighted(BODIES);
+  return {
+    body,
+    head: pickHeadFor(body),
+    eyes: pickRandom(EYES),
+    clothing: pickRandom(CLOTHING),
+    mouth: pickRandom(MOUTHS),
+  };
+}
+function drawFrogBg(ctx, hex, W, H) {
+  const g = ctx.createRadialGradient(W/2, H*0.45, W*0.05, W/2, H*0.5, W*0.7);
+  g.addColorStop(0, hex);
+  const h = hex.replace("#",""); const r=parseInt(h.length===3?h[0]+h[0]:h.slice(0,2),16),
+    gg=parseInt(h.length===3?h[1]+h[1]:h.slice(2,4),16), b=parseInt(h.length===3?h[2]+h[2]:h.slice(4,6),16);
+  g.addColorStop(0.6, `rgb(${(r*0.4)|0},${(gg*0.4)|0},${(b*0.4)|0})`);
+  g.addColorStop(1, "#000");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+function drawFrogSpritesTo(ctx, sprites, W, H) {
+  for (const layer of [sprites.body, sprites.mouth, sprites.eyes, sprites.clothing, sprites.head]) {
+    if (layer) ctx.drawImage(layer, 0, 0, W, H);
+  }
+}
+
+// ============================================================================
+// MOCKUP 15 — DM2 aesthetic shell. Wallet + chain + audio are mocked here;
+// the real audio engine + Nexus wallet + recursive ownership lookup live
+// in mockup 14 (and the inscribed mock-parent.html).
 // ============================================================================
 
 const playBtn        = document.getElementById("playBtn");
@@ -692,12 +819,21 @@ let activeSlot = -1;
 let queuedSlot = -1;
 let currentFrog = null; // the frog showing in the featured visualizer
 
-// Pull a fresh demo frog into the featured stage
-function loadFeaturedFrog(frog) {
+// Cache the featured-area canvases the first time
+const _frogCanvas   = document.getElementById("frog-canvas");
+const _frogBgCanvas = document.getElementById("frog-bg-canvas");
+const _frogCtx      = _frogCanvas?.getContext("2d");
+const _frogBgCtx    = _frogBgCanvas?.getContext("2d");
+const _frogLoading  = document.getElementById("frog-loading");
+
+// Pull a fresh frog into the featured stage — actually composites on-chain
+// sprites onto the featured canvas
+async function loadFeaturedFrog(frog) {
   currentFrog = frog;
   if (!frog) {
     frogBlob.classList.remove("active");
-    frogBlob.style.removeProperty("--frog-hue");
+    if (_frogCtx) _frogCtx.clearRect(0, 0, _frogCanvas.width, _frogCanvas.height);
+    if (_frogBgCtx) _frogBgCtx.clearRect(0, 0, _frogBgCanvas.width, _frogBgCanvas.height);
     frogId.textContent = "— · no frog loaded";
     infoBlock.textContent = "—";
     infoRiffA.textContent = "—";
@@ -705,40 +841,41 @@ function loadFeaturedFrog(frog) {
     infoColour.textContent = "—";
     return;
   }
-  frogBlob.classList.toggle("active", isPlaying || chainPlaying);
-  frogBlob.style.setProperty("--frog-hue", frog.hue);
-  frogId.textContent = frog.id.slice(0, 8) + "…" + frog.id.slice(-4);
-  infoBlock.textContent = "#" + (940000 + Math.abs(hashOf(frog.id)) % 2016);
-  infoRiffA.textContent = mockNotes(frog.hue, 0);
-  infoRiffB.textContent = mockNotes(frog.hue, 1);
-  infoColour.textContent = colourName(frog.hue);
+  // Show loader while sprites fetch from chain
+  if (_frogLoading) _frogLoading.classList.remove("hidden");
+  // Gem-tinted radial gradient bg
+  if (_frogBgCtx) drawFrogBg(_frogBgCtx, frog.body.hex, _frogBgCanvas.width, _frogBgCanvas.height);
+  // Quick info update before sprites finish
+  frogId.textContent = frog.body.name + " · " + frog.head.name;
+  infoBlock.textContent = "#" + (940000 + Math.abs(hashOf(frog.body.id + frog.head.id)) % 2016);
+  infoRiffA.textContent = mockNotes(frog.body.id, 0);
+  infoRiffB.textContent = mockNotes(frog.body.id, 1);
+  infoColour.textContent = frog.body.name.toUpperCase();
+  try {
+    const sprites = await loadFrogSprites(frog);
+    _frogCtx.clearRect(0, 0, _frogCanvas.width, _frogCanvas.height);
+    drawFrogSpritesTo(_frogCtx, sprites, _frogCanvas.width, _frogCanvas.height);
+    frogBlob.classList.toggle("active", isPlaying || chainPlaying);
+    if (_frogLoading) _frogLoading.classList.add("hidden");
+  } catch (e) {
+    console.warn("[frog] load failed", e);
+    if (_frogLoading) _frogLoading.textContent = "load failed: " + e.message;
+  }
 }
 function hashOf(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))&0xfffff;return h;}
-function mockNotes(hue, riff){
+function mockNotes(seedStr, riff){
   const pool = ["c2","b1","bb1","a1","ab1","g1","gb1","f1","eb1","d1","db1","c1"];
   const out = [];
-  for (let i = 0; i < 4 + (riff?1:0); i++) out.push(pool[(hue + i*7 + riff*3) % pool.length]);
+  const h = hashOf(seedStr);
+  for (let i = 0; i < 4 + (riff?1:0); i++) out.push(pool[(h + i*7 + riff*3) % pool.length]);
   return out.join(" · ");
 }
-function colourName(hue){
-  if (hue < 30 || hue >= 330) return "RED";
-  if (hue < 60) return "ORANGE";
-  if (hue < 90) return "YELLOW";
-  if (hue < 170) return "GREEN";
-  if (hue < 210) return "CYAN";
-  if (hue < 270) return "BLUE";
-  return "PINK";
-}
 
-// Demo-mode squad: 8 random colored frogs
+// Demo-mode squad: 8 random frogs with real on-chain traits
 function genDemoSquad() {
   squad = [];
   for (let i = 0; i < 8; i++) {
-    const hue = (i * 47) % 360;
-    squad.push({
-      id: "demo" + i.toString(16) + "deadbeef" + i + "i0",
-      hue,
-    });
+    squad.push(pickTraits()); // each one has body, head, eyes, clothing, mouth
   }
 }
 
@@ -749,11 +886,23 @@ function renderSquad() {
     const card = document.createElement("div");
     card.className = "squad-card";
     card.innerHTML = `
-      <div class="squad-shape" style="background:hsl(${frog.hue},65%,52%);box-shadow:inset 0 2px 4px rgba(0,0,0,0.5), 0 0 12px hsl(${frog.hue},80%,55%)"></div>
-      <div class="squad-id">${frog.id.slice(0,6)}…${frog.id.slice(-4)}</div>
+      <div class="squad-shape">
+        <canvas width="500" height="500"></canvas>
+      </div>
+      <div class="squad-id" style="text-align:center"><span style="color:${frog.body.hex}">●</span> ${frog.body.name}</div>
     `;
+    // Render the actual on-chain frog into the squad card's mini canvas
+    const tileCanvas = card.querySelector("canvas");
+    const tileCtx = tileCanvas.getContext("2d");
+    drawFrogBg(tileCtx, frog.body.hex, 500, 500);
+    loadFrogSprites(frog).then(sprites => {
+      drawFrogSpritesTo(tileCtx, sprites, 500, 500);
+    }).catch(e => {
+      tileCtx.fillStyle = "#222"; tileCtx.fillRect(0, 0, 500, 500);
+      tileCtx.fillStyle = "#f88"; tileCtx.font = "32px monospace";
+      tileCtx.fillText("ERR", 200, 260);
+    });
     card.addEventListener("click", () => {
-      // Click loads the frog into the featured player AND adds to the chain.
       loadFeaturedFrog(frog);
       addToChain(frog);
     });
@@ -778,9 +927,11 @@ function renderChain() {
     else if (idx === queuedSlot) cls += " queued";
     slot.className = cls;
     slot.innerHTML = `
-      <div class="slot-num"><span>SLOT ${idx + 1}</span><span style="opacity:.5">${frog.id.slice(0,6)}</span></div>
-      <div class="slot-shape" style="background:hsl(${frog.hue},65%,52%);box-shadow:inset 0 2px 4px rgba(0,0,0,0.5), 0 0 12px hsl(${frog.hue},80%,55%)"></div>
-      <div class="slot-info"></div>
+      <div class="slot-num"><span>SLOT ${idx + 1}</span><span style="opacity:.5;color:${frog.body.hex}">● ${frog.body.name}</span></div>
+      <div class="slot-shape">
+        <canvas width="500" height="500"></canvas>
+      </div>
+      <div class="slot-info">${frog.head.name} · ${frog.eyes.name}</div>
       <div class="slot-controls">
         <button class="tiny" data-act="dec" data-i="${idx}">−</button>
         <span class="plays-count">×${frog.plays}</span>
@@ -788,6 +939,13 @@ function renderChain() {
         <button class="tiny bad" data-act="del" data-i="${idx}">×</button>
       </div>
     `;
+    // Render mini frog into the slot's canvas
+    const slotCanvas = slot.querySelector(".slot-shape canvas");
+    const slotCtx = slotCanvas.getContext("2d");
+    drawFrogBg(slotCtx, frog.body.hex, 500, 500);
+    loadFrogSprites(frog).then(sprites => {
+      drawFrogSpritesTo(slotCtx, sprites, 500, 500);
+    }).catch(()=>{});
     slot.addEventListener("click", (ev) => {
       if (ev.target.tagName === "BUTTON") return;
       if (idx === activeSlot) { queuedSlot = -1; }
