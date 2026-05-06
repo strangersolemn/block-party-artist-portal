@@ -646,9 +646,12 @@ function loadSprite(id) {
   if (_spriteCache.has(id)) return _spriteCache.get(id);
   const p = new Promise((res, rej) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    // No crossOrigin — we just need to draw, not read pixels.
     img.onload = () => res(img);
-    img.onerror = () => rej(new Error("failed " + id));
+    img.onerror = () => {
+      console.warn("[sprite] failed " + id);
+      rej(new Error("failed " + id));
+    };
     img.src = `${ORD_BASE}/content/${id}`;
   });
   _spriteCache.set(id, p);
@@ -697,9 +700,13 @@ function drawFrogBg(ctx, hex, W, H) {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 }
-function drawFrogSpritesTo(ctx, sprites, W, H) {
+function drawFrogSpritesTo(ctx, sprites, W, H, frame = 0) {
+  // Sprites are 1500×500 sheets (3 frames horizontally — rest/up/down).
+  // Source-slice frame N from the sheet, draw scaled to W×H destination.
+  const FRAME_W = 500, FRAME_H = 500;
+  const sx = frame * FRAME_W;
   for (const layer of [sprites.body, sprites.mouth, sprites.eyes, sprites.clothing, sprites.head]) {
-    if (layer) ctx.drawImage(layer, 0, 0, W, H);
+    if (layer) ctx.drawImage(layer, sx, 0, FRAME_W, FRAME_H, 0, 0, W, H);
   }
 }
 

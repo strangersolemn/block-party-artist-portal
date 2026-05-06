@@ -224,9 +224,14 @@ function loadSprite(id) {
   if (spriteCache.has(id)) return spriteCache.get(id);
   const promise = new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    // No crossOrigin — we just need to draw, not read pixels.
+    // Setting crossOrigin makes some browsers refuse AVIF cross-origin even
+    // though ordinals.com sets access-control-allow-origin: *.
     img.onload = () => resolve(img);
-    img.onerror = (e) => reject(new Error(`Failed to load ${id}`));
+    img.onerror = (e) => {
+      console.warn("[sprite] failed", id);
+      reject(new Error(`Failed to load ${id}`));
+    };
     img.src = `${ORD}/content/${id}`;
   });
   spriteCache.set(id, promise);
@@ -299,10 +304,14 @@ function hexShade(hex, factor) {
   return `rgb(${r*factor|0},${g*factor|0},${b*factor|0})`;
 }
 
-function drawFrogSprites(ctx, sprites, W, H) {
-  // Layers, back to front: body, mouth, eyes, clothing, head
+function drawFrogSprites(ctx, sprites, W, H, frame = 0) {
+  // Sprites are 1500×500 sheets — 3 frames laid horizontally (rest / up / down).
+  // Source slice: extract frame N (default 0 = rest pose) into the destination
+  // 500×500 canvas. 8-arg drawImage: src(x,y,w,h) → dst(x,y,w,h).
+  const FRAME_W = 500, FRAME_H = 500;
+  const sx = frame * FRAME_W;
   for (const layer of [sprites.body, sprites.mouth, sprites.eyes, sprites.clothing, sprites.head]) {
-    if (layer) ctx.drawImage(layer, 0, 0, W, H);
+    if (layer) ctx.drawImage(layer, sx, 0, FRAME_W, FRAME_H, 0, 0, W, H);
   }
 }
 
